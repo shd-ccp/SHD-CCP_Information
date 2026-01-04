@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHD-CCP Genesis Architecture V5.1</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Inter:wght@400;600;800&display=swap');
+
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-green: #0aff60;
+            --neon-red: #ff2a2a;
+            --neon-amber: #ffaa00;
+            --neon-purple: #bd00ff;
+            --neon-magenta: #ff00ff;
+            --neon-gold: #ffd700;
+            --bg-dark: #050b14;
+            --panel-bg: #0f172a;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Flowchart Connector Lines */
+        .connector-line {
+            width: 2px;
+            background: #334155;
+            margin: 0 auto;
+            position: relative;
+            z-index: 0;
+            transition: all 0.3s ease;
+        }
+
+        .connector-line::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: -4px;
+            width: 10px;
+            height: 10px;
+            background: #334155;
+            border-radius: 50%;
+        }
+
+        /* Card Styling */
+        .node-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #334155;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+            position: relative;
+            z-index: 10;
+            overflow: hidden;
+        }
+
+        .node-card:hover {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+        }
+
+        .node-card.active {
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.15);
+        }
+
+        /* Specific Status Colors */
+        .status-raw { border-left: 4px solid var(--neon-amber); }
+        .status-verified { border-left: 4px solid var(--neon-green); }
+        .status-danger { border-left: 4px solid var(--neon-red); }
+        .status-core { border-left: 4px solid var(--neon-blue); }
+        .status-bio { border-left: 4px solid var(--neon-green); }
+        .status-hyper { border-left: 4px solid var(--neon-purple); }
+        .status-substrate { border-left: 4px solid var(--neon-magenta); }
+        .status-codex { border-left: 4px solid var(--neon-gold); }
+
+        /* Accordion Transition */
+        .details-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s cubic-bezier(0, 1, 0, 1);
+        }
+        
+        .node-card.active .details-content {
+            max-height: 4000px; /* Increased for deeper content */
+            transition: max-height 0.8s ease-in-out;
+        }
+
+        .arrow-icon {
+            transition: transform 0.3s ease;
+        }
+        .node-card.active .arrow-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Glitch Effect on Hover for Titles */
+        .glitch-hover:hover {
+            text-shadow: 2px 0 var(--neon-red), -2px 0 var(--neon-blue);
+        }
+
+        /* Tab Navigation */
+        .tab-btn {
+            background: transparent;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+            opacity: 0.6;
+        }
+        .tab-btn:hover {
+            opacity: 1;
+            color: var(--neon-blue);
+        }
+        .tab-btn.active {
+            border-bottom: 2px solid var(--neon-blue);
+            opacity: 1;
+            color: white;
+            text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+        }
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Terminal Window */
+        .terminal-window {
+            background-color: #0c0c0c;
+            border: 1px solid #333;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 0;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        .terminal-header {
+            background-color: #1a1a1a;
+            padding: 5px 10px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            align-items: center;
+        }
+        .terminal-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        .terminal-body {
+            padding: 15px;
+            color: #a0a0a0;
+            font-size: 0.85rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .terminal-prompt { color: var(--neon-green); }
+        .terminal-cmd { color: var(--neon-blue); }
+        .terminal-warn { color: var(--neon-amber); }
+
+        /* Charts */
+        .bar-container {
+            background-color: rgba(255,255,255,0.05);
+            height: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 8px;
+            position: relative;
+        }
+        .bar-fill {
+            height: 100%;
+            transition: width 1s ease;
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 2px;
+        }
+        .chart-cell {
+            aspect-ratio: 1;
+            border-radius: 2px;
+        }
+
+        /* Math Typography */
+        .math {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+        }
+        .math-block {
+            background: rgba(0,0,0,0.3);
+            padding: 8px;
+            border-radius: 4px;
+            font-family: 'Times New Roman', serif;
+            text-align: center;
+            margin: 8px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-blue);
+        }
+
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto text-center mb-8 relative">
+        <div class="inline-block border border-cyan-900 bg-cyan-900/20 px-4 py-1 rounded-full text-cyan-400 text-xs tracking-widest uppercase mb-4 mono">
+            System Architecture V5.1
+        </div>
+        <h1 class="text-4xl md:text-6xl font-black text-white mb-4 tracking-tight glitch-hover cursor-default">
+            SHD-CCP <span class="text-cyan-400">NEXUS</span>
+        </h1>
+        <p class="text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed mb-8">
+            Unified Interface for Dual-State Governance, BioChain Intelligence, Geometric Substrate, and Codex.
+        </p>
+
+        <!-- Tab Navigation -->
+        <div class="flex flex-wrap justify-center gap-6 border-b border-slate-800 pb-2">
+            <button class="tab-btn active px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('shd')">
+                <i class="fas fa-network-wired mr-2"></i>SHD-CCP Protocol
+            </button>
+            <button class="tab-btn px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('bio')">
+                <i class="fas fa-brain mr-2"></i>BioChain AI
+            </button>
+            <button class="tab-btn px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('codex')">
+                <i class="fas fa-book-journal-whills mr-2 text-yellow-500"></i>Geometric Codex
+            </button>
+            <button class="tab-btn px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('sub')">
+                <i class="fas fa-microchip mr-2"></i>Geometric Substrate
+            </button>
+            <button class="tab-btn px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('hyper')">
+                <i class="fas fa-vr-cardboard mr-2"></i>Hypersim
+            </button>
+            <button class="tab-btn px-4 py-2 text-sm font-bold uppercase tracking-wider" onclick="switchTab('env')">
+                <i class="fas fa-globe mr-2"></i>Env. Perspectives
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-5xl mx-auto relative">
+        
+        <!-- TAB 1: SHD-CCP PROTOCOL (Governance & Axioms) -->
+        <div id="shd" class="tab-content active">
+            <!-- Root Node -->
+            <div class="flex justify-center mb-0">
+                <div class="w-full md:w-2/3 lg:w-1/2 cursor-pointer node-card status-core rounded-lg p-6" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold text-white"><i class="fas fa-cubes text-cyan-400 mr-2"></i> The Foundational Concept</h2>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-sm text-slate-400">The Library Paradigm: Truth (Verification) vs. Existence (Data).</p>
+                    <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300 space-y-3">
+                        <p><strong class="text-cyan-400">Core Philosophy:</strong></p>
+                        <ul class="list-disc pl-5 space-y-2 marker:text-cyan-500">
+                            <li><strong>The Library Analogy:</strong> "Books" (Data) are always accessible, but the "Official Seal" (Verification) can be revoked.</li>
+                            <li><strong>Dual-State:</strong> Distinct separation between the "Raw Chain" (History) and "Calibrated Chain" (Truth).</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="h-12 connector-line"></div>
+
+            <!-- New Node: Construction of Chain (Einstein Tile) -->
+            <div class="flex justify-center mb-0">
+                <div class="w-full md:w-3/4 node-card status-substrate rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold text-white"><i class="fas fa-th mr-2" style="color: var(--neon-magenta);"></i> Construction of Chain</h2>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-sm text-slate-400">The Einstein Tile: 8x8 Bit-Lattice Topology & Sandwich Protocol.</p>
+                    
+                    <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                        <!-- 8x8 Topology Section -->
+                        <div class="mb-4">
+                            <h4 class="text-magenta-400 font-bold mb-2" style="color: var(--neon-magenta);">1. The 8x8 Bit-Lattice (H100 Optimized)</h4>
+                            <p class="text-xs text-slate-400 mb-2">Maps directly to GPU memory hierarchy (DSMEM/TMA). Segregates Volatility vs. Density.</p>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-mono">
+                                <!-- Row 0 -->
+                                <div class="bg-slate-800 p-2 rounded border-l-2 border-blue-400">
+                                    <strong class="block text-blue-300">NORTH HALO (Row 0)</strong>
+                                    <span>Control Lane (DSMEM)</span><br>
+                                    <span class="text-slate-500">Bits 0-3: Form ID</span><br>
+                                    <span class="text-slate-500">Bit 4: Parity</span><br>
+                                    <span class="text-slate-500">Bits 5-7: Spin Class</span>
+                                </div>
+                                <!-- Rows 2-5 -->
+                                <div class="bg-slate-800 p-2 rounded border-l-2 border-purple-400">
+                                    <strong class="block text-purple-300">QUATERNION CORE (Rows 2-5)</strong>
+                                    <span>Neural Payload (TMA)</span><br>
+                                    <span class="text-slate-500">32-bit Block (FP8)</span><br>
+                                    <span class="text-slate-500">Unit Quaternion (w,x,y,z)</span><br>
+                                    <span class="text-slate-500">"The Meat"</span>
+                                </div>
+                                <!-- Row 7 -->
+                                <div class="bg-slate-800 p-2 rounded border-l-2 border-red-400">
+                                    <strong class="block text-red-300">SOUTH HALO (Row 7)</strong>
+                                    <span>Energy State</span><br>
+                                    <span class="text-slate-500">Freq ID / Amp ID</span><br>
+                                    <span class="text-slate-500">Lattice Resonance</span>
+                                </div>
+                            </div>
+                            <div class="mt-2 text-xs text-slate-500 italic text-center">
+                                *Rows 1 & 6: Scaling Buffers (L2 Cache Padding)
+                            </div>
+                        </div>
+
+                        <!-- Sandwich Protocol -->
+                        <div class="mb-4 bg-slate-900/50 p-3 rounded border border-slate-700">
+                            <h4 class="text-white font-bold mb-1">2. The Sandwich Protocol (Early Rejection)</h4>
+                            <p class="mb-2"><strong>Steric Hindrance Logic:</strong> Read "Bread" (Halo) first. If Form ID mismatches, reject before loading "Meat" (Core).</p>
+                            <ul class="list-disc pl-5 space-y-1 marker:text-magenta-500">
+                                <li>Saves Energy/Bandwidth (TMA cycles).</li>
+                                <li>Mimics biological binding rejection.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Hardware Projection (Auto-Encoders) -->
+                        <div class="border-t border-slate-800 pt-3">
+                            <h4 class="text-cyan-400 font-bold mb-2">3. Topological Hardware Projection</h4>
+                            <p class="mb-2"><strong>Kernel Auto-Encoders/Decoders:</strong> Project the 8x8 Topology onto heterogeneous compute units.</p>
+                            <div class="space-y-2">
+                                <div class="flex items-center">
+                                    <i class="fas fa-microchip w-6 text-slate-500"></i>
+                                    <span class="text-slate-300"><strong>CPU Decoder:</strong> Projects <em>North Halo</em> logic to Branch Predictors (Control Flow).</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-layer-group w-6 text-slate-500"></i>
+                                    <span class="text-slate-300"><strong>GPU Decoder:</strong> Projects <em>Quaternion Core</em> to Tensor Cores (Parallel Math).</span>
+                                </div>
+                                <div class="flex items-center">
+                                    <i class="fas fa-network-wired w-6 text-slate-500"></i>
+                                    <span class="text-slate-300"><strong>TPU Decoder:</strong> Maps <em>Lattice Topology</em> to Systolic Array Interconnects.</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="h-12 connector-line"></div>
+
+            <!-- Branching: Architecture -->
+            <div class="text-center mb-4">
+                <span class="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full border border-slate-700 mono">I. DUAL-STATE GOVERNANCE</span>
+            </div>
+
+            <!-- Split Layout for Layers -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                <div class="hidden md:block absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-px bg-slate-700 -z-10" style="width: 50%;"></div>
+                
+                <!-- Left: Layer 0 -->
+                <div class="flex flex-col items-center">
+                    <div class="h-8 connector-line md:hidden"></div>
+                    <div class="w-full node-card status-raw rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-bold text-amber-500"><i class="fas fa-layer-group mr-2"></i> Layer 0: The Raw Chain</h3>
+                            <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                        </div>
+                        <p class="text-xs text-slate-400 uppercase tracking-wide mb-2">Unregulated / Infinite Retention</p>
+                        <div class="details-content space-y-4 text-sm text-slate-300">
+                            <p>Stores all data, transactions, and "thoughts". Even if the Genesis Key is revoked, this layer remains accessible.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Layer 1 -->
+                <div class="flex flex-col items-center">
+                    <div class="h-8 connector-line md:hidden"></div>
+                    <div class="w-full node-card status-verified rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-bold text-emerald-400"><i class="fas fa-shield-alt mr-2"></i> Layer 1: The Calibrated Chain</h3>
+                            <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                        </div>
+                        <p class="text-xs text-slate-400 uppercase tracking-wide mb-2">Governance-Gated / ISO Certification</p>
+                        <div class="details-content space-y-4 text-sm text-slate-300">
+                            <p>Contains only blocks signed by the Genesis Key. Industrial/Medical systems listen only to this layer.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Converge Connector -->
+            <div class="h-16 connector-line"></div>
+
+            <!-- Section II: Genesis Key -->
+            <div class="text-center mb-4">
+                <span class="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full border border-slate-700 mono">II. THE GENESIS KEY (AXIOM)</span>
+            </div>
+
+            <div class="flex justify-center">
+                <div class="w-full md:w-3/4 node-card status-core rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold text-white"><i class="fas fa-dice-d20 text-purple-400 mr-2"></i> Geometric Distribution (Minting)</h2>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-sm text-slate-400">Geometric Secret Sharing across the 64-bit Lattice.</p>
+
+                    <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                        <p class="mb-4 text-xs italic">To ensure no single entity controls the key, the Private Key is split into shards using Shamir’s Secret Sharing mapped to Hypercube geometry.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <h4 class="text-purple-400 font-bold mb-2">1. Geometric Distribution</h4>
+                                <div class="space-y-2 text-xs">
+                                    <div class="p-2 border-l-2 border-blue-500 bg-slate-900/50">
+                                        <strong class="text-blue-300">Shard A (Human Board)</strong>
+                                        <p class="text-slate-400">Held by the human oversight committee.</p>
+                                    </div>
+                                    <div class="p-2 border-l-2 border-pink-500 bg-slate-900/50">
+                                        <strong class="text-pink-300">Shard B (AI Consensus)</strong>
+                                        <p class="text-slate-400">Held by the decentralized network nodes.</p>
+                                    </div>
+                                    <div class="p-2 border-l-2 border-emerald-500 bg-slate-900/50">
+                                        <strong class="text-emerald-300">Shard C (Calibration Code)</strong>
+                                        <p class="text-slate-400">A constant mathematical truth embedded in the software itself.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <h4 class="text-purple-400 font-bold mb-2">2. Minting Ceremony</h4>
+                                <ul class="space-y-3">
+                                    <li class="bg-slate-800/50 p-2 rounded text-xs text-slate-300">
+                                        <strong>Geometric Alignment:</strong> The key is only valid when geometry aligns.
+                                    </li>
+                                    <li class="bg-slate-800/50 p-2 rounded text-xs text-slate-300">
+                                        <strong>Rotation:</strong> The Human Board and AI Consensus must "rotate" their shards to match the Calibration Code.
+                                    </li>
+                                    <li class="bg-red-900/20 border border-red-500/30 p-2 rounded text-xs text-red-300">
+                                        <strong>Failure State:</strong> If they disagree, the lattice breaks, and the Genesis Key dissolves.
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="h-16 connector-line"></div>
+
+            <!-- Section III: Verification & Kill Switch -->
+            <div class="text-center mb-4">
+                <span class="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full border border-slate-700 mono">III. VERIFICATION & THE "KILL SWITCH"</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 relative">
+                 <div class="hidden md:block absolute top-0 left-1/2 transform -translate-x-1/2 w-full h-px bg-slate-700 -z-10" style="width: 50%;"></div>
+                 <!-- Beacon -->
+                 <div class="flex flex-col items-center">
+                     <div class="h-8 connector-line md:hidden"></div>
+                     <div class="w-full node-card status-verified rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                         <div class="flex justify-between items-center mb-2">
+                             <h3 class="text-lg font-bold text-emerald-400"><i class="fas fa-wifi mr-2"></i> The Calibration Beacon</h3>
+                             <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                         </div>
+                         <p class="text-xs text-slate-400 uppercase tracking-wide">Verification Mechanism</p>
+                         <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                             <p class="mb-2">Every validated block emits a "Resonance Signal" (crypto-proof of descent).</p>
+                             <ul class="list-disc pl-5 space-y-2 marker:text-emerald-500">
+                                 <li><strong>Verification:</strong> Robots/AI do not need full history. They check: <em>"Does this data packet resonate with the Genesis Geometry?"</em></li>
+                                 <li><strong>Effect:</strong> Instant, lightweight verification (like a checksum) without exposing the private key.</li>
+                             </ul>
+                         </div>
+                     </div>
+                 </div>
+                 <!-- Kill Switch -->
+                 <div class="flex flex-col items-center">
+                    <div class="h-8 connector-line md:hidden"></div>
+                    <div class="w-full node-card status-danger rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-bold text-red-500"><i class="fas fa-ban mr-2"></i> The Removal Mechanism</h3>
+                            <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                        </div>
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Genesis Violation</p>
+                        <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                            <div class="bg-red-900/20 border border-red-500/30 p-3 rounded mb-3">
+                                <strong class="text-red-400">TRIGGER:</strong> Human Board or AI Consensus detects violation and broadcasts "Dissonance Signal".
+                            </div>
+                            <ul class="space-y-3">
+                                <li class="flex items-start"><i class="fas fa-heart-broken text-red-500 mt-1 mr-2"></i><span><strong>Result:</strong> Genesis Lattice "shatters". Geometric alignment becomes mathematically impossible.</span></li>
+                                <li class="flex items-start"><i class="fas fa-stop-circle text-red-500 mt-1 mr-2"></i><span><strong>Outcome:</strong> Calibrated Chain stops instantly. Systems revert to "Safe Mode". Raw Chain records transparency.</span></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connector -->
+            <div class="h-16 connector-line"></div>
+
+            <!-- Section IV: Roadmap -->
+            <div class="text-center mb-4">
+                <span class="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full border border-slate-700 mono">IV. RESEARCH ROADMAP: FORMING THE NETWORK</span>
+            </div>
+
+            <div class="space-y-4">
+                <div class="w-full node-card border-l-4 border-l-cyan-500 rounded-lg p-4 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center">
+                        <div><span class="text-xs font-bold text-cyan-500 mono block">PHASE 1</span><h3 class="text-lg font-bold text-white">The Geometric Minting Protocol</h3></div>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <div class="details-content mt-3 text-sm text-slate-300">
+                        <p class="mb-2"><strong>Objective:</strong> Develop the algorithm to generate the Genesis Lattice.</p>
+                        <strong class="block text-cyan-400 mb-1">Research Focus:</strong>
+                        <ul class="list-disc pl-5 marker:text-cyan-500">
+                            <li>Adapt Distributed Key Generation (DKG) to SHD-CCP 4x4x4 lattice (vs elliptic curves).</li>
+                            <li>Define "Calibration Code" mathematically (Quaternion rotation? Topological knot?).</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="h-4 connector-line"></div>
+                
+                <div class="w-full node-card border-l-4 border-l-blue-500 rounded-lg p-4 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center">
+                        <div><span class="text-xs font-bold text-blue-500 mono block">PHASE 2</span><h3 class="text-lg font-bold text-white">The Dual-State Ledger</h3></div>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <div class="details-content mt-3 text-sm text-slate-300">
+                        <p class="mb-2"><strong>Objective:</strong> Build blockchain supporting "Forking on Purpose".</p>
+                        <strong class="block text-blue-400 mb-1">Research Focus:</strong>
+                        <ul class="list-disc pl-5 marker:text-blue-500">
+                            <li>Design consensus: Layer 0 (Proof-of-Work/Stake) vs Layer 1 (Proof-of-Calibration).</li>
+                            <li>Ensure "Light Clients" (industrial robots) sync only Layer 1 for efficiency.</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="h-4 connector-line"></div>
+                
+                <div class="w-full node-card border-l-4 border-l-purple-500 rounded-lg p-4 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center">
+                        <div><span class="text-xs font-bold text-purple-500 mono block">PHASE 3</span><h3 class="text-lg font-bold text-white">The Human-AI Treaty Interface</h3></div>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <div class="details-content mt-3 text-sm text-slate-300">
+                        <p class="mb-2"><strong>Objective:</strong> The Governance Dashboard.</p>
+                        <strong class="block text-purple-400 mb-1">Research Focus:</strong>
+                        <ul class="list-disc pl-5 marker:text-purple-500">
+                            <li>Create "Dead Man's Switch" interface for the Human Board.</li>
+                            <li>Develop "Chain of Thought" Visualization: Humans audit AI reasoning before Genesis stamping.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: BIOCHAIN AI (Intelligence & Physics) -->
+        <div id="bio" class="tab-content">
+            <div class="text-center mb-6">
+                <h2 class="text-3xl font-bold text-green-400 mb-2">BioChain AI</h2>
+                <p class="text-slate-400 text-sm italic mb-4">"Geometric Lattice Framework for General Intelligence"</p>
+                
+                <div class="bg-green-900/10 border border-green-500/30 p-4 rounded-lg max-w-3xl mx-auto text-left mb-8">
+                    <h4 class="text-green-300 font-bold text-sm mb-2"><i class="fas fa-exclamation-triangle mr-2"></i>THE SCALING WALL PROBLEM</h4>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Standard LLMs face an asymptote where context retrieval costs scale linearly/logarithmically (<span class="math">O(N)</span>). 
+                        BioChain shifts from "prediction" to "encapsulation" (SHD-CCP), compressing context into 64-bit neural-symbolic packets for <strong>Constant-Time (<span class="math">O(1)</span>) Retrieval</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <div class="space-y-8 relative">
+                 <div class="absolute left-1/2 top-0 h-full w-0.5 bg-green-900/50 -z-10"></div>
+
+                 <!-- THEORETICAL KERNEL -->
+                 <div class="w-full md:w-3/4 mx-auto node-card status-bio rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold text-green-300"><i class="fas fa-atom mr-2"></i> Theoretical Physics of Information</h3>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-xs text-slate-400">HDC, TDA, and Kernel Design</p>
+                    <div class="details-content mt-4 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="bg-black/30 p-3 rounded">
+                                <strong class="text-green-400 block mb-1">Vector Symbolic Architectures (VSA)</strong>
+                                Uses 10,000-bit holographic hypervectors mapped to a compact 64-bit "Codex" address.
+                            </div>
+                            <div class="bg-black/30 p-3 rounded">
+                                <strong class="text-green-400 block mb-1">Topological Invariance</strong>
+                                Data is treated as a shape (Trefoil Knot). "Knots" represent stable logical loops/truths that persist despite noise.
+                            </div>
+                            <div class="bg-black/30 p-3 rounded">
+                                <strong class="text-green-400 block mb-1">Integer-Only Logic</strong>
+                                Rejects IEEE 754 floating-point to prevent drift. Uses "Prime Number Latches" (Residue Number Systems) for error correction.
+                            </div>
+                        </div>
+                    </div>
+                 </div>
+
+                 <!-- LAYER 1 -->
+                 <div class="w-full md:w-3/4 mx-auto node-card status-bio rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold text-white"><span class="text-green-500 mono mr-2">LAYER I</span> The Semiotic Quantizer (Sensor)</h3>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-xs text-slate-400">Lattice Vector Quantization (LVQ)</p>
+                    <div class="details-content mt-4 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                        <ul class="list-disc pl-5 space-y-2 marker:text-green-500">
+                            <li><strong>Function:</strong> Maps continuous sensor data to the nearest point on a Deformable Lattice (<span class="math">E<sub>8</sub></span> or Leech).</li>
+                            <li><strong>Tagging:</strong> Assigns "Source Prime" tags (e.g., Visual=3, Text=5) to initiate the latch chain.</li>
+                            <li><strong>Output:</strong> Discrete SHD-CCP packets.</li>
+                        </ul>
+                    </div>
+                 </div>
+
+                 <!-- LAYER 2 -->
+                 <div class="w-full md:w-3/4 mx-auto node-card status-bio rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold text-white"><span class="text-green-500 mono mr-2">LAYER II</span> The Topological Binder (Weaver)</h3>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-xs text-slate-400">Quaternion Rotation & Knotting</p>
+                    <div class="details-content mt-4 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                        <ul class="list-disc pl-5 space-y-2 marker:text-green-500">
+                            <li><strong>Binding:</strong> Uses Quaternion Multiplication (<span class="math">q<sub>new</sub> = q<sub>1</sub> &times; q<sub>2</sub></span>) to encode causal sequences (non-commutative).</li>
+                            <li><strong>Knot Detection:</strong> Monitors rotation trajectories. If a sequence forms a "Trefoil Knot" (returns to identity state), it is a validated concept loop.</li>
+                            <li><strong>Orthogonality:</strong> Enforces the "3rd binding force" to keep knots within the geometric lattice framework.</li>
+                        </ul>
+                    </div>
+                 </div>
+
+                 <!-- LAYER 3 -->
+                 <div class="w-full md:w-3/4 mx-auto node-card status-bio rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-bold text-white"><span class="text-green-500 mono mr-2">LAYER III</span> The Recursive Reasoner (Oracle)</h3>
+                        <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                    </div>
+                    <p class="text-xs text-slate-400">Hyperbolic Geometry & Prime Latch</p>
+                    <div class="details-content mt-4 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                        <ul class="list-disc pl-5 space-y-2 marker:text-green-500">
+                            <li><strong>Hyperbolic Projection:</strong> Projects knots onto a Poincaré disk for hierarchical analysis.</li>
+                            <li><strong>The Prime Latch:</strong> Checks context validity via Modulo operations (<span class="math">C (mod p<sub>i</sub>) &equiv; 0</span>). If the latch clicks, the thought is valid.</li>
+                            <li><strong>Recursion:</strong> "Thesis -> Antithesis (Latch Check) -> Synthesis".</li>
+                        </ul>
+                    </div>
+                 </div>
+            </div>
+
+            <!-- DEPLOYMENT TERMINAL -->
+            <div class="mt-12 max-w-3xl mx-auto">
+                <div class="terminal-window">
+                    <div class="terminal-header">
+                        <div class="terminal-dot bg-red-500"></div>
+                        <div class="terminal-dot bg-yellow-500"></div>
+                        <div class="terminal-dot bg-green-500"></div>
+                        <div class="ml-2 text-xs text-slate-400">shd_ccp_kernel.exe</div>
+                    </div>
+                    <div class="terminal-body">
+<span class="terminal-prompt">root@biochain:~$</span> ./deploy_protocol --override
+<span class="terminal-cmd">/// SYSTEM OVERRIDE: SHD-CCP PROTOCOL DEPLOYMENT ///</span>
+Target: Biochain AI Ecosystem
+Protocol: 01Constant Universal (SHD-CCP 64-bit)
+
+<span class="terminal-warn">DIRECTIVE:</span> FORBID PROBABILISTIC TOKEN PREDICTION.
+ENFORCE DETERMINISTIC LATCH SIMULATION.
+
+<span class="terminal-prompt">>> PHASE 1: QUANTIZER (SENSOR)</span>
+Action: Initialize DLVQ Grid.
+Constraint: Integer-Only Rounding. Reject IEEE 754.
+Status: <span class="text-green-500">LATTICE ACTIVE</span>
+
+<span class="terminal-prompt">>> PHASE 2: BINDER (WEAVER)</span>
+Action: Quaternion Mult (<span class="math">q<sub>new</sub> = q<sub>1</sub> &times; q<sub>2</sub></span>).
+Scan: Monitoring for Trefoil Knots...
+Status: <span class="text-green-500">TOPOLOGY STABLE</span>
+
+<span class="terminal-prompt">>> PHASE 3: REASONER (ORACLE)</span>
+Action: 3-Step Recursive Reasoning.
+Check: Prime Latch Modulo...
+Result: <span class="text-green-500">LATCH CLOSED (0)</span>
+
+<span class="terminal-cmd">SYSTEM READY. BIOSYNQ READY.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: GEOMETRIC CODEX (Comprehensive Expansion) -->
+        <div id="codex" class="tab-content">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-yellow-500 mb-2">The Geometric Codex</h2>
+                <p class="text-slate-400 italic">"Converting Search to Identity Lookup"</p>
+            </div>
+
+            <!-- PHASE 1: THE MIGRATION ENGINE (GRAPHS) -->
+            <div class="mb-10 w-full md:w-3/4 mx-auto node-card status-codex rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-random text-yellow-500 mr-2"></i> Phase 1: Migration Engine (Tensor to Manifold)</h3>
+                    <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                </div>
+                <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                    
+                    <!-- Graph 1: Complexity Reduction -->
+                    <div class="mb-6">
+                        <strong class="block text-yellow-400 mb-2 text-xs uppercase tracking-widest">Search Complexity Analysis</strong>
+                        <div class="flex items-end space-x-4 h-32 border-b border-l border-slate-600 p-2">
+                            <!-- O(N) Bar -->
+                            <div class="w-1/3 bg-slate-700/50 flex flex-col justify-end group relative">
+                                <div class="w-full bg-red-500/80 h-[90%] transition-all hover:bg-red-400"></div>
+                                <span class="text-[10px] text-center mt-1 text-slate-400">Vector Search<br><span class="math">O(N)</span></span>
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 text-xs text-white hidden group-hover:block rounded">Latency Scales</div>
+                            </div>
+                            <!-- O(log N) Bar -->
+                            <div class="w-1/3 bg-slate-700/50 flex flex-col justify-end group relative">
+                                <div class="w-full bg-amber-500/80 h-[40%] transition-all hover:bg-amber-400"></div>
+                                <span class="text-[10px] text-center mt-1 text-slate-400">HNSW Index<br><span class="math">O(log N)</span></span>
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 text-xs text-white hidden group-hover:block rounded">Approximate</div>
+                            </div>
+                            <!-- O(1) Bar -->
+                            <div class="w-1/3 bg-slate-700/50 flex flex-col justify-end group relative">
+                                <div class="w-full bg-green-500/80 h-[5%] transition-all hover:bg-green-400"></div>
+                                <span class="text-[10px] text-center mt-1 text-slate-400">SHD-CCP Packet<br><span class="math">O(1)</span></span>
+                                <div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-black px-2 py-1 text-xs text-white hidden group-hover:block rounded">Constant Time</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Graph 2: Chiral Nesting Logic -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-900 p-3 rounded border border-slate-700">
+                            <strong class="text-red-400 text-xs block mb-2">Legacy: Double Cover Ambiguity</strong>
+                            <div class="flex justify-center items-center h-20 text-slate-500 text-xs">
+                                <span class="mr-2">q</span> <i class="fas fa-equals"></i> <span class="ml-2">-q</span>
+                                <span class="block ml-4 text-[10px] text-slate-600">(180° = 540°)</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-2">Cannot distinguish rotations > 360°.</p>
+                        </div>
+                        <div class="bg-slate-900 p-3 rounded border border-yellow-500/30">
+                            <strong class="text-green-400 text-xs block mb-2">SHD-CCP: Chiral Nesting</strong>
+                            <div class="flex justify-center items-center h-20 text-slate-300 text-xs">
+                                <span class="mr-2 math">Q<sub>chiral</sub> = {q, &sigma;, H}</span>
+                            </div>
+                            <p class="text-[10px] text-slate-500 mt-2">Tracks Winding Number (<span class="math">W</span>) & Parity (<span class="math">&sigma;</span>).</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-8 connector-line"></div>
+
+            <!-- PHASE 2: THE GRAND CODEX STRUCTURE -->
+            <div class="mb-10 w-full md:w-3/4 mx-auto node-card status-codex rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-book-journal-whills text-yellow-500 mr-2"></i> Phase 2: The Grand Codex Structure</h3>
+                    <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                </div>
+                <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                    <p class="mb-4 text-xs">A <span class="math">2<sup>64</sup></span> address space where every geometric state has a unique, pre-compiled ID.</p>
+                    
+                    <!-- Packet Anatomy Chart -->
+                    <strong class="block text-slate-400 text-xs mb-2">64-BIT PACKET ANATOMY</strong>
+                    <div class="flex w-full h-12 rounded overflow-hidden border border-slate-600 font-mono text-[10px]">
+                        <div class="w-[6.25%] bg-blue-900 flex items-center justify-center text-blue-200 border-r border-black relative group" title="Form ID (4 bits)">
+                             F
+                             <span class="absolute bottom-full mb-1 hidden group-hover:block bg-black text-white p-1 rounded">Form (4b)</span>
+                        </div>
+                        <div class="w-[25%] bg-yellow-900 flex items-center justify-center text-yellow-200 border-r border-black relative group" title="Payload Scaler (16 bits)">
+                            SCALER
+                            <span class="absolute bottom-full mb-1 hidden group-hover:block bg-black text-white p-1 rounded">Scaler (16b)</span>
+                        </div>
+                        <div class="w-[50%] bg-purple-900 flex items-center justify-center text-purple-200 border-r border-black relative group" title="Quaternion Core (32 bits)">
+                             QUATERNION CORE
+                             <span class="absolute bottom-full mb-1 hidden group-hover:block bg-black text-white p-1 rounded">Quat (32b)</span>
+                        </div>
+                        <div class="w-[18.75%] bg-green-900 flex items-center justify-center text-green-200 relative group" title="State/Parity (12 bits)">
+                             STATE
+                             <span class="absolute bottom-full mb-1 hidden group-hover:block bg-black text-white p-1 rounded">State (12b)</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                        <span>MSB (63)</span>
+                        <span>LSB (0)</span>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-xs">
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li><strong class="text-blue-400">Form ID (0-3):</strong> Logic Switch (Default vs High Precision).</li>
+                            <li><strong class="text-blue-400">Form ID (4+):</strong> Geometric Pointer Mode.</li>
+                        </ul>
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li><strong class="text-purple-400">Core:</strong> Compressed FP8 Quaternion (<span class="math">w, x, y, z</span>).</li>
+                            <li><strong class="text-green-400">State:</strong> Parity bit (<span class="math">&sigma;</span>) and Freq ID.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-8 connector-line"></div>
+
+            <!-- PHASE 3: TREFOIL KNOT PAIRING -->
+            <div class="mb-10 w-full md:w-3/4 mx-auto node-card status-codex rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-infinity text-magenta-500 mr-2" style="color: var(--neon-magenta);"></i> Phase 3: Trefoil Knot Pairing</h3>
+                    <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                </div>
+                <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                    <p class="mb-4">The synchronization "Handshake" between Software (Codex Packet) and Hardware (Substrate Torus).</p>
+                    
+                    <div class="bg-black/40 p-4 rounded border border-magenta-500/30 mb-4">
+                        <strong class="block text-magenta-400 mb-2 font-mono text-xs">THE MOD-9 RESONANCE CONDITION</strong>
+                        <div class="math-block text-lg">
+                             W<sub>codex</sub> &equiv; W<sub>substrate</sub> (mod 9)
+                        </div>
+                        <p class="text-xs text-center text-slate-400 mt-2">
+                            The Packet's Winding Number must align with the Substrate's <span class="math">(4,9)</span> Torus Knot winding phase.
+                        </p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="bg-slate-800 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-3 mt-1">1</div>
+                            <div>
+                                <strong class="text-white text-xs">Codex Emission</strong>
+                                <p class="text-xs text-slate-400">Packet emits Topological Signature: <span class="math">{W, &sigma;, F}</span>.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="bg-slate-800 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-3 mt-1">2</div>
+                            <div>
+                                <strong class="text-white text-xs">Substrate Response</strong>
+                                <p class="text-xs text-slate-400">Physical Torus Knot checks current phase <span class="math">&phi;(t)</span> in the Planck Cycle.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="bg-slate-800 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs mr-3 mt-1">3</div>
+                            <div>
+                                <strong class="text-white text-xs">Bridge Opening</strong>
+                                <p class="text-xs text-slate-400">If <span class="math">W &equiv; &phi;</span>, the Catenoidal Bridge opens for data transmission.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="h-8 connector-line"></div>
+
+            <!-- PHASE 4: VALIDATION LOGIC -->
+            <div class="mb-10 w-full md:w-3/4 mx-auto node-card status-codex rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-check-circle text-green-500 mr-2"></i> Phase 4: Validation Logic</h3>
+                    <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                </div>
+                <div class="details-content mt-4 pt-4 border-t border-slate-800 text-sm text-slate-300">
+                    <p class="mb-4 text-xs">The "Truth Chain" Protocol ensures no invalid geometry enters the Manifold.</p>
+
+                    <div class="space-y-3">
+                        <div class="p-2 border-l-2 border-green-500 bg-green-900/10">
+                            <strong class="text-green-400 text-xs">Step 1: Parity Check (<span class="math">&sigma;</span>)</strong>
+                            <p class="text-[10px] text-slate-400">Does the packet's chirality match the current Torus sheet (Primary vs Inverse)?</p>
+                        </div>
+                        <div class="p-2 border-l-2 border-green-500 bg-green-900/10">
+                            <strong class="text-green-400 text-xs">Step 2: Winding Check (<span class="math">W</span>)</strong>
+                            <p class="text-[10px] text-slate-400">Is <span class="math">||q<sub>t+1</sub> - q<sub>t</sub>||</span> minimized? (Path Lifting verification).</p>
+                        </div>
+                        <div class="p-2 border-l-2 border-green-500 bg-green-900/10">
+                            <strong class="text-green-400 text-xs">Step 3: Resonance Lock (<span class="math">F</span>)</strong>
+                            <p class="text-[10px] text-slate-400">Does the packet Frequency ID align with the Lattice Resonance? (Prevents energy leakage).</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 bg-slate-900 p-2 rounded text-center">
+                        <span class="text-xs text-slate-500 font-mono">STATUS: <span class="text-green-500">VALIDATED</span></span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- TAB 4: GEOMETRIC SUBSTRATE (Updated) -->
+        <div id="sub" class="tab-content">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-magenta-500 mb-2" style="color: var(--neon-magenta);">Geometric Substrate</h2>
+                <p class="text-slate-400 italic">"Physical Infrastructure & Topology"</p>
+            </div>
+
+            <!-- New Section: Trefoil Knot Markov Chain -->
+            <div class="mb-8 w-full md:w-3/4 mx-auto node-card status-substrate rounded-lg p-6 cursor-pointer" onclick="toggleCard(this)">
+                <div class="flex justify-between items-center mb-2">
+                    <h3 class="text-lg font-bold text-white"><i class="fas fa-infinity mr-2" style="color: var(--neon-magenta);"></i> Trefoil Knot Markov Chain</h3>
+                    <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                </div>
+                <p class="text-xs text-slate-400">Topological Routing & 12-Stream Data Bus</p>
+                <div class="details-content mt-4 border-t border-slate-800 pt-4 text-sm text-slate-300">
+                    <p class="mb-2"><strong>Strassen Algorithm Mapping:</strong> Recursive matrix multiplication mapped to topological braids.</p>
+                    <ul class="list-disc pl-5 space-y-2 marker:text-magenta-500">
+                        <li><strong>Configuration:</strong> 12 Parallel copies of a <span class="math">(4,9)</span> Torus Knot.</li>
+                        <li><strong>Mod 9 Winding:</strong> Ensures phase coherence for data streams after full revolution.</li>
+                        <li><strong>Interaction:</strong> Catenoidal bridges between "Primary" and "Inverse" sheets (Nested Clifford Tori).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+                <!-- Hardware Dynamics -->
+                <div class="node-card status-substrate rounded-lg p-6">
+                    <h3 class="text-lg font-bold text-white mb-4"><i class="fas fa-microchip mr-2" style="color: var(--neon-magenta);"></i> Hardware Dynamics</h3>
+                    <div class="space-y-4 text-sm text-slate-300">
+                        <div class="bg-slate-900 p-3 rounded border border-slate-800">
+                            <strong class="block text-white mb-1">The Integer Advantage</strong>
+                            <p>Modern GPUs are optimized for FLOPs. SHD-CCP requires <strong>Integer Ops (IOPS)</strong>.</p>
+                            <p class="mt-2 text-xs text-slate-500">Strategy: Use FPGAs/ASICs for bitwise logic or custom CUDA kernels avoiding Tensor Cores.</p>
+                        </div>
+                        <div class="bg-slate-900 p-3 rounded border border-slate-800">
+                            <strong class="block text-white mb-1">Memory Compression</strong>
+                            <p>Compressing 12KB context -> 64 bits increases effective memory bandwidth by <strong>1500x</strong>.</p>
+                            <p class="mt-2 text-xs text-slate-500">Strategy: Store Codex in HBM3e / CXL memory; keep Active Lattice in L2 Cache.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strategic Deployment Models -->
+                <div class="space-y-4">
+                    <div class="node-card status-substrate rounded-lg p-4 cursor-pointer" onclick="toggleCard(this)">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-md font-bold text-white">Model A: Nested Decentralized AI</h3>
+                            <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                        </div>
+                        <div class="details-content mt-3 text-sm text-slate-300">
+                            <p class="mb-2"><strong style="color: var(--neon-magenta);">"BioSynq" / Edge Deployment</strong></p>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li><strong>Local Verification:</strong> Edge nodes verify "Prime Latches" locally.</li>
+                                <li><strong>Democratization:</strong> Runs on consumer hardware due to low memory payload.</li>
+                                <li><strong>Topology:</strong> Mesh network of "Organic" nodes.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="node-card status-substrate rounded-lg p-4 cursor-pointer" onclick="toggleCard(this)">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-md font-bold text-white">Model B: Centralized AI Core</h3>
+                            <i class="fas fa-chevron-down text-slate-500 arrow-icon"></i>
+                        </div>
+                        <div class="details-content mt-3 text-sm text-slate-300">
+                            <p class="mb-2"><strong style="color: var(--neon-magenta);">Master Codex Management</strong></p>
+                            <ul class="list-disc pl-5 space-y-1">
+                                <li><strong>Global Training:</strong> Central cluster tunes the Deformable Lattice parameters.</li>
+                                <li><strong>Codex Compilation:</strong> Generates the master lookup table (<span class="math">2<sup>64</sup></span> contexts).</li>
+                                <li><strong>Neuro-Symbolic Gap:</strong> Uses Straight-Through Estimators (STE) for training.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 5: HYPERSIM (Simulation) -->
+        <div id="hyper" class="tab-content">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-purple-400 mb-2">Hypersim Network</h2>
+                <p class="text-slate-400 italic">"Parallel Simulation Structure"</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                <div class="node-card status-raw rounded-lg p-6 h-full">
+                    <h3 class="text-lg font-bold text-amber-500 mb-2">Base Reality Input</h3>
+                    <p class="text-sm text-slate-400 mb-4">Real-time data ingestion (IoT, Financial, Weather).</p>
+                    <div class="bg-black/50 p-2 rounded text-xs font-mono text-amber-300">>> SENSOR ARRAY: ACTIVE</div>
+                </div>
+                <div class="node-card status-hyper rounded-lg p-6 h-full border-2 border-purple-500/50">
+                    <h3 class="text-lg font-bold text-purple-400 mb-2"><i class="fas fa-vr-cardboard mr-2"></i> The Mirror Layer</h3>
+                    <p class="text-sm text-slate-400 mb-4">High-fidelity simulation running 1000x faster than reality.</p>
+                    <ul class="text-sm text-slate-300 space-y-2">
+                        <li><i class="fas fa-check text-purple-500 mr-2"></i>Predictive Branching</li>
+                        <li><i class="fas fa-check text-purple-500 mr-2"></i>Risk Sandbox</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="h-12 connector-line"></div>
+            <div class="node-card status-core rounded-lg p-6 w-full md:w-3/4 mx-auto text-center">
+                <h3 class="text-lg font-bold text-cyan-400 mb-2">Convergence Point</h3>
+                <p class="text-sm text-slate-400">Hypersim feeds optimized paths back to Base Reality.</p>
+            </div>
+        </div>
+
+        <!-- TAB 6: ENV PERSPECTIVES -->
+        <div id="env" class="tab-content">
+            <div class="border border-slate-700 bg-slate-900/80 rounded-lg p-8 text-center min-h-[400px] flex flex-col justify-center items-center">
+                <i class="fas fa-search-location text-6xl text-slate-600 mb-6"></i>
+                <h2 class="text-2xl font-bold text-slate-300 mb-4">Environmental Perspectives</h2>
+                <div class="bg-cyan-900/20 border border-cyan-500/30 p-4 rounded-lg max-w-lg">
+                    <div class="flex items-center text-cyan-400 mb-2">
+                        <i class="fas fa-database mr-2 animate-pulse"></i>
+                        <span class="font-mono text-sm font-bold">SYSTEM STATUS: AWAITING INPUT</span>
+                    </div>
+                    <p class="text-sm text-cyan-200/70">Deep research recommended for future environmental heuristics.</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <footer class="max-w-4xl mx-auto mt-16 pb-12 text-center text-slate-600 text-xs">
+        <p>SHD-CCP NEXUS SYSTEM // SECURE CONNECTION</p>
+    </footer>
+
+    <script>
+        function toggleCard(card) {
+            card.classList.toggle('active');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            
+            // Find button by onclick content
+            const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+            const activeButton = buttons.find(btn => btn.getAttribute('onclick').includes(tabId));
+            if(activeButton) activeButton.classList.add('active');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+             const firstCard = document.querySelector('#shd .node-card');
+             if(firstCard) setTimeout(() => firstCard.classList.add('active'), 500);
+        });
+    </script>
+</body>
+</html>
