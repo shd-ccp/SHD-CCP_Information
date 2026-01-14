@@ -1,761 +1,149 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import * as THREE from 'three';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHD-CCP BioChain Kernel v7.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- MathJax for rendering equations -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; color: #10b981; font-family: monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: #064e3b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #059669; }
+        .grid-cell { transition: all 0.1s; }
+        .glow-text { text-shadow: 0 0 5px rgba(52, 211, 153, 0.5); }
+    </style>
+</head>
+<body class="flex h-screen selection:bg-emerald-900 selection:text-white">
 
-// Note: Ensure three.js is installed: npm install three
-// OrbitControls logic is manually implemented for compatibility without extra dependencies
-
-/**
- * SHD-CCP BioChain Interface v7.0 (Flow State)
- * Theme: Bio-Chain AI (Dark/Neon Green)
- * Features: 
- * - Coaxial Multi-Manifold (L0-L3)
- * - 720-Frame Cycle Navigation
- * - Trefoil Partitioning (3/4 Segments)
- * - Observation Nodes (Equilibrium)
- * - Packet Flow Visualization (Variable Density)
- */
-
-// --- Constants ---
-const PI = Math.PI;
-const TAU = 2 * PI;
-const CYCLE_FRAMES = 720;
-
-// --- 3D Geometry Helpers ---
-
-const getTrefoilPoint = (t, radius = 2.5, tubeRadius = 0.5, offsetPhase = 0, layer = 0, isInverse = false, noiseLevel = 0) => {
-  let x = Math.sin(t) + 2 * Math.sin(2 * t);
-  let y = Math.cos(t) - 2 * Math.cos(2 * t);
-  let z = -Math.sin(3 * t);
-  
-  if (noiseLevel > 0) {
-      x += (Math.random() - 0.5) * noiseLevel;
-      y += (Math.random() - 0.5) * noiseLevel;
-      z += (Math.random() - 0.5) * noiseLevel;
-  }
-
-  const p = new THREE.Vector3(x * radius, y * radius, z * radius);
-  
-  const t_next = t + 0.01;
-  const x_n = Math.sin(t_next) + 2 * Math.sin(2 * t_next);
-  const y_n = Math.cos(t_next) - 2 * Math.cos(2 * t_next);
-  const z_n = -Math.sin(3 * t_next);
-  const p_next = new THREE.Vector3(x_n * radius, y_n * radius, z_n * radius);
-  
-  const T = new THREE.Vector3().subVectors(p_next, p).normalize();
-  const up = new THREE.Vector3(0, 0, 1);
-  const N = new THREE.Vector3().crossVectors(T, up).normalize();
-  const B = new THREE.Vector3().crossVectors(T, N).normalize();
-  
-  const twist = 2 * t + offsetPhase; 
-  
-  let layerOffset = 0;
-  if (layer === 1) layerOffset = tubeRadius;
-  if (layer === 2) layerOffset = tubeRadius * 1.5;
-  if (layer === 3) layerOffset = tubeRadius * 2.2;
-
-  const finalTwist = isInverse ? twist + PI : twist;
-  const N_rot = N.clone().multiplyScalar(Math.cos(finalTwist)).add(B.clone().multiplyScalar(Math.sin(finalTwist)));
-  
-  if (layer === 0) return p;
-  return p.add(N_rot.multiplyScalar(layerOffset));
-};
-
-const getBioChainPoint = (t, radius = 2.0, tubeRadius = 0.5, offsetPhase = 0, breathingScale = 1.0) => {
-    const p = 4;
-    const q = 9;
-    const r = radius * breathingScale;
-    const R = r * 1.5; 
-    const r_tube = r * 0.6;
-
-    const x = (R + r_tube * Math.cos(q * t)) * Math.cos(p * t);
-    const y = (R + r_tube * Math.cos(q * t)) * Math.sin(p * t);
-    const z = r_tube * Math.sin(q * t);
-
-    const pos = new THREE.Vector3(x, y, z);
-
-    const tx = -p*(R + r_tube*Math.cos(q*t))*Math.sin(p*t) - q*r_tube*Math.sin(q*t)*Math.cos(p*t);
-    const ty =  p*(R + r_tube*Math.cos(q*t))*Math.cos(p*t) - q*r_tube*Math.sin(q*t)*Math.sin(p*t);
-    const tz =  q*r_tube*Math.cos(q*t);
-    const T = new THREE.Vector3(tx, ty, tz).normalize();
-    
-    const up = new THREE.Vector3(0, 0, 1);
-    const N = new THREE.Vector3().crossVectors(T, up).normalize();
-    const B = new THREE.Vector3().crossVectors(T, N).normalize();
-
-    const N_stream = N.clone().multiplyScalar(Math.cos(offsetPhase)).add(B.clone().multiplyScalar(Math.sin(offsetPhase)));
-    
-    return pos.add(N_stream.multiplyScalar(tubeRadius * 0.3));
-};
-
-// --- Components ---
-
-// 1. Kernel Visualizer
-const KernelVisualizer = ({ mode, time, cyclePhase }) => {
-  
-  const grid = useMemo(() => {
-    const cells = [];
-    for(let i=0; i<64; i++) {
-      const r = Math.floor(i/8);
-      const c = i%8;
-      let label = '';
-      let color = 'bg-black border-emerald-900'; // BioChain Base
-      let textColor = 'text-emerald-500';
-      let opacity = 1;
-      
-      if (mode === 'BIOCHAIN') {
-          if (r === 0) {
-              if (c < 4) { color = 'bg-emerald-900/30'; label = 'T'; }
-              else { color = 'bg-emerald-900/50'; label = 'S'; }
-          }
-          else if (r === 1) {
-              if (c < 3) { color = 'bg-teal-900/40'; label = 'F'; }
-              else if (c < 6) { color = 'bg-cyan-900/40'; label = 'S'; }
-              else { color = 'bg-green-900/40'; label = 'P'; }
-          }
-          else if (r === 2) { color = 'bg-white text-black'; label = 'w'; textColor='text-black'; }
-          else if (r === 3) { color = 'bg-emerald-600 text-black'; label = 'x'; textColor='text-black'; }
-          else if (r === 4) { color = 'bg-teal-600 text-black'; label = 'y'; textColor='text-black'; }
-          else if (r === 5) { color = 'bg-cyan-600 text-black'; label = 'z'; textColor='text-black'; }
-          else { color = 'bg-black'; label = '#'; opacity = 0.2; }
-      }
-      else if (mode === 'STANDARD') {
-        if (r === 0) { color = 'bg-emerald-900'; label='SF'; }
-        else if (r === 7) { color = 'bg-teal-900'; label='FR'; }
-        else if (r === 1 || r === 6) { color = 'bg-gray-800'; label='PL'; }
-        else { color = 'bg-emerald-500 text-black'; label = 'Q'; textColor='text-black'; }
-      } 
-      else if (mode === 'HOLOGRAPHIC') {
-        if (r === 0) { color = 'bg-gray-800'; label='H'; }
-        else if (r === 7) { color = 'bg-gray-800'; label='F'; }
-        else if (r >= 1 && r <= 3) { color = 'bg-cyan-500 text-black'; label = `R`; textColor='text-black'; }
-        else if (r >= 4 && r <= 6) { color = 'bg-purple-500 text-black'; label = `I`; textColor='text-black'; }
-      } 
-      else if (mode === 'COSMO_KEY') {
-        if (r === 0) { color = 'bg-yellow-500 text-black'; label='L0'; textColor='text-black'; }
-        else if (r === 7) { color = 'bg-orange-500 text-black'; label='L0'; textColor='text-black'; }
-        else if (r === 1 || r === 6) { color = 'bg-gray-800'; label='BF'; }
-        else {
-            if (r === 2) { color = 'bg-white text-black'; label='L1'; textColor='text-black'; }
-            if (r === 3) { color = 'bg-red-500 text-black'; label='L2'; textColor='text-black'; }
-            if (r === 4) { color = 'bg-green-500 text-black'; label='L3'; textColor='text-black'; }
-            if (r === 5) { color = 'bg-blue-500 text-black'; label='L3'; textColor='text-black'; }
-        }
-      }
-      else if (mode === 'LOOPSPACE') {
-        const val = Math.sin((i / 64) * TAU + time * 2);
-        opacity = 0.8 + (val * 0.2);
-        color = 'bg-emerald-900'; 
-        label = '.';
-      }
-      else if (mode === 'STOCHASTIC') {
-        if (r === 0 || r === 7) { color = 'bg-gray-800'; label = 'X'; } 
-        else {
-             const rnd = Math.random();
-             if (rnd > 0.8) { color = 'bg-white text-black'; textColor='text-black'; }
-             else if (rnd > 0.5) color = 'bg-emerald-900';
-             else color = 'bg-black';
-             label = rnd > 0.5 ? '1' : '0';
-        }
-      }
-      
-      const pulse = Math.sin(time * 8 + r - c) > 0.2;
-      cells.push({ r, c, color, label, opacity, pulse, index: i, textColor });
-    }
-    return cells;
-  }, [mode, time]);
-
-  return (
-    <div className="relative group border border-emerald-500/30 p-1 bg-black">
-        <div className="grid grid-cols-8 gap-px w-64 h-64 bg-black">
-        {grid.map((cell, idx) => (
-            <div 
-            key={idx} 
-            className={`flex items-center justify-center text-[7px] font-mono font-bold transition-all duration-75 ${cell.color} ${cell.textColor}`}
-            style={{ 
-                backgroundColor: mode === 'LOOPSPACE' ? `hsl(150, 100%, ${(cell.index/64 * 50 + time*100)%50 + 10}%)` : undefined, // Emerald spectrum
-                opacity: cell.pulse ? cell.opacity : 0.3,
-            }}
-            >
-            {cell.label}
-            </div>
-        ))}
+    <!-- SIDEBAR -->
+    <nav class="w-72 bg-black border-r border-emerald-900 flex flex-col shadow-[0_0_15px_rgba(16,185,129,0.1)] z-20">
+        <div class="p-6 border-b border-emerald-900">
+            <h1 class="text-sm font-bold uppercase tracking-[0.2em] text-emerald-400 glow-text">Bio-Chain AI</h1>
+            <div class="text-[10px] text-emerald-700 mt-1">Strassen-Clifford Kernel v7.0</div>
         </div>
-        {mode === 'BIOCHAIN' && (
-             <div className="absolute -bottom-6 w-full text-center text-[10px] text-emerald-400 font-mono tracking-widest">
-                 CYCLE_ID: {Math.floor(cyclePhase / 720)} :: PHASE: {cyclePhase % 720}
-             </div>
-        )}
-    </div>
-  );
-};
 
-// 2. Topological View: Coaxial Manifold
-const TopologicalView = ({ time, mode, pathId, cyclePhase, parallelCount, isPlaying, partitionMode, showNodes, packetsPerCycle }) => {
-  const mountRef = useRef(null);
-  const rendererRef = useRef(null);
-  
-  // Manual Controls State
-  const [cameraAngle, setCameraAngle] = useState({ phi: 0.5, theta: 0.5, radius: 18 });
-  const isDragging = useRef(false);
-  const lastMouse = useRef({ x: 0, y: 0 });
-  
-  useEffect(() => {
-    if (!mountRef.current) return;
-    
-    const w = mountRef.current.clientWidth;
-    const h = mountRef.current.clientHeight;
-    
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color('#050505'); 
-    
-    const grid = new THREE.GridHelper(20, 20, 0x10b981, 0x064e3b); 
-    grid.position.y = -4;
-    grid.material.opacity = 0.2;
-    grid.material.transparent = true;
-    scene.add(grid);
-    
-    const camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 100);
-    
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(w, h);
-    mountRef.current.appendChild(renderer.domElement);
-    rendererRef.current = renderer;
-    
-    const amb = new THREE.AmbientLight(0xffffff, 0.4);
-    scene.add(amb);
-    const spot = new THREE.SpotLight(0x10b981, 2); 
-    spot.position.set(10, 10, 10);
-    scene.add(spot);
-    const point = new THREE.PointLight(0x34d399, 1, 20); 
-    point.position.set(-5, 5, 5);
-    scene.add(point);
-
-    const group = new THREE.Group();
-    scene.add(group);
-
-    // --- GEOMETRY GENERATION ---
-    const steps = 150; 
-    const intensityScale = 1 + (parallelCount / 64);
-
-    const addStream = (config) => {
-        const points = [];
-        let breathingScale = 1.0;
-        if (mode === 'BIOCHAIN') {
-            const phaseNorm = (cyclePhase % 720) / 720;
-            breathingScale = 1.0 + 0.3 * Math.sin(phaseNorm * TAU); 
-        }
-
-        const numSegments = partitionMode === 'NONE' ? 1 : (partitionMode === '3' ? 3 : 4);
-        const pointsPerSegment = Math.floor(steps / numSegments);
-
-        for (let s = 0; s < numSegments; s++) {
-            const segmentPoints = [];
-            // Overlap slightly to prevent gaps
-            const startIdx = s * pointsPerSegment;
-            const endIdx = (s === numSegments - 1) ? steps : (s + 1) * pointsPerSegment + 1;
-
-            for(let j = startIdx; j <= endIdx; j++) {
-                const t = (j/steps) * TAU;
-                if (mode === 'BIOCHAIN') {
-                    segmentPoints.push(getBioChainPoint(t, 2.0, 0.5, config.phase, breathingScale));
-                } else {
-                    segmentPoints.push(getTrefoilPoint(t, 2.8, config.radius, config.phase, config.layer, config.isInverse, config.noise));
-                }
-            }
-
-            const path = new THREE.CatmullRomCurve3(segmentPoints);
-            const geo = new THREE.TubeGeometry(path, Math.floor(100/numSegments), config.thickness, 6, true);
-            
-            // Alternating colors for partitions
-            let segColor = new THREE.Color(config.color);
-            if (partitionMode !== 'NONE') {
-                if (s % 2 === 0) segColor.offsetHSL(0, 0, 0.2); // Lighten
-                else segColor.offsetHSL(0, 0, -0.1); // Darken
-            }
-
-            const mat = new THREE.MeshStandardMaterial({ 
-                color: segColor,
-                transparent: true,
-                opacity: config.opacity * intensityScale,
-                wireframe: config.wireframe || false,
-                emissive: segColor,
-                emissiveIntensity: 0.5 * intensityScale
-            });
-            const mesh = new THREE.Mesh(geo, mat);
-            group.add(mesh);
-        }
-    };
-
-    // --- MODE LOGIC ---
-    if (mode === 'BIOCHAIN') {
-        for(let i=0; i<12; i++) {
-            const hue = 0.3 + (i/24); 
-            const color = new THREE.Color().setHSL(hue, 0.8, 0.5);
-            addStream({ radius: 0, phase: (i/12) * TAU, color: color, thickness: 0.04, opacity: 0.8 });
-        }
-    }
-    else if (mode === 'STANDARD') {
-        for(let i=0; i<16; i++) {
-            addStream({ layer: 1, radius: 0.5, phase: (i/16)*TAU, color: 0x10b981, thickness: 0.03, opacity: 0.8 });
-        }
-    }
-    else if (mode === 'HOLOGRAPHIC') {
-        for(let i=0; i<12; i++) {
-            addStream({ layer: 2, radius: 0.6, phase: (i/12)*TAU, color: 0x22d3ee, thickness: 0.03, opacity: 0.9, isInverse: false });
-        }
-        for(let i=0; i<12; i++) {
-            addStream({ layer: 2, radius: 0.6, phase: (i/12)*TAU, color: 0xa855f7, thickness: 0.02, opacity: 0.5, isInverse: true, wireframe: true });
-        }
-    }
-    else if (mode === 'COSMO_KEY') {
-        addStream({ layer: 0, radius: 0, phase: 0, color: 0xfacc15, thickness: 0.08, opacity: 1.0 });
-        for(let i=0; i<6; i++) addStream({ layer: 1, radius: 0.4, phase: (i/6)*TAU, color: 0xffffff, thickness: 0.04, opacity: 0.8 });
-        for(let i=0; i<8; i++) addStream({ layer: 2, radius: 0.6, phase: (i/8)*TAU + 0.1, color: 0xdc2626, thickness: 0.03, opacity: 0.6 });
-        for(let i=0; i<10; i++) addStream({ layer: 3, radius: 0.8, phase: (i/10)*TAU + 0.2, color: 0x3b82f6, thickness: 0.02, opacity: 0.4, wireframe: true });
-    }
-    else if (mode === 'LOOPSPACE') {
-        addStream({ layer: 2, radius: 0.7, phase: 0, color: 0x34d399, thickness: 0.15, opacity: 0.7 });
-    }
-    else if (mode === 'STOCHASTIC') {
-        for(let i=0; i<16; i++) addStream({ layer: 1, radius: 0.5, phase: (i/16)*TAU, color: 0xffffff, thickness: 0.02, opacity: 0.5, noise: 0.15 });
-    }
-
-    if (mode !== 'BIOCHAIN') { 
-        for(let k=0; k<7; k++) {
-            const t = (k/7) * TAU;
-            const pos = getTrefoilPoint(t, 2.8, 0, 0, 0); 
-            const ringGeo = new THREE.TorusGeometry(0.8, 0.02, 8, 24);
-            const ringMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
-            ring.position.copy(pos);
-            ring.lookAt(new THREE.Vector3(0,0,0));
-            group.add(ring);
-        }
-    }
-
-    // --- OBSERVATION NODES ---
-    if (showNodes) {
-        // Place nodes at partition points or evenly spaced
-        const nodeCount = partitionMode === 'NONE' ? 3 : parseInt(partitionMode);
-        for(let i=0; i<nodeCount; i++) {
-            const t = (i / nodeCount) * TAU;
-            const pos = (mode === 'BIOCHAIN') ? 
-                getBioChainPoint(t, 2.0, 0, 0, 1.0) : 
-                getTrefoilPoint(t, 2.8, 0, 0, 0);
-            
-            const nodeGeo = new THREE.OctahedronGeometry(0.6, 0);
-            const nodeMat = new THREE.MeshStandardMaterial({ 
-                color: 0xff00ff, 
-                emissive: 0xff00ff,
-                emissiveIntensity: 0.8,
-                wireframe: true
-            });
-            const node = new THREE.Mesh(nodeGeo, nodeMat);
-            node.position.copy(pos);
-            group.add(node);
-        }
-    }
-
-    // --- PACKET FLOW ---
-    const packetInterval = 720 / packetsPerCycle;
-    const packetGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-    const packetMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-
-    const currentFrame = cyclePhase % 720;
-    
-    for (let p = 0; p < packetsPerCycle; p++) {
-        const packetPhase = (p / packetsPerCycle) + (currentFrame / 720);
-        const t = (packetPhase % 1.0) * TAU;
-
-        const pos = (mode === 'BIOCHAIN') ? 
-            getBioChainPoint(t, 2.0, 0.8, 0, 1.0) :
-            getTrefoilPoint(t, 2.8, 0.8, 0, 0);
-
-        const packet = new THREE.Mesh(packetGeo, packetMat);
-        packet.position.copy(pos);
-        packet.lookAt(new THREE.Vector3(0,0,0)); 
-        group.add(packet);
-    }
-
-
-    let frameId;
-    const animate = () => {
-      // Manual Orbit Logic
-      const r = cameraAngle.radius;
-      const theta = cameraAngle.theta;
-      const phi = cameraAngle.phi;
-      
-      camera.position.x = r * Math.sin(theta) * Math.cos(phi);
-      camera.position.z = r * Math.cos(theta) * Math.cos(phi);
-      camera.position.y = r * Math.sin(phi);
-      camera.lookAt(0,0,0);
-
-      if (isPlaying) {
-        group.rotation.y += 0.002;
-        if (mode === 'BIOCHAIN') {
-            group.rotation.x += 0.001; 
-        } else {
-            group.rotation.z = Math.sin(Date.now()*0.0005)*0.1;
-        }
-      }
-      
-      renderer.render(scene, camera);
-      frameId = requestAnimationFrame(animate);
-    };
-    animate();
-
-    // Mouse Events for Controls
-    const onMouseDown = (e) => {
-        isDragging.current = true;
-        lastMouse.current = { x: e.clientX, y: e.clientY };
-    };
-    const onMouseUp = () => isDragging.current = false;
-    const onMouseMove = (e) => {
-        if (!isDragging.current) return;
-        const dx = e.clientX - lastMouse.current.x;
-        const dy = e.clientY - lastMouse.current.y;
-        lastMouse.current = { x: e.clientX, y: e.clientY };
-        
-        setCameraAngle(prev => ({
-            ...prev,
-            theta: prev.theta - dx * 0.01,
-            phi: Math.max(-PI/2 + 0.1, Math.min(PI/2 - 0.1, prev.phi + dy * 0.01))
-        }));
-    };
-    const onWheel = (e) => {
-        setCameraAngle(prev => ({
-            ...prev,
-            radius: Math.max(5, Math.min(50, prev.radius + e.deltaY * 0.05))
-        }));
-    };
-
-    const dom = mountRef.current;
-    dom.addEventListener('mousedown', onMouseDown);
-    window.addEventListener('mouseup', onMouseUp);
-    window.addEventListener('mousemove', onMouseMove);
-    dom.addEventListener('wheel', onWheel);
-
-    return () => {
-        cancelAnimationFrame(frameId);
-        dom.removeEventListener('mousedown', onMouseDown);
-        window.removeEventListener('mouseup', onMouseUp);
-        window.removeEventListener('mousemove', onMouseMove);
-        dom.removeEventListener('wheel', onWheel);
-        if (mountRef.current && renderer.domElement) mountRef.current.removeChild(renderer.domElement);
-        renderer.dispose();
-    };
-  }, [mode, pathId, cyclePhase, parallelCount, isPlaying, cameraAngle, partitionMode, showNodes, packetsPerCycle]);
-
-  return <div ref={mountRef} className="w-full h-full rounded-lg bg-black cursor-move" />;
-};
-
-// --- DATA ---
-
-const PACKET_DETAILS = {
-    'STANDARD': {
-        title: 'Standard Packet',
-        streams: 16,
-        scaling: 'Linear O(N)',
-        flow: 'Linear Winding',
-        loopspace: 'L1: Adjacent Homology',
-        desc: 'Optimized for high-density local communication. Single 16-stream bundle.'
-    },
-    'HOLOGRAPHIC': {
-        title: 'Holographic Packet',
-        streams: 24,
-        scaling: 'Logarithmic O(log N)',
-        flow: 'Interference Pattern',
-        loopspace: 'L2: Conjugate Cycles',
-        desc: 'Splits data into Real and Inverse streams creating standing wave interference.'
-    },
-    'COSMO_KEY': {
-        title: 'Cosmohedra Packet',
-        streams: 24, 
-        scaling: 'Factorial O(N!)',
-        flow: 'Nested Shells',
-        loopspace: 'L0-L3: Full Stack',
-        desc: 'The Key Protocol. 4 nested layers with L0 control spine and O(1) lookup.'
-    },
-    'LOOPSPACE': {
-        title: 'High-Precision',
-        streams: 1, 
-        scaling: 'Infinite',
-        flow: 'Continuous Homotopy',
-        loopspace: 'L2: Coefficient Map',
-        desc: 'Continuous loop for infinite-resolution addressing.'
-    },
-    'STOCHASTIC': {
-        title: 'Open Stochastic',
-        streams: 16,
-        scaling: 'Probabilistic',
-        flow: 'Geometric Noise',
-        loopspace: 'L1: Entropy Field',
-        desc: 'Injects geometric noise for entropy generation.'
-    },
-    'BIOCHAIN': {
-        title: 'BioChain (HyperSim)',
-        streams: 12,
-        scaling: 'Fractal (Breathing)',
-        flow: '(4,9) Torus Knot',
-        loopspace: 'Hopf Fibration',
-        desc: 'Specialized for HyperSim. (4,9) Knot topology with 720-frame breath cycle.'
-    }
-};
-
-const STRASSEN_PATHS = [
-    { id: 'M1', name: 'Core Cycle', math: '(A+D)(E+H)', desc: 'Recursive step.' },
-    { id: 'M2', name: 'Lower Halo', math: '(C+D)E', desc: 'Lower interaction.' },
-    { id: 'M3', name: 'Upper Halo', math: 'A(F-H)', desc: 'Upper processing.' },
-    { id: 'M4', name: 'Diagonal Twist', math: 'D(G-E)', desc: 'Stream crossing.' },
-    { id: 'M5', name: 'Parity Mixing', math: '(A+B)H', desc: 'Entropy injection.' },
-    { id: 'M6', name: 'Shaving A', math: '(C+D)(E-G)', desc: 'Submodular check.' },
-    { id: 'M7', name: 'Shaving B', math: '(B-D)(G+H)', desc: 'Unitarity correction.' },
-];
-
-// --- Main Application ---
-
-export default function StrassenLoopspaceWalkthrough() {
-  const [selectedPath, setSelectedPath] = useState('M1');
-  const [packetMode, setPacketMode] = useState('BIOCHAIN');
-  const [time, setTime] = useState(0);
-  const [cyclePhase, setCyclePhase] = useState(0);
-  const [parallelCount, setParallelCount] = useState(1); 
-  const [isPlaying, setIsPlaying] = useState(true);
-  
-  // New State Controls
-  const [partitionMode, setPartitionMode] = useState('NONE'); // 'NONE', '3', '4'
-  const [showNodes, setShowNodes] = useState(false);
-  const [packetsPerCycle, setPacketsPerCycle] = useState(72); // Default 72
-
-  // Playback Logic
-  useEffect(() => {
-    let interval;
-    if (isPlaying) {
-        interval = setInterval(() => {
-            setTime(t => (t + 0.01) % TAU);
-            setCyclePhase(c => (c + 1));
-        }, 16);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying]);
-
-  const handleStop = () => {
-      setIsPlaying(false);
-      setTime(0);
-      setCyclePhase(0);
-  };
-
-  const handleJump = (direction) => {
-      setCyclePhase(c => {
-          const next = direction === 'next' ? Math.ceil(c / 720) * 720 + 720 : Math.floor(c / 720) * 720 - 720;
-          return Math.max(0, next);
-      });
-  };
-
-  const details = PACKET_DETAILS[packetMode];
-  const currentPath = STRASSEN_PATHS.find(p => p.id === selectedPath);
-
-  // Cycle Hash Simulation
-  const cycleHash = useMemo(() => {
-      const base = packetMode.charCodeAt(0) + Math.floor(time * 10);
-      return `0x${base.toString(16).toUpperCase()}${parallelCount.toString(16).padStart(2,'0')}`;
-  }, [packetMode, Math.floor(time), parallelCount]);
-
-  return (
-    <div className="flex h-screen bg-black text-emerald-500 overflow-hidden font-mono selection:bg-emerald-900 selection:text-white">
-      
-      {/* Sidebar */}
-      <nav className="w-72 bg-black border-r border-emerald-900 flex flex-col shadow-[0_0_15px_rgba(16,185,129,0.1)]">
-        <div className="p-6 border-b border-emerald-900">
-            <h1 className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]">Bio-Chain AI</h1>
-            <div className="text-[10px] text-emerald-700 mt-1">Strassen-Clifford Kernel v7.0</div>
-        </div>
-        
-        {/* Specs */}
-        <div className="p-4 bg-emerald-950/20 border-b border-emerald-900/50">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase mb-2">System Specs</div>
-            <div className="space-y-2 text-[10px]">
-                <div className="flex justify-between border-b border-emerald-900/30 pb-1">
-                    <span className="text-emerald-700">Streams</span>
-                    <span className="text-emerald-300">{details.streams}</span>
-                </div>
-                <div className="flex justify-between border-b border-emerald-900/30 pb-1">
-                    <span className="text-emerald-700">Scaling</span>
-                    <span className="text-emerald-300">{details.scaling}</span>
-                </div>
-                <div className="flex justify-between border-b border-emerald-900/30 pb-1">
-                    <span className="text-emerald-700">Topology</span>
-                    <span className="text-emerald-300">{details.loopspace}</span>
-                </div>
-                <div className="pt-2 flex justify-between items-center">
-                    <span className="text-emerald-700">Hash</span>
-                    <span className="bg-emerald-900 text-emerald-400 px-1 rounded">{cycleHash}</span>
-                </div>
+        <!-- System Specs -->
+        <div class="p-4 bg-emerald-950/20 border-b border-emerald-900/50">
+            <div class="text-[10px] font-bold text-emerald-600 uppercase mb-2">System Specs</div>
+            <div class="space-y-2 text-[10px]" id="specs-container">
+                <!-- Populated by JS -->
             </div>
         </div>
 
-        <div className="p-4 overflow-y-auto flex-1 scrollbar-thin scrollbar-thumb-emerald-900 scrollbar-track-black">
-            <div className="text-[10px] font-bold text-emerald-600 mb-2 uppercase">Kernel Mode</div>
-            <div className="space-y-1">
-                {Object.keys(PACKET_DETAILS).map(mode => (
-                    <button
-                        key={mode}
-                        onClick={() => setPacketMode(mode)}
-                        className={`w-full text-left px-3 py-2 rounded-sm text-[10px] font-medium transition-all border border-transparent ${packetMode === mode ? 'bg-emerald-900/40 border-emerald-500/50 text-white shadow-[0_0_10px_rgba(16,185,129,0.2)]' : 'hover:bg-emerald-900/20 text-emerald-600'}`}
-                    >
-                        {PACKET_DETAILS[mode].title}
-                    </button>
-                ))}
+        <!-- Modes -->
+        <div class="p-4 overflow-y-auto flex-1">
+            <div class="text-[10px] font-bold text-emerald-600 mb-2 uppercase">Kernel Mode</div>
+            <div class="space-y-1" id="mode-buttons">
+                <!-- Populated by JS -->
             </div>
         </div>
-        
-        {/* Parallel Control */}
-        <div className="p-4 border-t border-emerald-900">
-            <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] font-bold text-emerald-600 uppercase">Parallel Cores</span>
-                <span className="text-[10px] font-mono bg-emerald-900 text-emerald-300 px-2 rounded">{parallelCount}</span>
+
+        <!-- Parallel Control -->
+        <div class="p-4 border-t border-emerald-900">
+            <div class="flex justify-between items-center mb-2">
+                <span class="text-[10px] font-bold text-emerald-600 uppercase">Parallel Cores</span>
+                <span class="text-[10px] font-mono bg-emerald-900 text-emerald-300 px-2 rounded" id="parallel-val">1</span>
             </div>
-            <input 
-                type="range" 
-                min="1" max="64" step="1" 
-                value={parallelCount} 
-                onChange={(e) => setParallelCount(parseInt(e.target.value))}
-                className="w-full accent-emerald-500 h-1 bg-emerald-900 rounded-lg appearance-none cursor-pointer"
-            />
-            <div className="mt-3 grid grid-cols-8 gap-0.5">
-                {Array.from({length: 64}).map((_, i) => (
-                    <div 
-                        key={i} 
-                        className={`h-1 w-1 rounded-[1px] ${i < parallelCount ? 'bg-emerald-500 shadow-[0_0_2px_#10b981]' : 'bg-emerald-900/20'}`}
-                    />
-                ))}
+            <input type="range" min="1" max="64" step="1" value="1" id="parallel-slider" class="w-full accent-emerald-500 h-1 bg-emerald-900 rounded-lg appearance-none cursor-pointer">
+            <div class="mt-3 grid grid-cols-8 gap-0.5" id="core-viz">
+                <!-- Populated by JS -->
             </div>
         </div>
-      </nav>
+    </nav>
 
-      {/* Main */}
-      <main className="flex-1 flex flex-col min-w-0 bg-[#050505] relative">
-        {/* Background Grid Effect */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 flex flex-col min-w-0 bg-[#050505] relative z-10">
+        <!-- Grid Background -->
+        <div class="absolute inset-0 bg-[linear-gradient(rgba(16,185,129,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(16,185,129,0.03)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none"></div>
 
-        {/* Header */}
-        <header className="h-14 border-b border-emerald-900 flex items-center justify-between px-6 bg-black/80 backdrop-blur z-10">
-            <div className="flex items-center gap-4">
-                <div className="text-emerald-500 font-bold text-sm tracking-wider">
-                    {selectedPath} :: {currentPath.name}
-                </div>
-                <div className="h-4 w-px bg-emerald-900"></div>
-                <div className="flex gap-1">
-                    {STRASSEN_PATHS.map(path => (
-                        <button
-                            key={path.id}
-                            onClick={() => setSelectedPath(path.id)}
-                            className={`px-2 py-0.5 rounded-sm text-[10px] font-bold border transition-all ${selectedPath === path.id ? 'bg-emerald-500 text-black border-emerald-400' : 'bg-transparent border-emerald-900 text-emerald-700 hover:text-emerald-500'}`}
-                        >
-                            {path.id}
-                        </button>
-                    ))}
+        <!-- Header -->
+        <header class="h-14 border-b border-emerald-900 flex items-center justify-between px-6 bg-black/80 backdrop-blur z-10">
+            <div class="flex items-center gap-4">
+                <div class="text-emerald-500 font-bold text-sm tracking-wider" id="path-display">M1 :: Core Cycle</div>
+                <div class="h-4 w-px bg-emerald-900"></div>
+                <div class="flex gap-1" id="path-buttons">
+                    <!-- Populated by JS -->
                 </div>
             </div>
             
-            {/* Playback Controls */}
-            <div className="flex items-center gap-2">
-                <button onClick={() => handleJump('prev')} className="px-3 py-1 bg-emerald-900/30 text-emerald-500 text-[10px] border border-emerald-900 hover:bg-emerald-800/50 rounded-sm">
-                    &lt;&lt; 720
-                </button>
-                <button onClick={handleStop} className="w-8 h-6 flex items-center justify-center bg-emerald-900/30 text-emerald-500 border border-emerald-900 hover:bg-red-900/50 hover:text-red-400 rounded-sm">
-                    ■
-                </button>
-                <button onClick={() => setIsPlaying(!isPlaying)} className="w-8 h-6 flex items-center justify-center bg-emerald-900/30 text-emerald-500 border border-emerald-900 hover:bg-emerald-800/50 rounded-sm">
-                    {isPlaying ? '||' : '▶'}
-                </button>
-                <button onClick={() => handleJump('next')} className="px-3 py-1 bg-emerald-900/30 text-emerald-500 text-[10px] border border-emerald-900 hover:bg-emerald-800/50 rounded-sm">
-                    720 &gt;&gt;
-                </button>
+            <div class="flex items-center gap-2">
+                <button onclick="jumpCycle(-1)" class="px-3 py-1 bg-emerald-900/30 text-emerald-500 text-[10px] border border-emerald-900 hover:bg-emerald-800/50 rounded-sm">&lt;&lt; 720</button>
+                <button onclick="stopPlayback()" class="w-8 h-6 flex items-center justify-center bg-emerald-900/30 text-emerald-500 border border-emerald-900 hover:bg-red-900/50 hover:text-red-400 rounded-sm">■</button>
+                <button onclick="togglePlay()" class="w-8 h-6 flex items-center justify-center bg-emerald-900/30 text-emerald-500 border border-emerald-900 hover:bg-emerald-800/50 rounded-sm" id="play-btn">||</button>
+                <button onclick="jumpCycle(1)" class="px-3 py-1 bg-emerald-900/30 text-emerald-500 text-[10px] border border-emerald-900 hover:bg-emerald-800/50 rounded-sm">720 &gt;&gt;</button>
             </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6 relative z-0">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+        <!-- Dashboard -->
+        <div class="flex-1 overflow-y-auto p-6 relative z-0">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
                 
-                {/* Left Column */}
-                <div className="flex flex-col gap-4">
-                    {/* 3D View */}
-                    <div className="aspect-square bg-black rounded border border-emerald-900 overflow-hidden relative shadow-[0_0_20px_rgba(16,185,129,0.05)]">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-50"></div>
-                        <TopologicalView 
-                            time={time} 
-                            mode={packetMode} 
-                            pathId={selectedPath} 
-                            cyclePhase={cyclePhase} 
-                            parallelCount={parallelCount} 
-                            isPlaying={isPlaying}
-                            partitionMode={partitionMode}
-                            showNodes={showNodes}
-                            packetsPerCycle={packetsPerCycle}
-                        />
+                <!-- LEFT COLUMN -->
+                <div class="flex flex-col gap-4">
+                    <!-- 3D Container -->
+                    <div class="aspect-square bg-black rounded border border-emerald-900 overflow-hidden relative shadow-[0_0_20px_rgba(16,185,129,0.05)]">
+                        <div id="three-container" class="w-full h-full cursor-move"></div>
+                        <div class="absolute bottom-3 left-3 text-[10px] font-mono text-emerald-600 bg-black/80 px-2 py-1 border border-emerald-900 rounded-sm">CAM: DRAG/SCROLL</div>
+                        <div class="absolute bottom-3 right-3 text-[10px] font-mono text-emerald-400 bg-black/80 px-2 py-1 border border-emerald-900 rounded-sm" id="cycle-display">CYCLE: 0 | FRAME: 0</div>
                         
-                        <div className="absolute bottom-3 left-3 text-[10px] font-mono text-emerald-600 bg-black/80 px-2 py-1 border border-emerald-900 rounded-sm">
-                            CAM: DRAG/SCROLL
-                        </div>
-                        <div className="absolute bottom-3 right-3 text-[10px] font-mono text-emerald-400 bg-black/80 px-2 py-1 border border-emerald-900 rounded-sm">
-                            CYCLE: {Math.floor(cyclePhase/720)} | FRAME: {cyclePhase % 720}
-                        </div>
-                        
-                        {/* New View Controls */}
-                        <div className="absolute top-3 right-3 flex flex-col gap-2">
-                            <div className="flex bg-black/80 border border-emerald-900 rounded-sm p-1 gap-1">
-                                <button onClick={() => setPartitionMode('NONE')} className={`px-2 py-0.5 text-[9px] rounded-sm ${partitionMode === 'NONE' ? 'bg-emerald-700 text-white' : 'text-emerald-500 hover:bg-emerald-900/50'}`}>1</button>
-                                <button onClick={() => setPartitionMode('3')} className={`px-2 py-0.5 text-[9px] rounded-sm ${partitionMode === '3' ? 'bg-emerald-700 text-white' : 'text-emerald-500 hover:bg-emerald-900/50'}`}>3</button>
-                                <button onClick={() => setPartitionMode('4')} className={`px-2 py-0.5 text-[9px] rounded-sm ${partitionMode === '4' ? 'bg-emerald-700 text-white' : 'text-emerald-500 hover:bg-emerald-900/50'}`}>4</button>
+                        <!-- View Controls -->
+                        <div class="absolute top-3 right-3 flex flex-col gap-2">
+                            <div class="flex bg-black/80 border border-emerald-900 rounded-sm p-1 gap-1">
+                                <button onclick="setPartition('NONE')" class="px-2 py-0.5 text-[9px] rounded-sm bg-emerald-700 text-white" id="btn-part-none">1</button>
+                                <button onclick="setPartition('3')" class="px-2 py-0.5 text-[9px] rounded-sm text-emerald-500 hover:bg-emerald-900/50" id="btn-part-3">3</button>
+                                <button onclick="setPartition('4')" class="px-2 py-0.5 text-[9px] rounded-sm text-emerald-500 hover:bg-emerald-900/50" id="btn-part-4">4</button>
                             </div>
-                            <button 
-                                onClick={() => setShowNodes(!showNodes)} 
-                                className={`px-2 py-1 text-[9px] border border-emerald-900 rounded-sm ${showNodes ? 'bg-emerald-700 text-white' : 'bg-black/80 text-emerald-500 hover:bg-emerald-900/50'}`}
-                            >
-                                SHOW OBS. NODES
-                            </button>
+                            <button onclick="toggleNodes()" class="px-2 py-1 text-[9px] border border-emerald-900 rounded-sm bg-black/80 text-emerald-500 hover:bg-emerald-900/50" id="btn-nodes">SHOW OBS. NODES</button>
                         </div>
                     </div>
 
-                    {/* Packet Logic / Kernel Map Container */}
-                    <div className="bg-black p-4 rounded border border-emerald-900 flex flex-col shadow-lg">
-                        <div className="flex justify-between items-center mb-4 border-b border-emerald-900 pb-2">
+                    <!-- BitMap & Logic -->
+                    <div class="bg-black p-4 rounded border border-emerald-900 flex flex-col shadow-lg">
+                        <div class="flex justify-between items-center mb-4 border-b border-emerald-900 pb-2">
                             <h3 className="text-sm font-bold uppercase text-emerald-500">Packet Logic & Kernel State</h3>
-                            <span className="text-[10px] font-mono text-emerald-700">SHD-CCP-{packetsPerCycle}/CYCLE</span>
+                            <span class="text-[10px] font-mono text-emerald-700" id="packet-counter">SHD-CCP-72/CYCLE</span>
                         </div>
-                        
-                        <div className="flex gap-6">
-                            {/* Kernel Visualizer */}
-                            <div className="relative">
-                                <div className="absolute -top-3 left-0 bg-black px-2 text-[9px] text-emerald-600 font-bold">BIT-MAP</div>
-                                <KernelVisualizer mode={packetMode} time={time} cyclePhase={cyclePhase} />
-                            </div>
-
-                            {/* Packet Logic Controls */}
-                            <div className="flex-1 space-y-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Packets Per Cycle</label>
-                                    <div className="flex items-center gap-2">
-                                        <input 
-                                            type="range" min="10" max="144" step="1" 
-                                            value={packetsPerCycle} 
-                                            onChange={(e) => setPacketsPerCycle(parseInt(e.target.value))}
-                                            className="w-full accent-emerald-500 h-1 bg-emerald-900 rounded-lg appearance-none cursor-pointer"
-                                        />
-                                        <span className="text-xs font-mono text-emerald-300 w-8">{packetsPerCycle}</span>
+                        <div class="flex gap-6">
+                            <div class="relative">
+                                <div class="absolute -top-3 left-0 bg-black px-2 text-[9px] text-emerald-600 font-bold">BIT-MAP</div>
+                                <!-- Grid Container -->
+                                <div class="relative group border border-emerald-500/30 p-1 bg-black mt-1">
+                                    <div id="kernel-grid" class="grid grid-cols-8 gap-px w-64 h-64 bg-black">
+                                        <!-- Cells generated by JS -->
                                     </div>
-                                    <div className="text-[9px] text-emerald-700 mt-1">Flow Rate: {(packetsPerCycle / 720 * 100).toFixed(1)}% Saturation</div>
+                                    <div class="absolute -bottom-6 w-full text-center text-[10px] text-emerald-400 font-mono tracking-widest" id="cycle-id-viz">CYCLE_ID: 0 :: PHASE: 0</div>
                                 </div>
-
-                                <div className="grid grid-cols-2 gap-2 text-[10px] font-mono">
-                                    <div className="p-2 border border-emerald-900 rounded bg-emerald-950/20">
-                                        <div className="text-emerald-600">Active Nodes</div>
-                                        <div className="text-emerald-300">{partitionMode === 'NONE' ? 0 : partitionMode}</div>
+                            </div>
+                            <!-- Controls -->
+                            <div class="flex-1 space-y-4">
+                                <div>
+                                    <label class="block text-[10px] font-bold text-emerald-600 uppercase mb-1">Packets Per Cycle</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="range" min="10" max="144" step="1" value="72" id="packet-slider" class="w-full accent-emerald-500 h-1 bg-emerald-900 rounded-lg appearance-none cursor-pointer">
+                                        <span class="text-xs font-mono text-emerald-300 w-8" id="packet-val">72</span>
                                     </div>
-                                    <div className="p-2 border border-emerald-900 rounded bg-emerald-950/20">
-                                        <div className="text-emerald-600">Total Load</div>
-                                        <div className="text-emerald-300">{(packetsPerCycle * 64 / 8 / 1024).toFixed(3)} KB</div>
+                                    <div class="text-[9px] text-emerald-700 mt-1" id="flow-rate">Flow Rate: 10.0% Saturation</div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-[10px] font-mono">
+                                    <div class="p-2 border border-emerald-900 rounded bg-emerald-950/20">
+                                        <div class="text-emerald-600">Active Nodes</div>
+                                        <div class="text-emerald-300" id="active-nodes-disp">0</div>
+                                    </div>
+                                    <div class="p-2 border border-emerald-900 rounded bg-emerald-950/20">
+                                        <div class="text-emerald-600">Total Load</div>
+                                        <div class="text-emerald-300" id="total-load-disp">0.563 KB</div>
                                     </div>
                                 </div>
                             </div>
@@ -763,48 +151,51 @@ export default function StrassenLoopspaceWalkthrough() {
                     </div>
                 </div>
 
-                {/* Right Column */}
-                <div className="flex flex-col gap-4">
-                    {/* Mathematical Context */}
-                    <div className="flex-1 bg-black border border-emerald-900 p-4 rounded relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-2 opacity-20">
-                            {/* Simple Lucide/SVG fallback */}
-                            <svg className="w-16 h-16 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+                <!-- RIGHT COLUMN -->
+                <div class="flex flex-col gap-4">
+                    <!-- Math Context -->
+                    <div class="flex-1 bg-black border border-emerald-900 p-4 rounded relative flex flex-col">
+                         <div class="absolute top-0 right-0 p-2 opacity-20 pointer-events-none">
+                            <svg class="w-16 h-16 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
                         </div>
-                        <h3 className="text-sm font-bold text-emerald-400 mb-4 uppercase border-b border-emerald-900 pb-2">Packet Logic</h3>
-                        <p className="text-xs text-emerald-100/80 leading-relaxed font-mono">
-                            {details.desc}
-                        </p>
+                        <h3 class="text-sm font-bold text-emerald-400 mb-4 uppercase border-b border-emerald-900 pb-2">Packet Logic & Math</h3>
                         
-                        <div className="mt-6 space-y-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-1 h-1 bg-emerald-500 rounded-full"></div>
-                                <span className="text-[10px] text-emerald-600 uppercase">Strassen Operation</span>
+                        <!-- Scrollable Description Area -->
+                        <div class="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-900 scrollbar-track-black pr-2">
+                            <div id="mode-desc" class="text-xs text-emerald-100/80 leading-relaxed font-mono space-y-4">
+                                <!-- Populated dynamically -->
                             </div>
-                            <div className="p-3 bg-emerald-900/10 border-l-2 border-emerald-500 text-xs font-mono text-emerald-300">
-                                {currentPath.math}
+                        </div>
+
+                        <div class="mt-4 pt-4 border-t border-emerald-900">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="w-1 h-1 bg-emerald-500 rounded-full"></div>
+                                <span class="text-[10px] text-emerald-600 uppercase">Current Strassen Path</span>
                             </div>
-                            <p className="text-[10px] text-emerald-500/70 italic">{currentPath.desc}</p>
+                            <div class="p-3 bg-emerald-900/10 border-l-2 border-emerald-500 text-xs font-mono text-emerald-300" id="strassen-math">
+                                (A+D)(E+H)
+                            </div>
+                            <p class="text-[10px] text-emerald-500/70 italic mt-1" id="strassen-desc">Recursive step.</p>
                         </div>
                     </div>
 
-                    {/* Telemetry */}
-                    <div className="bg-black border border-emerald-900 p-4 rounded h-48">
-                        <h3 className="text-[10px] font-bold text-emerald-600 uppercase mb-3">System Telemetry</h3>
-                        <div className="space-y-2 font-mono text-[10px]">
-                            <div className="flex justify-between">
-                                <span className="text-emerald-700">Throughput</span>
-                                <span className="text-emerald-300">{(parallelCount * 2.4).toFixed(1)} TB/s</span>
+                    <!-- Telemetry -->
+                    <div class="bg-black border border-emerald-900 p-4 rounded h-48">
+                        <h3 class="text-[10px] font-bold text-emerald-600 uppercase mb-3">System Telemetry</h3>
+                        <div class="space-y-2 font-mono text-[10px]">
+                            <div class="flex justify-between">
+                                <span class="text-emerald-700">Throughput</span>
+                                <span class="text-emerald-300" id="tele-throughput">2.4 TB/s</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-emerald-700">Latency</span>
-                                <span className="text-emerald-300">{details.latency || 'Unknown'}</span>
+                            <div class="flex justify-between">
+                                <span class="text-emerald-700">Latency</span>
+                                <span class="text-emerald-300" id="tele-latency">Unknown</span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-emerald-700">Sync Status</span>
-                                <span className="text-emerald-400 animate-pulse">LOCKED [720]</span>
+                            <div class="flex justify-between">
+                                <span class="text-emerald-700">Sync Status</span>
+                                <span class="text-emerald-400 animate-pulse">LOCKED [720]</span>
                             </div>
-                            <div className="mt-4 pt-2 border-t border-emerald-900/50 text-emerald-800">
+                            <div class="mt-4 pt-2 border-t border-emerald-900/50 text-emerald-800">
                                 &gt; Initiating handshake... OK<br/>
                                 &gt; Verifying manifold topology... OK<br/>
                                 &gt; Kernel injection active.
@@ -812,10 +203,556 @@ export default function StrassenLoopspaceWalkthrough() {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
-      </main>
-    </div>
-  );
-}
+    </main>
+
+    <script>
+        // --- CONSTANTS & CONFIG ---
+        const PI = Math.PI;
+        const TAU = 2 * PI;
+        const CYCLE_FRAMES = 720;
+        
+        // --- STATE ---
+        let state = {
+            mode: 'BIOCHAIN',
+            path: 'M1',
+            time: 0,
+            cyclePhase: 0,
+            parallelCount: 1,
+            isPlaying: true,
+            partition: 'NONE',
+            showNodes: false,
+            packetsPerCycle: 72
+        };
+
+        // --- DATA DEFS ---
+        const PACKET_DETAILS = {
+            'STANDARD': { 
+                title: 'Standard Packet', 
+                streams: 16, 
+                scaling: 'Linear O(N)', 
+                loopspace: 'L1: Adjacent Homology',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> The 64-bit Einstein Tile is mapped linearly to the manifold. Rows 0 & 7 (Halo) define the boundary conditions, while the Core (R2-R5) carries the payload.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> The trajectory is defined by $r(t) \\in \\mathbb{R}^3$. Short-circuit logic is enabled via Euclidean distance checks: if $\\|r(t_i) - r(t_j)\\| < \\epsilon$, a tunneling event occurs, allowing $O(1)$ transfer between windings.</div>
+                `
+            },
+            'HOLOGRAPHIC': { 
+                title: 'Holographic Packet', 
+                streams: 24, 
+                scaling: 'Logarithmic O(log N)', 
+                loopspace: 'L2: Conjugate Cycles',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> The kernel is split into two 32-bit streams: Real ($R$) and Imaginary ($I$). These are projected onto antipodal points of a nested Clifford Torus to generate interference patterns.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> The projection follows the map $\\psi: \\mathbb{C}^2 \\to S^2$. The interference intensity is given by $I = |A_R + A_I|^2$, where constructive interference indicates valid data and destructive indicates noise.</div>
+                `
+            },
+            'COSMO_KEY': { 
+                title: 'Cosmohedra Packet', 
+                streams: 24, 
+                scaling: 'Factorial O(N!)', 
+                loopspace: 'L0-L3: Full Stack',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> Implements a 4-layer nested hierarchy ($L_0$ to $L_3$). The bit-stream defines the vertices of a hyper-dimensional Cosmohedron.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> Data is encoded into the coefficients of a quaternion $q = w + xi + yj + zk$. 'Shaving' parameters $\\delta$ modify the polytope facets, effectively storing data in the geometric inequalities of the shape.</div>
+                `
+            },
+            'LOOPSPACE': { 
+                title: 'High-Precision', 
+                streams: 1, 
+                scaling: 'Infinite', 
+                loopspace: 'L2: Coefficient Map',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> Treats the packet not as discrete bits but as coefficients for a continuous wave function. High-precision floating-point values are derived from bit clusters.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> The state is a path $\\gamma$ in the loop space $\\Omega T^3$. Addresses are defined by homotopy classes $[\\gamma]$, ensuring collision-free hashing via topological invariants.</div>
+                `
+            },
+            'STOCHASTIC': { 
+                title: 'Open Stochastic', 
+                streams: 16, 
+                scaling: 'Probabilistic', 
+                loopspace: 'L1: Entropy Field',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> Intentionally injects geometric noise to maintain system entropy and prevent crystallization (model collapse). Used for random number generation and cryptographic seeding.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> The path is perturbed: $r'(t) = r(t) + \\xi(t)$, where $\\xi(t)$ is a bounded stochastic term. Validity is checked against the Strassen invariant $S_{inv}$ to ensure the noise doesn't break the logical topology.</div>
+                `
+            },
+            'BIOCHAIN': { 
+                title: 'BioChain (HyperSim)', 
+                streams: 12, 
+                scaling: 'Fractal (Breathing)', 
+                loopspace: 'Hopf Fibration',
+                desc: `
+                    <div class="mb-2"><strong class="text-emerald-400">LOGIC:</strong> Specialized for biological simulation. Uses a (4,9) Torus Knot topology which naturally creates a 'breathing' manifold suitable for protein folding or organic data simulation.</div>
+                    <div><strong class="text-emerald-400">MATH:</strong> Parametric equation: $x = (R + r\\cos(9t))\\cos(4t)$, $y = (R + r\\cos(9t))\\sin(4t)$, $z = r\\sin(9t)$. The 720-frame cycle acts as a temporal container, allowing the simulation of dynamic states (expansion/contraction) within a closed system.</div>
+                `
+            }
+        };
+
+        const STRASSEN_PATHS = [
+            { id: 'M1', name: 'Core Cycle', math: '(A+D)(E+H)', desc: 'Recursive step.' },
+            { id: 'M2', name: 'Lower Halo', math: '(C+D)E', desc: 'Lower interaction.' },
+            { id: 'M3', name: 'Upper Halo', math: 'A(F-H)', desc: 'Upper processing.' },
+            { id: 'M4', name: 'Diagonal Twist', math: 'D(G-E)', desc: 'Stream crossing.' },
+            { id: 'M5', name: 'Parity Mixing', math: '(A+B)H', desc: 'Entropy injection.' },
+            { id: 'M6', name: 'Shaving A', math: '(C+D)(E-G)', desc: 'Submodular check.' },
+            { id: 'M7', name: 'Shaving B', math: '(B-D)(G+H)', desc: 'Unitarity correction.' },
+        ];
+
+        // --- 3D MATH HELPERS ---
+        const getTrefoilPoint = (t, radius = 2.5, tubeRadius = 0.5, offsetPhase = 0, layer = 0, isInverse = false, noiseLevel = 0) => {
+            let x = Math.sin(t) + 2 * Math.sin(2 * t);
+            let y = Math.cos(t) - 2 * Math.cos(2 * t);
+            let z = -Math.sin(3 * t);
+            if (noiseLevel > 0) { x += (Math.random()-0.5)*noiseLevel; y += (Math.random()-0.5)*noiseLevel; z += (Math.random()-0.5)*noiseLevel; }
+            const p = new THREE.Vector3(x * radius, y * radius, z * radius);
+            const t_next = t + 0.01;
+            const x_n = Math.sin(t_next) + 2 * Math.sin(2 * t_next);
+            const y_n = Math.cos(t_next) - 2 * Math.cos(2 * t_next);
+            const z_n = -Math.sin(3 * t_next);
+            const p_next = new THREE.Vector3(x_n * radius, y_n * radius, z_n * radius);
+            const T = new THREE.Vector3().subVectors(p_next, p).normalize();
+            const N = new THREE.Vector3().crossVectors(T, new THREE.Vector3(0,0,1)).normalize();
+            const B = new THREE.Vector3().crossVectors(T, N).normalize();
+            const twist = 2 * t + offsetPhase;
+            let layerOffset = 0;
+            if (layer === 1) layerOffset = tubeRadius;
+            if (layer === 2) layerOffset = tubeRadius * 1.5;
+            if (layer === 3) layerOffset = tubeRadius * 2.2;
+            const finalTwist = isInverse ? twist + PI : twist;
+            const N_rot = N.clone().multiplyScalar(Math.cos(finalTwist)).add(B.clone().multiplyScalar(Math.sin(finalTwist)));
+            if (layer === 0) return p;
+            return p.add(N_rot.multiplyScalar(layerOffset));
+        };
+
+        const getBioChainPoint = (t, radius = 2.0, tubeRadius = 0.5, offsetPhase = 0, breathingScale = 1.0) => {
+            const p = 4, q = 9;
+            const r = radius * breathingScale;
+            const R = r * 1.5;
+            const r_tube = r * 0.6;
+            const x = (R + r_tube * Math.cos(q * t)) * Math.cos(p * t);
+            const y = (R + r_tube * Math.cos(q * t)) * Math.sin(p * t);
+            const z = r_tube * Math.sin(q * t);
+            const pos = new THREE.Vector3(x, y, z);
+            const tx = -p*(R + r_tube*Math.cos(q*t))*Math.sin(p*t) - q*r_tube*Math.sin(q*t)*Math.cos(p*t);
+            const ty =  p*(R + r_tube*Math.cos(q*t))*Math.cos(p*t) - q*r_tube*Math.sin(q*t)*Math.sin(p*t);
+            const tz =  q*r_tube*Math.cos(q*t);
+            const T = new THREE.Vector3(tx, ty, tz).normalize();
+            const N = new THREE.Vector3().crossVectors(T, new THREE.Vector3(0,0,1)).normalize();
+            const B = new THREE.Vector3().crossVectors(T, N).normalize();
+            const N_stream = N.clone().multiplyScalar(Math.cos(offsetPhase)).add(B.clone().multiplyScalar(Math.sin(offsetPhase)));
+            return pos.add(N_stream.multiplyScalar(tubeRadius * 0.3));
+        };
+
+        // --- UI INITIALIZATION ---
+        function initUI() {
+            // Mode Buttons
+            const modeContainer = document.getElementById('mode-buttons');
+            Object.keys(PACKET_DETAILS).forEach(mode => {
+                const btn = document.createElement('button');
+                btn.className = `w-full text-left px-3 py-2 rounded-sm text-[10px] font-medium transition-all border border-transparent hover:bg-emerald-900/20 text-emerald-600`;
+                btn.innerText = PACKET_DETAILS[mode].title;
+                btn.onclick = () => setMode(mode);
+                btn.id = `mode-btn-${mode}`;
+                modeContainer.appendChild(btn);
+            });
+
+            // Path Buttons
+            const pathContainer = document.getElementById('path-buttons');
+            STRASSEN_PATHS.forEach(path => {
+                const btn = document.createElement('button');
+                btn.className = `px-2 py-0.5 rounded-sm text-[10px] font-bold border transition-all bg-transparent border-emerald-900 text-emerald-700 hover:text-emerald-500`;
+                btn.innerText = path.id;
+                btn.onclick = () => setPath(path.id);
+                btn.id = `path-btn-${path.id}`;
+                pathContainer.appendChild(btn);
+            });
+
+            // Sliders
+            document.getElementById('parallel-slider').oninput = (e) => {
+                state.parallelCount = parseInt(e.target.value);
+                document.getElementById('parallel-val').innerText = state.parallelCount;
+                updateCoreViz();
+                updateTelemetry();
+                generateSceneGeometry(); // Regenerate 3D for intensity
+            };
+            document.getElementById('packet-slider').oninput = (e) => {
+                state.packetsPerCycle = parseInt(e.target.value);
+                document.getElementById('packet-val').innerText = state.packetsPerCycle;
+                document.getElementById('flow-rate').innerText = `Flow Rate: ${(state.packetsPerCycle/720*100).toFixed(1)}% Saturation`;
+                updateTelemetry();
+                // 3D updates in loop automatically
+            };
+
+            // Init Core Viz
+            updateCoreViz();
+            updateUI();
+        }
+
+        function updateCoreViz() {
+            const container = document.getElementById('core-viz');
+            container.innerHTML = '';
+            for(let i=0; i<64; i++) {
+                const div = document.createElement('div');
+                div.className = `h-1 w-1 rounded-[1px] ${i < state.parallelCount ? 'bg-emerald-500 shadow-[0_0_2px_#10b981]' : 'bg-emerald-900/20'}`;
+                container.appendChild(div);
+            }
+        }
+
+        function updateTelemetry() {
+            document.getElementById('tele-throughput').innerText = (state.parallelCount * 2.4).toFixed(1) + " TB/s";
+            document.getElementById('total-load-disp').innerText = (state.packetsPerCycle * 64 / 8 / 1024).toFixed(3) + " KB";
+        }
+
+        function updateUI() {
+            // Highlight buttons
+            Object.keys(PACKET_DETAILS).forEach(m => {
+                const btn = document.getElementById(`mode-btn-${m}`);
+                if(state.mode === m) btn.className = `w-full text-left px-3 py-2 rounded-sm text-[10px] font-medium transition-all border bg-emerald-900/40 border-emerald-500/50 text-white shadow-[0_0_10px_rgba(16,185,129,0.2)]`;
+                else btn.className = `w-full text-left px-3 py-2 rounded-sm text-[10px] font-medium transition-all border border-transparent hover:bg-emerald-900/20 text-emerald-600`;
+            });
+            STRASSEN_PATHS.forEach(p => {
+                const btn = document.getElementById(`path-btn-${p.id}`);
+                if(state.path === p.id) btn.className = `px-2 py-0.5 rounded-sm text-[10px] font-bold border transition-all bg-emerald-500 text-black border-emerald-400`;
+                else btn.className = `px-2 py-0.5 rounded-sm text-[10px] font-bold border transition-all bg-transparent border-emerald-900 text-emerald-700 hover:text-emerald-500`;
+            });
+
+            // Update Text
+            const details = PACKET_DETAILS[state.mode];
+            const pathInfo = STRASSEN_PATHS.find(p => p.id === state.path);
+            
+            document.getElementById('path-display').innerText = `${pathInfo.id} :: ${pathInfo.name}`;
+            document.getElementById('strassen-math').innerText = pathInfo.math;
+            document.getElementById('strassen-desc').innerText = pathInfo.desc;
+            
+            // Inject Detailed HTML logic
+            const descEl = document.getElementById('mode-desc');
+            descEl.innerHTML = details.desc;
+            // Retrigger MathJax if available
+            if(window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([descEl]);
+            }
+
+            document.getElementById('packet-counter').innerText = `SHD-CCP-${state.packetsPerCycle}/CYCLE`;
+            
+            // Partition buttons
+            ['NONE', '3', '4'].forEach(p => {
+               const btn = document.getElementById(`btn-part-${p.toLowerCase()}`);
+               if(state.partition === p) btn.className = "px-2 py-0.5 text-[9px] rounded-sm bg-emerald-700 text-white";
+               else btn.className = "px-2 py-0.5 text-[9px] rounded-sm text-emerald-500 hover:bg-emerald-900/50";
+            });
+            document.getElementById('active-nodes-disp').innerText = state.partition === 'NONE' ? 0 : state.partition;
+            
+            // Nodes Button
+            const nodeBtn = document.getElementById('btn-nodes');
+            nodeBtn.className = `px-2 py-1 text-[9px] border border-emerald-900 rounded-sm ${state.showNodes ? 'bg-emerald-700 text-white' : 'bg-black/80 text-emerald-500 hover:bg-emerald-900/50'}`;
+
+            // Specs
+            const specsHtml = `
+                <div class="flex justify-between border-b border-emerald-900/30 pb-1"><span class="text-emerald-700">Streams</span><span class="text-emerald-300">${details.streams}</span></div>
+                <div class="flex justify-between border-b border-emerald-900/30 pb-1"><span class="text-emerald-700">Scaling</span><span class="text-emerald-300">${details.scaling}</span></div>
+                <div class="flex justify-between border-b border-emerald-900/30 pb-1"><span class="text-emerald-700">Topology</span><span class="text-emerald-300">${details.loopspace}</span></div>
+                <div class="pt-2 flex justify-between items-center"><span class="text-emerald-700">Hash</span><span class="bg-emerald-900 text-emerald-400 px-1 rounded">0x${(state.mode.charCodeAt(0)+Math.floor(state.time)).toString(16).toUpperCase()}</span></div>
+            `;
+            document.getElementById('specs-container').innerHTML = specsHtml;
+        }
+
+        // --- GRID VISUALIZER ---
+        function renderGrid() {
+            const container = document.getElementById('kernel-grid');
+            container.innerHTML = '';
+            for(let i=0; i<64; i++) {
+                const r = Math.floor(i/8);
+                const c = i%8;
+                const cell = document.createElement('div');
+                cell.className = "flex items-center justify-center text-[7px] font-mono font-bold transition-all duration-75 grid-cell";
+                
+                let label = '', color = '', textCol = 'text-emerald-500';
+                
+                if (state.mode === 'BIOCHAIN') {
+                    if (r===0) { color = c<4 ? 'bg-emerald-900/30' : 'bg-emerald-900/50'; label = c<4 ? 'T' : 'S'; }
+                    else if (r===1) { color = c<3 ? 'bg-teal-900/40' : (c<6 ? 'bg-cyan-900/40' : 'bg-green-900/40'); label = c<3 ? 'F' : (c<6 ? 'S' : 'P'); }
+                    else if (r===2) { color = 'bg-white'; label = 'w'; textCol='text-black'; }
+                    else if (r===3) { color = 'bg-emerald-600'; label = 'x'; textCol='text-black'; }
+                    else if (r===4) { color = 'bg-teal-600'; label = 'y'; textCol='text-black'; }
+                    else if (r===5) { color = 'bg-cyan-600'; label = 'z'; textCol='text-black'; }
+                    else { color = 'bg-black'; label = '#'; }
+                } 
+                else if (state.mode === 'STANDARD') {
+                    if(r===0) { color='bg-emerald-900'; label='SF'; }
+                    else if(r===7) { color='bg-teal-900'; label='FR'; }
+                    else if(r===1 || r===6) { color='bg-gray-800'; label='PL'; }
+                    else { color='bg-emerald-500'; label='Q'; textCol='text-black'; }
+                }
+                else {
+                    // Fallback generic
+                    const rnd = Math.random();
+                    color = rnd > 0.8 ? 'bg-emerald-500' : 'bg-black';
+                    label = '.';
+                    if(rnd>0.8) textCol='text-black';
+                }
+
+                // Pulse effect
+                const pulse = Math.sin(state.time * 8 + r - c) > 0.2;
+                cell.className += ` ${color} ${textCol}`;
+                cell.style.opacity = pulse ? 1 : 0.3;
+                cell.innerText = label;
+                
+                if(state.mode === 'LOOPSPACE') {
+                    const h = (i/64 * 50 + state.time*100)%50 + 130;
+                    cell.style.backgroundColor = `hsl(${h}, 100%, 30%)`;
+                }
+
+                container.appendChild(cell);
+            }
+            document.getElementById('cycle-id-viz').innerText = `CYCLE_ID: ${Math.floor(state.cyclePhase / 720)} :: PHASE: ${state.cyclePhase % 720}`;
+        }
+
+        // --- THREE.JS LOGIC ---
+        let scene, camera, renderer, group, controls;
+        let packets = [];
+
+        function initThree() {
+            const container = document.getElementById('three-container');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // Grid
+            const grid = new THREE.GridHelper(20, 20, 0x10b981, 0x064e3b);
+            grid.position.y = -4;
+            grid.material.opacity = 0.2;
+            grid.material.transparent = true;
+            scene.add(grid);
+
+            camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 100);
+            camera.position.set(12, 8, 12);
+            camera.lookAt(0,0,0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(w, h);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lights
+            const amb = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(amb);
+            const spot = new THREE.SpotLight(0x10b981, 2);
+            spot.position.set(10, 10, 10);
+            scene.add(spot);
+            const point = new THREE.PointLight(0x34d399, 1, 20);
+            point.position.set(-5, 5, 5);
+            scene.add(point);
+
+            group = new THREE.Group();
+            scene.add(group);
+
+            generateSceneGeometry();
+            requestAnimationFrame(animateThree);
+        }
+
+        function generateSceneGeometry() {
+            // Clear Group
+            while(group.children.length > 0) {
+                const obj = group.children[0];
+                if(obj.geometry) obj.geometry.dispose();
+                if(obj.material) obj.material.dispose();
+                group.remove(obj);
+            }
+            packets = []; // Clear packets ref
+
+            const mode = state.mode;
+            const steps = 150;
+            const intensityScale = 1 + (state.parallelCount / 64);
+            const numSegments = state.partition === 'NONE' ? 1 : (state.partition === '3' ? 3 : 4);
+
+            const addStream = (config) => {
+                const pointsPerSegment = Math.floor(steps / numSegments);
+                
+                for(let s=0; s<numSegments; s++) {
+                    const segmentPoints = [];
+                    const startIdx = s * pointsPerSegment;
+                    const endIdx = (s === numSegments-1) ? steps : (s+1) * pointsPerSegment + 1;
+                    
+                    // Breathing scale calc for geometry generation (static snapshot for now, dynamic in shader usually, but here we regen if mode changes significantly or just animate group)
+                    // Note: For true breathing geometry we'd need to update vertices in animate loop. For optimization, we'll just rotate the group and pulse opacity.
+                    
+                    for(let j=startIdx; j<=endIdx; j++) {
+                        const t = (j/steps) * TAU;
+                        if(mode === 'BIOCHAIN') segmentPoints.push(getBioChainPoint(t, 2.0, 0.5, config.phase, 1.0));
+                        else segmentPoints.push(getTrefoilPoint(t, 2.8, config.radius, config.phase, config.layer, config.isInverse, config.noise));
+                    }
+                    
+                    const path = new THREE.CatmullRomCurve3(segmentPoints);
+                    const geo = new THREE.TubeGeometry(path, Math.floor(100/numSegments), config.thickness, 6, true);
+                    
+                    let col = new THREE.Color(config.color);
+                    if(state.partition !== 'NONE') {
+                        if(s%2===0) col.offsetHSL(0,0,0.2); else col.offsetHSL(0,0,-0.1);
+                    }
+
+                    const mat = new THREE.MeshStandardMaterial({
+                        color: col, transparent: true, opacity: config.opacity * intensityScale,
+                        wireframe: config.wireframe || false, emissive: col, emissiveIntensity: 0.5 * intensityScale
+                    });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    group.add(mesh);
+                }
+            };
+
+            // Mode Logic
+            if(mode === 'BIOCHAIN') {
+                for(let i=0; i<12; i++) {
+                    const hue = 0.3 + (i/24);
+                    const col = new THREE.Color().setHSL(hue, 0.8, 0.5);
+                    addStream({ radius: 0, phase: (i/12)*TAU, color: col, thickness: 0.04, opacity: 0.8 });
+                }
+            } else if (mode === 'STANDARD') {
+                for(let i=0; i<16; i++) addStream({ layer: 1, radius: 0.5, phase: (i/16)*TAU, color: 0x10b981, thickness: 0.03, opacity: 0.8 });
+            } else if (mode === 'HOLOGRAPHIC') {
+                for(let i=0; i<12; i++) addStream({ layer: 2, radius: 0.6, phase: (i/12)*TAU, color: 0x22d3ee, thickness: 0.03, opacity: 0.9 });
+                for(let i=0; i<12; i++) addStream({ layer: 2, radius: 0.6, phase: (i/12)*TAU, color: 0xa855f7, thickness: 0.02, opacity: 0.5, isInverse: true, wireframe: true });
+            } else if (mode === 'COSMO_KEY') {
+                addStream({ layer: 0, radius: 0, phase: 0, color: 0xfacc15, thickness: 0.08, opacity: 1.0 });
+                for(let i=0; i<6; i++) addStream({ layer: 1, radius: 0.4, phase: (i/6)*TAU, color: 0xffffff, thickness: 0.04, opacity: 0.8 });
+                for(let i=0; i<8; i++) addStream({ layer: 2, radius: 0.6, phase: (i/8)*TAU+0.1, color: 0xdc2626, thickness: 0.03, opacity: 0.6 });
+            } else if (mode === 'LOOPSPACE') {
+                addStream({ layer: 2, radius: 0.7, phase: 0, color: 0x34d399, thickness: 0.15, opacity: 0.7 });
+            } else if (mode === 'STOCHASTIC') {
+                for(let i=0; i<16; i++) addStream({ layer: 1, radius: 0.5, phase: (i/16)*TAU, color: 0xffffff, thickness: 0.02, opacity: 0.5, noise: 0.15 });
+            }
+
+            // Standard Ring Decoration for non-BioChain
+            if(mode !== 'BIOCHAIN') {
+                for(let k=0; k<7; k++) {
+                    const t = (k/7)*TAU;
+                    const pos = getTrefoilPoint(t, 2.8);
+                    const ringGeo = new THREE.TorusGeometry(0.8, 0.02, 8, 24);
+                    const ringMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+                    const ring = new THREE.Mesh(ringGeo, ringMat);
+                    ring.position.copy(pos);
+                    ring.lookAt(0,0,0);
+                    group.add(ring);
+                }
+            }
+
+            // Nodes
+            if(state.showNodes) {
+                const nodeCount = state.partition === 'NONE' ? 3 : parseInt(state.partition);
+                for(let i=0; i<nodeCount; i++) {
+                    const t = (i/nodeCount) * TAU;
+                    const pos = mode === 'BIOCHAIN' ? getBioChainPoint(t, 2.0, 0, 0, 1.0) : getTrefoilPoint(t, 2.8);
+                    const geo = new THREE.OctahedronGeometry(0.6, 0);
+                    const mat = new THREE.MeshStandardMaterial({ color: 0xff00ff, emissive: 0xff00ff, emissiveIntensity: 0.8, wireframe: true });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.copy(pos);
+                    group.add(mesh);
+                }
+            }
+
+            // Prepare Packets Pool
+            // We create maximum potential packets and toggle visibility in loop
+            const maxPackets = 144; 
+            const pGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+            const pMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            for(let i=0; i<maxPackets; i++) {
+                const mesh = new THREE.Mesh(pGeo, pMat);
+                mesh.visible = false;
+                group.add(mesh);
+                packets.push(mesh);
+            }
+        }
+
+        function animateThree() {
+            requestAnimationFrame(animateThree);
+            controls.update();
+            
+            if(state.isPlaying) {
+                state.time += 0.01;
+                state.cyclePhase++;
+                
+                // Rotate Group
+                group.rotation.y += 0.002;
+                if(state.mode === 'BIOCHAIN') group.rotation.x += 0.001;
+                else group.rotation.z = Math.sin(state.time * 0.5) * 0.1;
+
+                // Update UI Display tied to loop
+                document.getElementById('cycle-display').innerText = `CYCLE: ${Math.floor(state.cyclePhase/720)} | FRAME: ${state.cyclePhase % 720}`;
+                if(state.cyclePhase % 4 === 0) renderGrid(); // Throttled grid update
+            }
+
+            // Update Packets
+            const currentFrame = state.cyclePhase % 720;
+            const count = state.packetsPerCycle;
+            
+            packets.forEach((p, idx) => {
+                if(idx < count) {
+                    p.visible = true;
+                    // Phase logic
+                    const packetPhase = (idx / count) + (currentFrame / 720);
+                    const t = (packetPhase % 1.0) * TAU;
+                    
+                    // Recalculate breathing for BioChain
+                    const phaseNorm = (currentFrame) / 720;
+                    const breath = state.mode === 'BIOCHAIN' ? 1.0 + 0.3*Math.sin(phaseNorm*TAU) : 1.0;
+                    
+                    const pos = state.mode === 'BIOCHAIN' ? 
+                        getBioChainPoint(t, 2.0, 0.8, 0, breath) : 
+                        getTrefoilPoint(t, 2.8, 0.8, 0, 0);
+                    
+                    p.position.copy(pos);
+                    p.lookAt(0,0,0);
+                } else {
+                    p.visible = false;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // --- ACTIONS ---
+        function setMode(m) { state.mode = m; updateUI(); generateSceneGeometry(); }
+        function setPath(p) { state.path = p; updateUI(); }
+        function setPartition(p) { state.partition = p; updateUI(); generateSceneGeometry(); }
+        function toggleNodes() { state.showNodes = !state.showNodes; updateUI(); generateSceneGeometry(); }
+        function togglePlay() { 
+            state.isPlaying = !state.isPlaying; 
+            document.getElementById('play-btn').innerText = state.isPlaying ? '||' : '▶'; 
+        }
+        function stopPlayback() { 
+            state.isPlaying = false; 
+            state.time = 0; 
+            state.cyclePhase = 0; 
+            document.getElementById('play-btn').innerText = '▶';
+            group.rotation.set(0,0,0);
+        }
+        function jumpCycle(dir) {
+            let c = state.cyclePhase;
+            c = dir === 1 ? Math.ceil(c/720)*720 + 720 : Math.floor(c/720)*720 - 720;
+            if(c<0) c=0;
+            state.cyclePhase = c;
+        }
+
+        // --- BOOTSTRAP ---
+        initUI();
+        initThree();
+        
+        // Window Resize
+        window.addEventListener('resize', () => {
+            const container = document.getElementById('three-container');
+            if(container && camera && renderer) {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+        });
+
+    </script>
+</body>
+</html>
