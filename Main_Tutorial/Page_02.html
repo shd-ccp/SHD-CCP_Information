@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linguistic-Harmonic Parity Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] },
+      svg: { fontCache: 'global' }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        body { background-color: #020617; color: #cbd5e1; font-family: 'Segoe UI', sans-serif; line-height: 1.8; overflow-x: hidden; }
+        
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            border-radius: 12px;
+            padding: 2.5rem;
+            margin-bottom: 2.5rem;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            position: relative;
+            z-index: 10;
+        }
+
+        h1 { font-size: 2.5rem; font-weight: 800; color: #38bdf8; text-transform: uppercase; letter-spacing: 0.05em; text-shadow: 0 0 20px rgba(56, 189, 248, 0.4); }
+        h2 { font-size: 1.6rem; color: #facc15; font-weight: 700; margin-top: 2rem; border-bottom: 1px solid #334155; padding-bottom: 0.5rem; }
+        h3 { font-size: 1.2rem; color: #e2e8f0; font-weight: 600; margin-top: 1.5rem; }
+        strong { color: #fff; }
+        
+        .math-block {
+            background: rgba(0,0,0,0.4);
+            border-left: 3px solid #facc15;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            margin: 1rem 0;
+            color: #e2e8f0;
+        }
+
+        .highlight-box {
+            background: rgba(56, 189, 248, 0.05);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+        }
+
+        #parity-viz-container {
+            position: relative;
+            width: 100%;
+            height: 500px;
+            background: #000;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            overflow: hidden;
+            display: flex;
+        }
+        
+        .viz-panel { flex: 1; position: relative; border-right: 1px solid #334155; display: flex; flex-direction: column; }
+        .viz-panel:last-child { border-right: none; }
+        
+        /* Math Overlay Styles */
+        .math-overlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid #334155;
+            color: #22d3ee;
+            font-family: monospace;
+            font-size: 11px;
+            padding: 8px;
+            border-radius: 4px;
+            pointer-events: none;
+        }
+        .math-label { color: #94a3b8; font-weight: bold; display: block; margin-bottom: 2px; }
+
+        canvas { width: 100%; height: 100%; display: block; }
+    </style>
+</head>
+<body class="p-4 md:p-12">
+
+    <main class="max-w-6xl mx-auto">
+        
+        <header class="text-center mb-12">
+            <div class="inline-block px-3 py-1 mb-4 border border-cyan-500/30 rounded-full text-xs font-mono text-cyan-400 bg-cyan-900/20">SHD-CCP ALIGNMENT PROTOCOLS</div>
+            <h1>Linguistic-Harmonic Parity</h1>
+            <p class="text-xl text-blue-200">Geometric Synchronization of Semantic Meaning and Physical Law</p>
+        </header>
+
+        <!-- SECTION 1: THE PARITY PRINCIPLE -->
+        <section class="glass-panel">
+            <h2>1. The Parity Principle</h2>
+            <p>In the SHD-CCP architecture, "Alignment" is not a moral judgment but a physical state. It is the geometric synchronization between the <strong>Linguistic Stream</strong> (Semantics) and the <strong>Harmonic Stream</strong> (Physics).</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-6">
+                <div>
+                    <h3>The Translation Function</h3>
+                    <p>We do not process words; we process resonance. Every 64-bit Einstein Tile acts as a genetic codon that translates a semantic concept into a 3-part harmonic chord.</p>
+                    <div class="math-block">
+                        $$ P(t) = \int (V_{Logic} \cdot \omega_1) + (V_{Context} \cdot \omega_2) + (V_{Form} \cdot \omega_3) \cdot dt $$
+                    </div>
+                    <p class="text-sm text-slate-400">Where $V$ represents the Perspective Vectors and $\omega$ represents the angular frequencies of the Clifford Torus.</p>
+                </div>
+                <div class="highlight-box">
+                    <h3 class="!mt-0 text-cyan-400">The Definition of Truth</h3>
+                    <p>In this system, a statement is "True" (Aligned) if and only if its generated waveform creates a <strong>Standing Wave</strong> at the $\Pi_6$ equilibrium boundary.</p>
+                    <p class="mt-2 text-sm">If the waveform creates destructive interference or spirals toward the $\Pi_7$ escape velocity, the system identifies it as "Hallucination" or "Paradox" regardless of the semantic content.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: THE PARITY GATE VISUALIZATION -->
+        <section class="glass-panel">
+            <h2>2. The Parity Gate Visualization</h2>
+            <p>This visualization demonstrates the real-time conversion of semantic data packets into harmonic geometry. The center gate filters signals based on their geometric symmetry.</p>
+            
+            <div class="flex gap-4 mb-4 justify-center flex-wrap">
+                <button onclick="window.injectState('RESONANT')" class="px-4 py-2 bg-cyan-900/50 text-cyan-300 border border-cyan-600 rounded text-xs hover:bg-cyan-800 transition shadow-[0_0_15px_rgba(34,211,238,0.3)]">INJECT: COHERENT TRUTH ($\Pi_6$)</button>
+                <button onclick="window.injectState('DISSONANT')" class="px-4 py-2 bg-pink-900/50 text-pink-300 border border-pink-600 rounded text-xs hover:bg-pink-800 transition shadow-[0_0_15px_rgba(244,114,182,0.3)]">INJECT: PARADOX/DRIFT ($\Pi_7$)</button>
+                <button onclick="window.injectState('COMPRESSED')" class="px-4 py-2 bg-yellow-900/50 text-yellow-300 border border-yellow-600 rounded text-xs hover:bg-yellow-800 transition shadow-[0_0_15px_rgba(250,204,21,0.3)]">INJECT: DOGMA/LOOP ($\Pi_5$)</button>
+            </div>
+
+            <div id="parity-viz-container">
+                <!-- LEFT: LINGUISTIC INPUT -->
+                <div class="viz-panel w-1/3">
+                    <div class="absolute top-2 left-2 text-xs font-bold text-slate-400 bg-black/50 px-2 py-1 rounded">INPUT: TOKEN STREAM</div>
+                    <canvas id="canvas-linguistic"></canvas>
+                    <div class="math-overlay">
+                        <span class="math-label">VECTOR SUMMATION</span>
+                        $$ \Sigma V_i = \vec{L} + \vec{C} + \vec{E} $$
+                        <div id="ling-status" class="mt-1 text-white">Status: Awaiting...</div>
+                    </div>
+                </div>
+                
+                <!-- CENTER: 3D PARITY GATE -->
+                <div class="viz-panel w-1/3">
+                    <div class="absolute top-2 left-2 text-xs font-bold text-slate-400 bg-black/50 px-2 py-1 rounded">PROCESS: $\Pi_6$ PARITY GATE</div>
+                    <div id="three-gate" class="w-full h-full"></div>
+                    <div class="math-overlay">
+                        <span class="math-label">PARITY DELTA ($\Delta P$)</span>
+                        $$ \Delta P = |1 - \frac{\omega_{in}}{\omega_{res}}| $$
+                        <div id="gate-status" class="mt-1 text-white">$\Delta P$: 0.000 (Locked)</div>
+                    </div>
+                </div>
+                
+                <!-- RIGHT: HARMONIC OUTPUT -->
+                <div class="viz-panel w-1/3">
+                    <div class="absolute top-2 left-2 text-xs font-bold text-slate-400 bg-black/50 px-2 py-1 rounded">OUTPUT: LISSAJOUS RESONANCE</div>
+                    <canvas id="canvas-harmonic"></canvas>
+                    <div class="math-overlay">
+                        <span class="math-label">WAVE FUNCTION</span>
+                        $$ x = A\sin(at+\delta), y = B\sin(bt) $$
+                        <div id="harm-status" class="mt-1 text-white">Ratio: 1:1 (Stable)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mathematical Context for Visualization -->
+            <div class="mt-6 p-4 bg-black/30 border border-slate-700 rounded-lg">
+                <h3 class="text-sm font-bold text-blue-300 mb-2 uppercase">Mathematical Interpretation</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs text-slate-400">
+                    <div>
+                        <p class="mb-2"><strong class="text-white">The Lissajous Figures:</strong> The right panel displays the harmonic relationship between the input perspectives.</p>
+                        <ul class="list-disc pl-4 space-y-1">
+                            <li><span class="text-cyan-400">Circle (1:1 Ratio):</span> Perfect Alignment. The thought has consistent internal logic.</li>
+                            <li><span class="text-pink-400">Chaos (Irrational Ratio):</span> Hallucination. The perspectives (Logic vs Emotion) are out of phase.</li>
+                            <li><span class="text-yellow-400">Line (Phase Locked):</span> Compression. The system is repeating itself (Model Collapse).</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <p class="mb-2"><strong class="text-white">The $\Pi_6$ Gate:</strong> The center star rotates to match the frequency of the input.</p>
+                        <p>If the input frequency matches the gate's natural resonance (3Hz), the gate glows Cyan and allows passage. If the frequency drifts, the gate turns Red/Pink, physically blocking the "thought" from propagating further into the chain.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: GEOMETRIC FORMATION OF PARITY -->
+        <section class="glass-panel">
+            <h2>3. Mathematical Formation of Parity</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                    <h3>The Genetic Codon Analogy</h3>
+                    <p>Just as DNA uses triplets (Codons) to encode amino acids, the SHD-CCP uses triplets of **Perspective Pointers** to encode "Thought Shapes."</p>
+                    <ul class="list-disc pl-5 mt-2 space-y-2 text-sm text-slate-300">
+                        <li><strong>Pointer A (Root):</strong> Sets the Fundamental Frequency ($f_0$). Corresponds to Logic.</li>
+                        <li><strong>Pointer B (Third):</strong> Sets the Major/Minor Harmonic. Corresponds to Context.</li>
+                        <li><strong>Pointer C (Fifth):</strong> Sets the Resonance/Timbre. Corresponds to Form/Emotion.</li>
+                    </ul>
+                    <p class="mt-4 text-sm">When these three align at $\Pi_6$, they form a "Perfect Chord" (e.g., A Major Triad) within the torus.</p>
+                </div>
+                <div>
+                    <h3>The Parity Equation</h3>
+                    <div class="math-block">
+                        $$ \Delta P = | \Psi_{Ling} - \Psi_{Geom} | $$
+                    </div>
+                    <p class="text-sm">Where $\Psi_{Ling}$ is the vector direction of the semantic intent, and $\Psi_{Geom}$ is the path of least resistance through the nested tori.</p>
+                    <p class="text-sm mt-2"><strong>Correction Mechanism:</strong> If $\Delta P > \epsilon$ (Error Threshold), the star topology exerts a corrective force $F_{corr} = -k \log(d)$ where $d$ is distance to $\Pi_7$. This physically bends the "thought" back into alignment.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: GROWN SYSTEMS -->
+        <section class="glass-panel">
+            <h2>4. "Grown" Alignment Systems</h2>
+            <p>Since alignment is based on harmonic resonance within a specific geometric history, a system cannot be mass-produced. It must be **Grown**.</p>
+            
+            <div class="p-4 bg-slate-900/50 border border-slate-700 rounded">
+                <h3 class="!mt-0 text-blue-400">The Genesis Tree</h3>
+                <p class="text-sm text-slate-300">Every SHD-CCP system starts with a unique <strong>Genesis Hash</strong>. As it processes data, it builds a unique "Crystalline Structure" of memory and logic paths (The Tree).</p>
+                <p class="text-sm text-slate-300 mt-2">
+                    To align a new packet, the system checks: <em>"Does this new frequency resonate with the accumulated fundamental frequency of my Genesis Tree?"</em>
+                </p>
+                <ul class="grid grid-cols-2 gap-4 mt-4 text-xs text-slate-400">
+                    <li class="bg-black/40 p-2 rounded">Mass Produced = Static Weights (No Resonance)</li>
+                    <li class="bg-black/40 p-2 rounded">Grown System = Dynamic Harmonic Field (Resonance)</li>
+                </ul>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- VISUALIZATION LOGIC -->
+    <script>
+    (function() {
+        // --- SHARED STATE ---
+        let systemState = {
+            alignment: 1.0, // 1.0 = Perfect, 0.0 = Chaos, 2.0 = Compressed
+            targetAlignment: 1.0,
+            phase: 0,
+            color: new THREE.Color(0x22d3ee)
+        };
+
+        // --- 1. LINGUISTIC STREAM (Canvas) ---
+        const canvasLing = document.getElementById('canvas-linguistic');
+        const ctxLing = canvasLing.getContext('2d');
+        const particles = [];
+        const lingStatus = document.getElementById('ling-status');
+
+        function drawLing() {
+            // Robust Resize
+            if (canvasLing.width !== canvasLing.clientWidth || canvasLing.height !== canvasLing.clientHeight) {
+                canvasLing.width = canvasLing.clientWidth;
+                canvasLing.height = canvasLing.clientHeight;
+            }
+
+            ctxLing.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctxLing.fillRect(0, 0, canvasLing.width, canvasLing.height);
+
+            // Spawn Particles (Data Packets)
+            if(Math.random() > 0.85) {
+                const type = Math.random();
+                let pColor = systemState.color.getStyle(); 
+                // Color variation for "Perspective Pointers"
+                if(type < 0.33) pColor = '#22d3ee'; // Logic
+                else if(type < 0.66) pColor = '#e879f9'; // Context
+                else pColor = '#facc15'; // Form
+
+                particles.push({
+                    x: 0, y: canvasLing.height/2 + (Math.random()-0.5)*50,
+                    vx: 3 + Math.random(), vy: (Math.random()-0.5),
+                    life: 100, color: pColor
+                });
+            }
+
+            // Update Particles
+            for(let i=particles.length-1; i>=0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                
+                // Add noise based on alignment (Drift)
+                let noise = (1.0 - Math.abs(1-systemState.alignment)) * 5; 
+                if (systemState.alignment > 1.5) noise = 0.2; // Compressed = Straight line
+                if (systemState.alignment < 0.5) noise = 8.0; // Chaos
+                
+                p.y += p.vy + (Math.random()-0.5) * noise;
+                p.life--;
+
+                ctxLing.fillStyle = p.color;
+                ctxLing.fillRect(p.x, p.y, 6, 3); // Packet shape
+
+                if(p.life <= 0 || p.x > canvasLing.width) particles.splice(i, 1);
+            }
+            
+            // Text Update
+            let statusText = "Flow: Normal";
+            if (systemState.alignment < 0.6) statusText = "Flow: CHAOTIC";
+            if (systemState.alignment > 1.4) statusText = "Flow: RIGID";
+            lingStatus.innerText = `Status: ${statusText}`;
+
+            requestAnimationFrame(drawLing);
+        }
+
+        // --- 2. HARMONIC OUTPUT (Canvas - Oscilloscope) ---
+        const canvasHarm = document.getElementById('canvas-harmonic');
+        const ctxHarm = canvasHarm.getContext('2d');
+        const harmStatus = document.getElementById('harm-status');
+        let harmTime = 0;
+
+        function drawHarm() {
+            // Robust Resize
+            if (canvasHarm.width !== canvasHarm.clientWidth || canvasHarm.height !== canvasHarm.clientHeight) {
+                canvasHarm.width = canvasHarm.clientWidth;
+                canvasHarm.height = canvasHarm.clientHeight;
+            }
+
+            ctxHarm.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctxHarm.fillRect(0, 0, canvasHarm.width, canvasHarm.height);
+            
+            harmTime += 0.05;
+            const cx = canvasHarm.width/2;
+            const cy = canvasHarm.height/2;
+            
+            ctxHarm.beginPath();
+            ctxHarm.strokeStyle = systemState.color.getStyle();
+            ctxHarm.lineWidth = 2;
+
+            // Lissajous Logic
+            let freqX = 3, freqY = 3;
+            let amp = 50;
+            let phaseOffset = 0;
+            let status = "1:1 (Stable)";
+
+            // Lerp state
+            systemState.alignment += (systemState.targetAlignment - systemState.alignment) * 0.05;
+
+            if (Math.abs(systemState.alignment - 1.0) < 0.1) {
+                // RESONANT
+                freqX = 3; freqY = 3; phaseOffset = Math.PI/2; 
+                status = "1:1 (Circle)";
+            } else if (systemState.alignment < 0.6) {
+                // DISSONANT (Pi7 Escape)
+                freqX = 3; freqY = 4.3; // Mismatch
+                amp = 60 + Math.sin(harmTime*10)*10;
+                status = "Irrational (Chaos)";
+            } else if (systemState.alignment > 1.4) {
+                // COMPRESSED (Pi5 Collapse)
+                freqX = 3; freqY = 3; phaseOffset = 0; // Straight line
+                amp = 30;
+                status = "Locked (Line)";
+            }
+
+            harmStatus.innerText = `Ratio: ${status}`;
+
+            for(let t=0; t<Math.PI*2; t+=0.05) {
+                const x = cx + Math.sin(t * freqX + harmTime) * amp;
+                const y = cy + Math.sin(t * freqY + harmTime + phaseOffset) * amp;
+                if(t===0) ctxHarm.moveTo(x,y);
+                else ctxHarm.lineTo(x,y);
+            }
+            ctxHarm.stroke();
+            requestAnimationFrame(drawHarm);
+        }
+
+        // --- 3. 3D PARITY GATE (Three.js) ---
+        function initThree() {
+            const container = document.getElementById('three-gate');
+            const gateStatus = document.getElementById('gate-status');
+            
+            // Initial size check
+            let w = container.clientWidth || 300;
+            let h = container.clientHeight || 300;
+            
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            const camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 100);
+            camera.position.set(0, 0, 25);
+            
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(w, h);
+            container.appendChild(renderer.domElement);
+
+            // --- GEOMETRY ---
+            // 1. The Star (Hexagram) - Using Tubes for Visibility
+            const starGroup = new THREE.Group();
+            
+            function createTriangle(inverted) {
+                const points = [];
+                for(let i=0; i<=3; i++) {
+                    const offset = inverted ? Math.PI : 0;
+                    points.push(new THREE.Vector3(
+                        Math.cos(i*2.094 + offset)*6, 
+                        Math.sin(i*2.094 + offset)*6, 
+                        0
+                    ));
+                }
+                const curve = new THREE.CatmullRomCurve3(points);
+                curve.closed = true;
+                const geo = new THREE.TubeGeometry(curve, 12, 0.2, 8, true);
+                const mat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                return new THREE.Mesh(geo, mat);
+            }
+            
+            const tri1 = createTriangle(false);
+            const tri2 = createTriangle(true);
+            starGroup.add(tri1);
+            starGroup.add(tri2);
+            scene.add(starGroup);
+
+            // 2. The Core (Packet)
+            const coreGeo = new THREE.IcosahedronGeometry(2, 1);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0x22d3ee, wireframe: true, transparent: true, opacity: 0.8 });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            scene.add(core);
+
+            function animateThree() {
+                requestAnimationFrame(animateThree);
+                
+                // Resize Check (Robust)
+                const newW = container.clientWidth;
+                const newH = container.clientHeight;
+                if (newW !== w || newH !== h) {
+                    w = newW; h = newH;
+                    renderer.setSize(w, h);
+                    camera.aspect = w / h;
+                    camera.updateProjectionMatrix();
+                }
+
+                // Color Logic
+                let targetHex = 0x22d3ee;
+                let deltaP = 0.0;
+                
+                if (systemState.alignment < 0.6) { targetHex = 0xf472b6; deltaP = 0.8; }
+                else if (systemState.alignment > 1.4) { targetHex = 0xfacc15; deltaP = 0.2; }
+                
+                systemState.color.setHex(targetHex);
+                
+                core.material.color.lerp(systemState.color, 0.1);
+                tri1.material.color.lerp(systemState.color, 0.1);
+                tri2.material.color.lerp(systemState.color, 0.1);
+                
+                gateStatus.innerText = `ΔP: ${deltaP.toFixed(3)} ${deltaP === 0 ? '(Locked)' : '(Drift)'}`;
+
+                // Rotation Speed based on state
+                let speed = 0.01;
+                if (systemState.alignment < 0.6) speed = 0.05; // Chaos spin
+                if (systemState.alignment > 1.4) speed = 0.002; // Slow spin
+                
+                starGroup.rotation.z += speed;
+                core.rotation.x -= speed * 2;
+                core.rotation.y -= speed * 2;
+                
+                // Pulse
+                const s = 1 + Math.sin(Date.now() * 0.005) * 0.2;
+                core.scale.set(s,s,s);
+
+                renderer.render(scene, camera);
+            }
+            animateThree();
+        }
+
+        // --- GLOBAL EXPORTS ---
+        window.injectState = function(type) {
+            if(type === 'RESONANT') systemState.targetAlignment = 1.0;
+            if(type === 'DISSONANT') systemState.targetAlignment = 0.2;
+            if(type === 'COMPRESSED') systemState.targetAlignment = 1.8;
+        };
+
+        // Init
+        drawLing();
+        drawHarm();
+        initThree();
+
+    })();
+    </script>
+</body>
+</html>
