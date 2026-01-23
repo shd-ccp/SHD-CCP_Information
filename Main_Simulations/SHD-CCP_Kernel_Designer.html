@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Einstein Packet Multi-Core Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827;
+            color: #e5e7eb;
+        }
+        .scroll-panel::-webkit-scrollbar { width: 8px; }
+        .scroll-panel::-webkit-scrollbar-track { background: #374151; }
+        .scroll-panel::-webkit-scrollbar-thumb { background-color: #4f46e5; border-radius: 10px; border: 2px solid #374151; }
+        .btn { @apply w-full bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-indigo-500 transition-colors duration-300; }
+        .tab { @apply px-4 py-2 text-sm font-medium text-gray-400 rounded-t-lg cursor-pointer hover:bg-gray-700 hover:text-gray-200; }
+        .tab.active { @apply bg-gray-700 text-white; }
+        #cores-container {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            grid-template-rows: repeat(3, minmax(0, 1fr)); /* Ensures a 3x3 grid */
+        }
+        #cores-container > div { @apply border-2 border-gray-700 transition-all relative overflow-hidden; }
+        #cores-container > div.active-core-view { @apply border-cyan-500; }
+        #initial-state-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+        #initial-state-grid > div { width: 100%; padding-bottom: 100%; background-color: #374151; cursor: pointer; transition: background-color 0.2s; border: 1px solid #4b5563; }
+        #field-selector .field-item.selected { @apply ring-2 ring-offset-2 ring-offset-gray-700 ring-white; }
+        .core-select-grid > div { @apply w-8 h-8 bg-gray-600 cursor-pointer hover:bg-gray-500 transition-colors; }
+        .core-select-grid > div.active { @apply bg-cyan-500 ring-2 ring-offset-2 ring-offset-gray-800 ring-cyan-400; }
+        .view-tab { @apply flex-1 text-center font-medium py-2 px-4 cursor-pointer rounded-md transition-colors; }
+        .view-tab.active { @apply bg-indigo-600 text-white; }
+        .view-tab:not(.active) { @apply text-gray-400 hover:bg-gray-700; }
+        .chevron-icon.rotated { transform: rotate-180deg; }
+        .analysis-metric { @apply flex justify-between text-xs mb-1; }
+        .analysis-bar-bg { @apply w-full h-2 bg-gray-700 rounded-full overflow-hidden; }
+        .analysis-bar-fill { @apply h-full bg-cyan-500 transition-all duration-500; }
+    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="overflow-hidden">
+
+    <!-- 3D View Container -->
+    <div id="simulation-container" class="fixed top-0 left-0 w-full h-full"></div>
+    
+    <!-- 2D View Container (now full-screen and hidden by default) -->
+    <div id="2d-view-container" class="fixed top-0 left-0 w-full h-full p-4 hidden">
+        <h4 class="text-white text-lg font-bold absolute top-2 left-3 z-10">Live Multi-Core State (L-Click Drag to Pan, Scroll to Zoom)</h4>
+        <!-- Single canvas for all 2D cores -->
+        <div id="cores-container" class="w-full h-full"></div>
+    </div>
+
+    <!-- Panel Toggle Button -->
+    <button id="panel-toggle-btn" class="fixed top-4 left-4 z-50 bg-indigo-600 p-2 rounded-md text-white shadow-lg transition-transform duration-300 ease-in-out">
+        <svg id="toggle-icon-open" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        <svg id="toggle-icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+    </button>
+
+    <!-- Control Panel -->
+    <div id="control-panel" class="fixed top-0 left-0 p-4 md:p-6 w-full md:w-96 h-full flex flex-col transition-transform duration-300 ease-in-out">
+        <div class="bg-gray-800 bg-opacity-95 backdrop-blur-md rounded-xl shadow-2xl p-4 flex-grow flex flex-col max-h-full overflow-y-auto scroll-panel">
+            <header class="border-b border-gray-600 pb-3 mb-4 flex-shrink-0">
+                <h1 class="text-2xl font-bold text-white">Einstein Packet Sim</h1>
+                <p class="text-sm text-gray-400">Multi-Core Tiling Explorer</p>
+            </header>
+
+            <!-- Tab Navigation (Moved to Top) -->
+            <div class="border-b border-gray-600 flex-shrink-0 mb-4">
+                <nav class="-mb-px flex space-x-2" aria-label="Tabs">
+                    <button id="tab-state" class="tab active" data-tab="state">State Editor</button>
+                    <button id="tab-config" class="tab" data-tab="config">Configuration</button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="flex-grow min-h-0 relative mb-4">
+                 <div id="tab-content-state" class="scroll-panel absolute inset-0 overflow-y-auto pr-2">
+                    <h3 class="font-semibold text-lg mb-2">Active Core Bit-Field</h3>
+                    <p class="text-xs text-gray-400 mb-4">Click to toggle bits on/off. Use Config tab to set field roles.</p>
+                    <div id="initial-state-grid" class="mb-6"></div>
+                    
+                    <h3 class="font-semibold text-lg mb-2">Field Mapper</h3>
+                    <p class="text-xs text-gray-400 mb-4">Select a field to paint onto the grid.</p>
+                    <div id="field-selector" class="space-y-2"></div>
+                </div>
+                
+                <div id="tab-content-config" class="hidden scroll-panel absolute inset-0 overflow-y-auto pr-2">
+                     <h3 class="font-semibold text-lg mb-2">Simulation Method</h3>
+                     <select id="transmission-method" class="w-full bg-gray-700 text-white rounded-md p-2 mb-4 text-sm">
+                        <option value="einstein">Einstein Default (B3/S23 + Field Weights)</option>
+                        <option value="conway">Conway's Life (B3/S23)</option>
+                     </select>
+                     
+                     <h3 class="font-semibold text-lg mb-2">Packet Optimization Targets</h3>
+                     <p class="text-xs text-gray-400 mb-2">Define the hardware role for each field to drive the Auto-Populate algorithm.</p>
+                     <div id="field-config-list" class="space-y-2 mb-6">
+                         <!-- Injected by JS -->
+                     </div>
+
+                     <h3 class="font-semibold text-lg mb-2">CuTile Analysis</h3>
+                     <div class="bg-gray-900 rounded-lg p-3 mb-6 border border-gray-700">
+                        <div class="analysis-metric">
+                            <span>Halo Utilization (DSMEM)</span>
+                            <span id="metric-halo" class="font-mono text-cyan-400">0%</span>
+                        </div>
+                        <div class="analysis-bar-bg mb-2"><div id="bar-halo" class="analysis-bar-fill" style="width: 0%"></div></div>
+                        
+                        <div class="analysis-metric">
+                            <span>TMA Contiguity Score</span>
+                            <span id="metric-tma" class="font-mono text-pink-400">0%</span>
+                        </div>
+                        <div class="analysis-bar-bg mb-2"><div id="bar-tma" class="analysis-bar-fill bg-pink-500" style="width: 0%"></div></div>
+                        
+                        <div class="text-xs text-gray-500 mt-2 italic" id="analysis-status">Ready for optimization.</div>
+                     </div>
+                     
+                     <h3 class="font-semibold text-lg mb-2">Layout Tools</h3>
+                     <div class="grid grid-cols-2 gap-2 mb-6">
+                        <button id="auto-populate-btn" class="btn bg-cyan-600 hover:bg-cyan-700">Auto-Populate (DP)</button>
+                        <button id="clear-mapping-btn" class="btn bg-gray-600 hover:bg-gray-700">Clear Mapping</button>
+                     </div>
+                     
+                     <h3 class="font-semibold text-lg mb-2">Core State Tools</h3>
+                     <div class="grid grid-cols-2 gap-2">
+                        <button id="copy-state-btn" class="btn bg-teal-600 hover:bg-teal-700">Copy State</button>
+                        <button id="paste-state-btn" class="btn bg-teal-600 hover:bg-teal-700">Paste State</button>
+                        <button id="activate-all-btn" class="btn bg-pink-600 hover:bg-pink-700 col-span-2">Activate All Bits</button>
+                     </div>
+                </div>
+            </div>
+            
+            <!-- Collapsible Lower Controls -->
+            <div class="space-y-1 flex-shrink-0 border-t border-gray-700 pt-2">
+                <!-- View Switcher -->
+                <div class="border-b border-gray-700 pb-2">
+                    <button class="flex justify-between items-center w-full py-1 collapsible-header" data-target="#collapse-view-mode">
+                        <h3 class="font-semibold text-sm text-gray-300">View Mode</h3>
+                        <svg class="w-4 h-4 chevron-icon transition-transform rotated" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="collapse-view-mode" class="">
+                        <div class="flex space-x-2 bg-gray-700 p-1 rounded-lg mt-1">
+                            <button id="view-tab-3d" class="view-tab active text-xs py-1">3D View</button>
+                            <button id="view-tab-2d" class="view-tab text-xs py-1">2D Grid</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Core Selector -->
+                <div class="border-b border-gray-700 pb-2">
+                    <button class="flex justify-between items-center w-full py-1 collapsible-header" data-target="#collapse-core-selector">
+                        <h3 class="font-semibold text-sm text-gray-300">Active Core Selector</h3>
+                        <svg class="w-4 h-4 chevron-icon transition-transform rotated" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="collapse-core-selector" class="">
+                        <div id="core-selector" class="core-select-grid grid grid-cols-3 gap-1 w-max mx-auto p-1 bg-gray-700 rounded-md mt-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Controls -->
+                <div>
+                    <button class="flex justify-between items-center w-full py-1 collapsible-header" data-target="#collapse-sim-controls">
+                        <h3 class="font-semibold text-sm text-gray-300">Simulation Controls</h3>
+                        <svg class="w-4 h-4 chevron-icon transition-transform rotated" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    </button>
+                    <div id="collapse-sim-controls" class="space-y-2 mt-1">
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="run-btn" class="btn bg-green-600 hover:bg-green-700 focus:ring-green-500 text-xs py-1">Run</button>
+                            <button id="pause-btn" class="btn bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500 text-xs py-1">Pause</button>
+                            <button id="reset-core-btn" class="btn bg-red-600 hover:bg-red-700 focus:ring-red-500 text-xs py-1">Reset</button>
+                        </div>
+                         <div class="px-8">
+                            <button id="reset-all-btn" class="btn bg-gray-600 hover:bg-gray-700 text-xs py-1">Reset All Cores</button>
+                         </div>
+                         <div id="sim-stats" class="text-center text-gray-400 text-xs">Step: 0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 3D Scene Setup ---
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        let renderer, controls; // Declare here, initialize in init()
+        
+        // --- 2D Scene Setup (Single Scene) ---
+        const scene2D = new THREE.Scene();
+        let camera2D, renderer2D, controls2D;
+
+        const NUM_CORES = 9;
+        const WARP_WIDTH = 3;
+        const WARP_HEIGHT = 3;
+        const BIT_GRID_SIZE = 8;
+        const gridUnit = 3.0;
+        const HALO_SIZE = 1;
+        const CORE_SEPARATION = (BIT_GRID_SIZE + 2 * HALO_SIZE) * gridUnit;
+
+        const cores = [];
+        let activeCoreIndex = 0;
+        
+        // --- Simulation State ---
+        let coreStates = [];
+        let coreBitFieldMappings = [];
+        let stateClipboard = null;
+        let isRunning = false;
+        let simulationStep = 0;
+        let lastUpdateTime = 0;
+        const updateInterval = 100; // ms per step
+        let isReadyForRendering = false;
+        let is3DViewActive = true;
+        
+        // Optimization Strategies
+        const STRATEGIES = {
+            STANDARD: 'standard',
+            HALO: 'halo', // Optimize for DSMEM (Edges)
+            CORE: 'core'  // Optimize for TMA (Center/Contiguous)
+        };
+
+        const PACKET_FIELDS = [
+            { name: 'Unassigned', size: -1, color: '#374151', darkColor: '#1f2937', strategy: STRATEGIES.STANDARD },
+            { name: 'Payload Scaling', size: 16, color: '#10b981', darkColor: '#047857', strategy: STRATEGIES.STANDARD },
+            { name: 'Compressed Quat.', size: 32, color: '#ec4899', darkColor: '#be185d', strategy: STRATEGIES.CORE },
+            { name: 'Structural Form ID', size: 4, color: '#8b5cf6', darkColor: '#6d28d9', strategy: STRATEGIES.HALO },
+            { name: 'Amplitude ID', size: 3, color: '#f59e0b', darkColor: '#b45309', strategy: STRATEGIES.STANDARD },
+            { name: 'Reserved/Parity', size: 1, color: '#d1d5db', darkColor: '#6b7280', strategy: STRATEGIES.HALO },
+            { name: 'Frequency ID', size: 5, color: '#3b82f6', darkColor: '#1d4ed8', strategy: STRATEGIES.STANDARD },
+            { name: 'Spin Class ID', size: 3, color: '#ef4444', darkColor: '#b91c1c', strategy: STRATEGIES.STANDARD },
+        ];
+        let activeBrush = 0;
+
+        function getCoreOffset(coreIndex) {
+            const coreX = (coreIndex % WARP_WIDTH) - (WARP_WIDTH / 2 - 0.5);
+            const coreZ = Math.floor(coreIndex / WARP_WIDTH) - (WARP_HEIGHT / 2 - 0.5);
+            return new THREE.Vector3(coreX * CORE_SEPARATION, 0, coreZ * CORE_SEPARATION);
+        }
+
+        function init() {
+            // 3D Renderer
+            const container3D = document.getElementById('simulation-container');
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // Initialize here
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container3D.appendChild(renderer.domElement);
+            
+            controls = new THREE.OrbitControls(camera, renderer.domElement); // Initialize here
+            
+            scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 30, 20);
+            scene.add(dirLight);
+            camera.position.set(0, 60, 80);
+            controls.enableDamping = true;
+
+            const coreSelectorContainer = document.getElementById('core-selector');
+            for (let i = 0; i < NUM_CORES; i++) {
+                // Just create the basic object. Graphics will be initialized later.
+                cores.push({
+                    planes: [], ghostPlanes: [], emergentStructure: null
+                });
+
+                coreStates.push(new Uint8Array(64));
+                coreBitFieldMappings.push(new Int8Array(64).fill(-1));
+
+                const selector = document.createElement('div');
+                // THIS IS THE FIX: Added classes to make the selector visible
+                selector.className = "w-8 h-8 bg-gray-600 cursor-pointer hover:bg-gray-500 transition-colors";
+                selector.dataset.coreIndex = i;
+                selector.addEventListener('click', () => setActiveCore(i));
+                coreSelectorContainer.appendChild(selector);
+            }
+
+            setupEventListeners();
+            setupFieldMapper();
+            setupConfigUI();
+            setupInitialStateEditor();
+            setActiveCore(0);
+            resetSimulation(true);
+        }
+
+        function initializeGraphics() {
+            // --- Initialize 2D View ---
+            const container2D = document.getElementById('cores-container');
+            if (renderer2D) return; // Already initialized
+
+            renderer2D = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            container2D.appendChild(renderer2D.domElement);
+
+            const frustumWidth = WARP_WIDTH * CORE_SEPARATION;
+            const frustumHeight = WARP_HEIGHT * CORE_SEPARATION;
+            camera2D = new THREE.OrthographicCamera(frustumWidth / -2, frustumWidth / 2, frustumHeight / 2, frustumHeight / -2, 1, 1000);
+            camera2D.position.y = 50;
+            camera2D.lookAt(scene2D.position);
+            
+            controls2D = new THREE.OrbitControls(camera2D, renderer2D.domElement);
+            controls2D.enableRotate = false;
+            controls2D.enableDamping = true;
+            controls2D.mouseButtons.LEFT = THREE.MOUSE.PAN;
+            controls2D.mouseButtons.RIGHT = THREE.MOUSE.DOLLY;
+            controls2D.mouseButtons.MIDDLE = -1;
+
+            // Add click listener to 2D view for core selection
+            renderer2D.domElement.addEventListener('mousedown', (e) => {
+                if (e.button === 0 && controls2D.state === 0) {
+                    const rect = renderer2D.domElement.getBoundingClientRect();
+                    const mouse = new THREE.Vector2();
+                    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+                    
+                    const raycaster = new THREE.Raycaster();
+                    raycaster.setFromCamera(mouse, camera2D);
+                    const intersects = raycaster.intersectObjects(scene2D.children);
+                    
+                    if (intersects.length > 0) {
+                        for(const intersect of intersects) {
+                            if (intersect.object.userData.coreIndex !== undefined) {
+                                setActiveCore(intersect.object.userData.coreIndex);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }, false);
+
+            // --- Initialize 3D and 2D objects ---
+            for (let i = 0; i < NUM_CORES; i++) {
+                const core = cores[i];
+                const coreOffset3D = getCoreOffset(i);
+                
+                // 3D structure
+                const emergentStructure = new THREE.Group();
+                scene.add(emergentStructure);
+                emergentStructure.position.copy(coreOffset3D);
+                core.emergentStructure = emergentStructure;
+                
+                // 2D grid and planes
+                const coreOffset2D = new THREE.Vector3(coreOffset3D.x, 0, coreOffset3D.z);
+                const gridHelper = new THREE.GridHelper(BIT_GRID_SIZE * gridUnit, BIT_GRID_SIZE, 0x444444, 0x444444);
+                gridHelper.position.copy(coreOffset2D);
+                scene2D.add(gridHelper);
+
+                const haloBoxGeom = new THREE.BoxGeometry(CORE_SEPARATION - gridUnit, 0.1, CORE_SEPARATION - gridUnit);
+                const haloBoxEdges = new THREE.EdgesGeometry(haloBoxGeom);
+                const haloBoxLines = new THREE.LineSegments(haloBoxEdges, new THREE.LineBasicMaterial({ color: 0x666666 }));
+                haloBoxLines.position.copy(coreOffset2D);
+                scene2D.add(haloBoxLines);
+            
+                const halfGridOffset = (BIT_GRID_SIZE / 2) - 0.5;
+                for(let p = 0; p < 64; p++) {
+                    const x = (p % BIT_GRID_SIZE) - halfGridOffset;
+                    const z = Math.floor(p / BIT_GRID_SIZE) - halfGridOffset;
+                    const geom = new THREE.PlaneGeometry(gridUnit * 0.9, gridUnit * 0.9);
+                    const mat = new THREE.MeshBasicMaterial({ color: PACKET_FIELDS[0].color });
+                    const plane = new THREE.Mesh(geom, mat);
+                    plane.position.set(x * gridUnit, 0, z * gridUnit).add(coreOffset2D);
+                    plane.rotation.x = -Math.PI / 2;
+                    plane.userData.coreIndex = i; // Link plane to its core
+                    scene2D.add(plane);
+                    core.planes.push(plane);
+                }
+            }
+            onWindowResize(); // Set initial sizes
+            isReadyForRendering = true;
+        }
+
+        function setupEventListeners() {
+            window.addEventListener('resize', onWindowResize, false);
+            document.getElementById('run-btn').addEventListener('click', () => isRunning = true);
+            document.getElementById('pause-btn').addEventListener('click', () => isRunning = false);
+            document.getElementById('reset-core-btn').addEventListener('click', () => resetSimulation(false));
+            document.getElementById('reset-all-btn').addEventListener('click', () => resetSimulation(true));
+            document.getElementById('auto-populate-btn').addEventListener('click', autoPopulate);
+            document.getElementById('clear-mapping-btn').addEventListener('click', () => { coreBitFieldMappings[activeCoreIndex].fill(-1); updateVisuals(); analyzeLayout(); });
+            document.getElementById('tab-state').addEventListener('click', () => switchTab('state'));
+            document.getElementById('tab-config').addEventListener('click', () => switchTab('config'));
+            document.getElementById('copy-state-btn').addEventListener('click', copyCoreState);
+            document.getElementById('paste-state-btn').addEventListener('click', pasteCoreState);
+            document.getElementById('activate-all-btn').addEventListener('click', activateAllBits);
+            
+            // View Switcher Listeners
+            document.getElementById('view-tab-3d').addEventListener('click', () => switchView('3d'));
+            document.getElementById('view-tab-2d').addEventListener('click', () => switchView('2d'));
+            
+            // Collapsible Section Listeners
+            document.querySelectorAll('.collapsible-header').forEach(header => {
+                header.addEventListener('click', () => {
+                    const target = document.querySelector(header.dataset.target);
+                    target.classList.toggle('hidden');
+                    header.querySelector('.chevron-icon').classList.toggle('rotated');
+                });
+            });
+            
+            // Panel Toggle Button
+            document.getElementById('panel-toggle-btn').addEventListener('click', () => {
+                const panel = document.getElementById('control-panel');
+                const iconOpen = document.getElementById('toggle-icon-open');
+                const iconClose = document.getElementById('toggle-icon-close');
+                
+                panel.classList.toggle('-translate-x-full');
+                iconOpen.classList.toggle('hidden');
+                iconClose.classList.toggle('hidden');
+            });
+        }
+        
+         function setupFieldMapper() {
+            const selector = document.getElementById('field-selector');
+            selector.innerHTML = '';
+            PACKET_FIELDS.slice(1).forEach((field, index) => {
+                const fieldIndex = index + 1;
+                const div = document.createElement('div');
+                div.className = 'field-item p-2 rounded-lg cursor-pointer flex items-center justify-between border border-gray-700 bg-gray-800';
+                div.style.borderLeft = `4px solid ${field.color}`;
+                div.dataset.fieldIndex = fieldIndex;
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <span class="font-medium text-sm text-white">${field.name}</span>
+                    </div>
+                    <span class="text-xs text-gray-400" id="field-count-${fieldIndex}">0/${field.size}</span>
+                `;
+                div.addEventListener('click', () => {
+                    activeBrush = fieldIndex;
+                    document.querySelectorAll('#field-selector .field-item').forEach(el => el.classList.remove('selected', 'bg-gray-700'));
+                    div.classList.add('selected', 'bg-gray-700');
+                });
+                selector.appendChild(div);
+            });
+        }
+
+        function setupConfigUI() {
+            const list = document.getElementById('field-config-list');
+            list.innerHTML = '';
+            PACKET_FIELDS.slice(1).forEach((field, index) => {
+                const fieldIndex = index + 1;
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-gray-800 p-2 rounded border border-gray-700';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                         <div class="w-3 h-3 rounded-full" style="background-color: ${field.color};"></div>
+                         <span class="text-xs font-medium text-gray-300">${field.name}</span>
+                    </div>
+                    <select class="bg-gray-900 text-xs text-white rounded p-1 border border-gray-600 focus:outline-none focus:border-indigo-500">
+                        <option value="${STRATEGIES.STANDARD}" ${field.strategy === STRATEGIES.STANDARD ? 'selected' : ''}>Standard</option>
+                        <option value="${STRATEGIES.HALO}" ${field.strategy === STRATEGIES.HALO ? 'selected' : ''}>Halo (DSMEM)</option>
+                        <option value="${STRATEGIES.CORE}" ${field.strategy === STRATEGIES.CORE ? 'selected' : ''}>Core (TMA)</option>
+                    </select>
+                `;
+                const select = div.querySelector('select');
+                select.addEventListener('change', (e) => {
+                    PACKET_FIELDS[fieldIndex].strategy = e.target.value;
+                    // Trigger analysis update potentially
+                    analyzeLayout();
+                });
+                list.appendChild(div);
+            });
+        }
+
+        function setupInitialStateEditor() {
+            const grid = document.getElementById('initial-state-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.dataset.index = i;
+                cell.addEventListener('click', () => handleBitEditorClick(i));
+                grid.appendChild(cell);
+            }
+        }
+        function handleBitEditorClick(index) {
+            if (isRunning) return;
+            // FIX: Add guard clause
+            if (!isReadyForRendering) {
+                console.warn("Graphics not ready, please wait.");
+                return;
+            }
+            const bitMapping = coreBitFieldMappings[activeCoreIndex];
+            const simState = coreStates[activeCoreIndex];
+            const currentMapping = bitMapping[index];
+            const currentField = PACKET_FIELDS[activeBrush];
+
+            if (activeBrush !== 0 && PACKET_FIELDS[activeBrush].strategy === STRATEGIES.CORE) { 
+                // Core/TMA Strategy: Try to place contiguous block if possible
+                // For simplicity in manual mode, just place single bit, but warn if breaking contiguity?
+                // Or try to place whole block? Let's just do single bit for manual fine tuning.
+                // But we check size limits.
+                 if (currentMapping === -1) {
+                     if (bitMapping.filter(id => id === activeBrush).length < currentField.size) {
+                         bitMapping[index] = activeBrush;
+                     }
+                 }
+            } else {
+                if (currentMapping === -1 && activeBrush !== 0) {
+                    if (bitMapping.filter(id => id === activeBrush).length < currentField.size) {
+                        bitMapping[index] = activeBrush;
+                    } 
+                } else if (currentMapping !== -1) {
+                    simState[index] = simState[index] === 1 ? 0 : 1;
+                }
+            }
+            updateVisuals();
+            analyzeLayout();
+        }
+
+        function autoPopulate() {
+            if (isRunning || !isReadyForRendering) return;
+            
+            // Dynamic Programming / Heuristic Packer
+            const bitMapping = coreBitFieldMappings[activeCoreIndex];
+            bitMapping.fill(-1);
+            
+            // 1. Place 'CORE' Strategy fields (TMA optimized - Center Contiguous)
+            let centerStart = 16; // Row 2
+            PACKET_FIELDS.forEach((field, idx) => {
+                if (idx === 0) return;
+                if (field.strategy === STRATEGIES.CORE) {
+                    let placed = 0;
+                    let cursor = centerStart;
+                    while(placed < field.size && cursor < 64) {
+                        if(bitMapping[cursor] === -1) {
+                            bitMapping[cursor] = idx;
+                            placed++;
+                        }
+                        cursor++;
+                    }
+                    centerStart = cursor; // stack next core field
+                }
+            });
+
+            // 2. Place 'HALO' Strategy fields (DSMEM optimized - Edges Row 0/7)
+            let topEdgeCursor = 0;
+            let bottomEdgeCursor = 56;
+            
+            PACKET_FIELDS.forEach((field, idx) => {
+                if (idx === 0) return;
+                if (field.strategy === STRATEGIES.HALO) {
+                    let placed = 0;
+                    // Try top edge first
+                    while(placed < field.size && topEdgeCursor < 8) {
+                         if(bitMapping[topEdgeCursor] === -1) {
+                            bitMapping[topEdgeCursor] = idx;
+                            placed++;
+                        }
+                        topEdgeCursor++;
+                    }
+                    // Then bottom edge
+                    while(placed < field.size && bottomEdgeCursor < 64) {
+                         if(bitMapping[bottomEdgeCursor] === -1) {
+                            bitMapping[bottomEdgeCursor] = idx;
+                            placed++;
+                        }
+                        bottomEdgeCursor++;
+                    }
+                }
+            });
+
+            // 3. Fill 'STANDARD' fields in remaining spots
+            let fillCursor = 0;
+            PACKET_FIELDS.forEach((field, idx) => {
+                if (idx === 0) return;
+                if (field.strategy === STRATEGIES.STANDARD) {
+                    let placed = 0;
+                     // Count already placed (if any overlap logic existed, but here we just need to place fresh)
+                    // Actually we need to place the *remaining* count if any were partially placed? 
+                    // Simplified: just place 'size' amount.
+                    while(placed < field.size) {
+                        while(fillCursor < 64 && bitMapping[fillCursor] !== -1) fillCursor++;
+                        if(fillCursor < 64) {
+                            bitMapping[fillCursor] = idx;
+                            placed++;
+                        } else break; 
+                    }
+                }
+            });
+            
+            updateVisuals();
+            analyzeLayout();
+        }
+
+        function analyzeLayout() {
+            const bitMapping = coreBitFieldMappings[activeCoreIndex];
+            
+            // 1. Calculate Halo Utilization (Row 0 and 7 usage by HALO strategy fields)
+            let haloSlots = 16; // 8 top + 8 bottom
+            let correctHaloPlacements = 0;
+            
+            // Check Row 0
+            for(let i=0; i<8; i++) {
+                const fieldIdx = bitMapping[i];
+                if(fieldIdx > 0 && PACKET_FIELDS[fieldIdx].strategy === STRATEGIES.HALO) correctHaloPlacements++;
+            }
+            // Check Row 7
+            for(let i=56; i<64; i++) {
+                 const fieldIdx = bitMapping[i];
+                if(fieldIdx > 0 && PACKET_FIELDS[fieldIdx].strategy === STRATEGIES.HALO) correctHaloPlacements++;
+            }
+            
+            const haloScore = Math.round((correctHaloPlacements / haloSlots) * 100); // Normalize roughly 
+            // Ideally we compare against TOTAL HALO bits defined in fields, not slots.
+            // Let's count total HALO bits needed.
+            let totalHaloBitsNeeded = 0;
+            PACKET_FIELDS.forEach(f => { if(f.strategy === STRATEGIES.HALO) totalHaloBitsNeeded += f.size; });
+            const haloPercentage = totalHaloBitsNeeded > 0 ? Math.min(100, Math.round((correctHaloPlacements / totalHaloBitsNeeded) * 100)) : 0;
+
+
+            // 2. Calculate TMA Contiguity (Largest contiguous block of CORE fields)
+            let maxContiguous = 0;
+            let currentRun = 0;
+            for(let i=0; i<64; i++) {
+                const fieldIdx = bitMapping[i];
+                if(fieldIdx > 0 && PACKET_FIELDS[fieldIdx].strategy === STRATEGIES.CORE) {
+                    currentRun++;
+                } else {
+                    maxContiguous = Math.max(maxContiguous, currentRun);
+                    currentRun = 0;
+                }
+            }
+            maxContiguous = Math.max(maxContiguous, currentRun);
+            
+            let totalCoreBitsNeeded = 0;
+            PACKET_FIELDS.forEach(f => { if(f.strategy === STRATEGIES.CORE) totalCoreBitsNeeded += f.size; });
+            const tmaPercentage = totalCoreBitsNeeded > 0 ? Math.min(100, Math.round((maxContiguous / totalCoreBitsNeeded) * 100)) : 0;
+
+            // Update UI
+            document.getElementById('metric-halo').innerText = `${haloPercentage}%`;
+            document.getElementById('bar-halo').style.width = `${haloPercentage}%`;
+            
+            document.getElementById('metric-tma').innerText = `${tmaPercentage}%`;
+            document.getElementById('bar-tma').style.width = `${tmaPercentage}%`;
+            
+            const statusEl = document.getElementById('analysis-status');
+            if (tmaPercentage === 100 && haloPercentage === 100) {
+                statusEl.innerText = "Optimal H100 Layout Detected.";
+                statusEl.className = "text-xs mt-2 font-bold text-green-400";
+            } else {
+                statusEl.innerText = "Optimization potential detected. Use Auto-Populate.";
+                statusEl.className = "text-xs mt-2 italic text-gray-500";
+            }
+        }
+        
+        function activateAllBits() {
+            if(isRunning) return;
+            coreStates[activeCoreIndex].fill(1);
+            updateVisuals();
+        }
+
+        function copyCoreState() {
+             stateClipboard = {
+                state: new Uint8Array(coreStates[activeCoreIndex]),
+                mapping: new Int8Array(coreBitFieldMappings[activeCoreIndex])
+            };
+            console.log(`State of core ${activeCoreIndex} copied.`);
+        }
+        function pasteCoreState() {
+            if(!stateClipboard) { console.warn("Clipboard is empty."); return; }
+            coreStates[activeCoreIndex] = new Uint8Array(stateClipboard.state);
+            coreBitFieldMappings[activeCoreIndex] = new Int8Array(stateClipboard.mapping);
+            updateVisuals();
+            analyzeLayout();
+        }
+        
+        function resetSimulation(resetAll = false) {
+            isRunning = false;
+            simulationStep = 0;
+            if(resetAll) {
+                 coreStates.forEach(s => s.fill(0));
+            } else {
+                coreStates[activeCoreIndex].fill(0);
+            }
+            if(isReadyForRendering) updateVisuals();
+        }
+        
+        function runSimulationStep() {
+            const nextCoreStates = coreStates.map(s => new Uint8Array(s));
+            const method = document.getElementById('transmission-method').value;
+
+            for(let coreIdx = 0; coreIdx < NUM_CORES; coreIdx++) {
+                const bitMapping = coreBitFieldMappings[coreIdx];
+                for (let bitIdx = 0; bitIdx < 64; bitIdx++) {
+                    let liveNeighbors = 0;
+                    let neighborScore = 0;
+
+                    const x = bitIdx % 8; const y = Math.floor(bitIdx / 8);
+
+                    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+                        if (dx === 0 && dy === 0) continue;
+                        
+                        let neighborCoreIdx = coreIdx;
+                        let nx = x + dx, ny = y + dy;
+
+                        const coreGridX = coreIdx % WARP_WIDTH;
+                        const coreGridY = Math.floor(coreIdx / WARP_WIDTH);
+                        
+                        if(nx < 0) { neighborCoreIdx--; nx = 7; } 
+                        if(nx > 7) { neighborCoreIdx++; nx = 0; }
+                        if(ny < 0) { neighborCoreIdx -= WARP_WIDTH; ny = 7; } 
+                        if(ny > 7) { neighborCoreIdx += WARP_WIDTH; ny = 0; }
+                        
+                        const neighborGridX = neighborCoreIdx % WARP_WIDTH;
+                        const neighborGridY = Math.floor(neighborCoreIdx / WARP_WIDTH); // <-- FIX: Defined neighborGridY
+                        
+                        // Prevent wrap-around on the 3x3 grid
+                        if (coreGridX === 0 && neighborGridX === WARP_WIDTH - 1) continue;
+                        if (coreGridX === WARP_WIDTH - 1 && neighborGridX === 0) continue;
+                        if (coreGridY === 0 && neighborGridY === WARP_HEIGHT - 1) continue;
+                        if (coreGridY === WARP_HEIGHT - 1 && neighborGridY === 0) continue;
+
+
+                        if(neighborCoreIdx >= 0 && neighborCoreIdx < NUM_CORES) {
+                             const neighborState = coreStates[neighborCoreIdx];
+                             const neighborMapping = coreBitFieldMappings[neighborCoreIdx];
+                             const neighborBitIdx = ny * 8 + nx;
+                             if (neighborState[neighborBitIdx] === 1) {
+                                liveNeighbors++;
+                                // Einstein method: apply weights based on field type
+                                if (method === 'einstein') {
+                                    const mapping = neighborMapping[neighborBitIdx];
+                                    if (mapping === 3) neighborScore += 2; // Structural Form ID
+                                    else if (mapping === 5) neighborScore += 1.5; // Parity
+                                    else neighborScore += 1;
+                                }
+                             }
+                        }
+                    }
+                    
+                    const isAlive = coreStates[coreIdx][bitIdx] === 1;
+                    let nextState = 0;
+
+                    if (method === 'einstein') {
+                        // Use weighted score logic. B3/S23
+                        // We use the *count* for the rule, but the weighted score could be used for other rules.
+                        // Let's use the logic: "focus on optimization" means the bit *itself* behaves differently.
+                        const selfMapping = bitMapping[bitIdx];
+                        
+                        if (selfMapping === 3) { // Structural Form ID (B3/S2345)
+                            if (!isAlive && liveNeighbors === 3) nextState = 1;
+                            else if (isAlive && [2,3,4,5].includes(liveNeighbors)) nextState = 1;
+                        } else if (selfMapping === 5) { // Parity (B3/S - volatile)
+                             if (!isAlive && liveNeighbors === 3) nextState = 1;
+                             else if (isAlive && liveNeighbors === 3) nextState = 1;
+                        } else { // Standard rule (B3/S23)
+                            if (!isAlive && liveNeighbors === 3) nextState = 1;
+                            else if (isAlive && (liveNeighbors === 2 || liveNeighbors === 3)) nextState = 1;
+                        }
+                    } else { // Conway's Life (B3/S23)
+                        if (!isAlive && liveNeighbors === 3) nextState = 1;
+                        else if (isAlive && (liveNeighbors === 2 || liveNeighbors === 3)) nextState = 1;
+                    }
+                    
+                    nextCoreStates[coreIdx][bitIdx] = nextState;
+                }
+            }
+            coreStates = nextCoreStates;
+            simulationStep++;
+        }
+        
+        function updateVisuals() {
+            if (!isReadyForRendering) return;
+            for(let coreIdx=0; coreIdx<NUM_CORES; coreIdx++) {
+                const core = cores[coreIdx];
+                const simState = coreStates[coreIdx];
+                const bitMapping = coreBitFieldMappings[coreIdx];
+
+                for(let i=0; i<64; i++) {
+                     const fieldIndex = bitMapping[i] === -1 ? 0 : bitMapping[i];
+                     const field = PACKET_FIELDS[fieldIndex];
+                     const isAlive = simState[i] === 1;
+                     core.planes[i].material.color.set(isAlive ? field.color : field.darkColor);
+                }
+                
+                if(core.emergentStructure) { while(core.emergentStructure.children.length) core.emergentStructure.remove(core.emergentStructure.children[0]); }
+                for (let i = 0; i < 64; i++) {
+                    if (simState[i] === 1) {
+                        const fieldIndex = bitMapping[i] === -1 ? 0 : bitMapping[i];
+                        const mat = new THREE.MeshBasicMaterial({color: PACKET_FIELDS[fieldIndex].color});
+                        const geom = new THREE.BoxGeometry(gridUnit*0.5, gridUnit*0.5, gridUnit*0.5);
+                        const mesh = new THREE.Mesh(geom, mat);
+                        const x = i % 8 - 3.5, y = 0, z = Math.floor(i/8) - 3.5;
+                        mesh.position.set(x * gridUnit, y, z*gridUnit);
+                        core.emergentStructure.add(mesh);
+                    }
+                }
+            }
+            updateGhostVisuals();
+            updateEditorVisuals();
+            document.getElementById('sim-stats').innerText = `Step: ${simulationStep}`;
+        }
+        
+        function updateGhostVisuals() {
+            if (!isReadyForRendering) return;
+             cores.forEach(core => {
+                if(core.ghostPlanes) core.ghostPlanes.forEach(g => scene2D.remove(g));
+                core.ghostPlanes = [];
+             });
+
+            for(let coreIdx=0; coreIdx < NUM_CORES; coreIdx++) {
+                const bitState = coreStates[coreIdx];
+                const bitMapping = coreBitFieldMappings[coreIdx];
+
+                for(let i=0; i<64; i++) {
+                    const x = i % 8, y = Math.floor(i/8);
+                    
+                    const neighbors = [];
+                    if(x === 0) neighbors.push({dx: -1, dy: 0, from: 'east'}); if(x === 7) neighbors.push({dx: 1, dy: 0, from: 'west'});
+                    if(y === 0) neighbors.push({dx: 0, dy: -1, from: 'south'}); if(y === 7) neighbors.push({dx: 0, dy: 1, from: 'north'});
+
+                    if(neighbors.length > 0) {
+                        const coreGridX = coreIdx % WARP_WIDTH;
+                        const coreGridY = Math.floor(coreIdx / WARP_WIDTH);
+
+                        neighbors.forEach(n => {
+                            const neighborCoreX = coreGridX + n.dx;
+                            const neighborCoreY = coreGridY + n.dy;
+
+                            if(neighborCoreX >= 0 && neighborCoreX < WARP_WIDTH && neighborCoreY >=0 && neighborCoreY < WARP_HEIGHT) {
+                                const neighborCoreIdx = neighborCoreY * WARP_WIDTH + neighborCoreX;
+                                const neighborCore = cores[neighborCoreIdx];
+                                
+                                const fieldIndex = bitMapping[i] === -1 ? 0 : bitMapping[i];
+                                const field = PACKET_FIELDS[fieldIndex];
+                                const isAlive = bitState[i] === 1;
+                                const color = isAlive ? field.color : field.darkColor;
+
+                                const geom = new THREE.PlaneGeometry(gridUnit*0.9, gridUnit*0.9);
+                                const mat = new THREE.MeshBasicMaterial({color: color, transparent: true, opacity: 0.5});
+                                const ghost = new THREE.Mesh(geom, mat);
+                                
+                                const halfGridOffset = (BIT_GRID_SIZE / 2) - 0.5;
+                                let gx = (i%8) - halfGridOffset, gz = Math.floor(i/8) - halfGridOffset;
+                                
+                                // This is the corrected logic
+                                if (n.from === 'west') gx -= BIT_GRID_SIZE; if (n.from === 'east') gx += BIT_GRID_SIZE;
+                                if (n.from === 'north') gz -= BIT_GRID_SIZE; if (n.from === 'south') gz += BIT_GRID_SIZE;
+                                
+                                ghost.position.set(gx * gridUnit, 0, gz * gridUnit).add(getCoreOffset(neighborCoreIdx));
+                                ghost.rotation.x = -Math.PI / 2;
+                                scene2D.add(ghost);
+                                neighborCore.ghostPlanes.push(ghost);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+        
+        function updateEditorVisuals() {
+            if (!isReadyForRendering) return;
+            const cells = document.querySelectorAll('#initial-state-grid > div');
+            const bitMapping = coreBitFieldMappings[activeCoreIndex];
+            const simState = coreStates[activeCoreIndex];
+            for (let i = 0; i < 64; i++) {
+                const fieldIndex = bitMapping[i] === -1 ? 0 : bitMapping[i];
+                const field = PACKET_FIELDS[fieldIndex];
+                const isAlive = simState[i] === 1;
+                cells[i].style.backgroundColor = isAlive ? field.color : field.darkColor;
+            }
+            PACKET_FIELDS.slice(1).forEach((f, i) => {
+                const fieldIndex = i + 1;
+                // Count bits mapped for the *active core*
+                const count = coreBitFieldMappings[activeCoreIndex].filter(id => id === fieldIndex).length;
+                const countEl = document.getElementById(`field-count-${fieldIndex}`);
+                if (countEl) countEl.innerText = `${count} / ${f.size}`;
+            });
+        }
+        
+        function setActiveCore(index) {
+            activeCoreIndex = index;
+            document.querySelectorAll('#core-selector > div').forEach((el, i) => el.classList.toggle('active', i === index));
+            // Also update the highlight on the 2D grid view
+            if(isReadyForRendering) {
+                document.querySelectorAll('#cores-container > div').forEach((el, i) => el.classList.toggle('active-core-view', i === index));
+            }
+            updateEditorVisuals();
+            analyzeLayout(); // Trigger analysis on switch
+        }
+
+        function switchTab(tabId) { 
+             document.querySelectorAll('[id^="tab-content-"]').forEach(el => el.classList.add('hidden')); 
+             document.getElementById(`tab-content-${tabId}`).classList.remove('hidden'); 
+             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active')); 
+             document.getElementById(`tab-${tabId}`).classList.add('active');
+        }
+
+        function switchView(view) {
+            const simContainer = document.getElementById('simulation-container');
+            const viewContainer = document.getElementById('2d-view-container');
+            const tab3D = document.getElementById('view-tab-3d');
+            const tab2D = document.getElementById('view-tab-2d');
+
+            if (view === '3d') {
+                is3DViewActive = true;
+                simContainer.classList.remove('hidden');
+                viewContainer.classList.add('hidden');
+                tab3D.classList.add('active');
+                tab2D.classList.remove('active');
+            } else {
+                is3DViewActive = false;
+                simContainer.classList.add('hidden');
+                viewContainer.classList.remove('hidden');
+                tab3D.classList.remove('active');
+                tab2D.classList.add('active');
+            }
+            // Trigger a resize to ensure the newly visible canvas has correct dimensions
+            onWindowResize();
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            
+            if (!isReadyForRendering) return;
+            
+            const container2D = document.getElementById('cores-container');
+            const newWidth = container2D.clientWidth;
+            const newHeight = container2D.clientHeight;
+            if (newWidth === 0 || newHeight === 0) return;
+            
+            renderer2D.setSize(newWidth, newHeight);
+
+            const frustumWidth = WARP_WIDTH * CORE_SEPARATION;
+            const frustumHeight = WARP_HEIGHT * CORE_SEPARATION;
+            const aspect = newWidth / newHeight;
+            
+            if (aspect > frustumWidth / frustumHeight) {
+                camera2D.left = -frustumHeight * aspect / 2;
+                camera2D.right = frustumHeight * aspect / 2;
+                camera2D.top = frustumHeight / 2;
+                camera2D.bottom = -frustumHeight / 2;
+            } else {
+                camera2D.left = -frustumWidth / 2;
+                camera2D.right = frustumWidth / 2;
+                camera2D.top = frustumWidth / aspect / 2;
+                camera2D.bottom = -frustumWidth / aspect / 2;
+            }
+            camera2D.updateProjectionMatrix();
+        }
+        
+        function animate(time) {
+            requestAnimationFrame(animate);
+            controls.update();
+            if (controls2D) controls2D.update();
+
+            // Guard clause to wait for initialization
+            if (!isReadyForRendering) {
+                const container2D = document.getElementById('cores-container');
+                // Check the first core's container
+                if (cores.length > 0 && container2D.clientWidth > 0) {
+                    initializeGraphics(); // This will set isReadyForRendering = true
+                }
+                return; // Skip rendering until ready
+            }
+
+            if (isRunning && time - lastUpdateTime > updateInterval) {
+                runSimulationStep();
+                updateVisuals();
+                lastUpdateTime = time;
+            }
+
+            if(is3DViewActive) {
+                renderer.render(scene, camera);
+            } else {
+                if(renderer2D) {
+                    renderer2D.render(scene2D, camera2D);
+                }
+            }
+        }
+
+        window.addEventListener('load', () => {
+            init();
+            animate();
+        });
+    </script>
+</body>
+</html>
