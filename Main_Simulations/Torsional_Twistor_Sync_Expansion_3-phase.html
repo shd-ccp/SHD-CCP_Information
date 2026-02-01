@@ -6,6 +6,8 @@
     <title>3-Phase Torsional Twistor (18-Stream System)</title>
     <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <!-- MathJax -->
@@ -121,6 +123,24 @@
             background: var(--accent-cyan);
             cursor: pointer;
         }
+        
+        /* Checkbox styling */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
 
         /* Overlay UI */
         #canvas-ui {
@@ -128,20 +148,55 @@
             top: 20px;
             left: 20px;
             pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            margin-bottom: 5px;
             font-size: 0.8rem;
             background: rgba(0,0,0,0.6);
-            padding: 4px 8px;
+            padding: 6px 12px;
             border-radius: 4px;
             backdrop-filter: blur(4px);
             color: white;
-            border-left: 2px solid transparent;
+            border-left: 3px solid transparent;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .legend-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        
+        .legend-item.active {
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        #reset-btn {
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: rgba(45, 51, 59, 0.8);
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            width: fit-content;
+        }
+        
+        #reset-btn:hover {
+            background: var(--accent-cyan);
+            color: black;
         }
         
         .math-block {
@@ -160,18 +215,19 @@
     <!-- 3D Visualization Container -->
     <div id="canvas-container">
         <div id="canvas-ui">
-            <div class="legend-item" style="border-color:#ff0055">
+            <div id="phase-alpha" class="legend-item" style="border-color:#ff0055" onclick="highlightPhase(0)">
                 <strong>Phase Alpha</strong> (6 Streams)
             </div>
-            <div class="legend-item" style="border-color:#00f2ff">
+            <div id="phase-beta" class="legend-item" style="border-color:#00f2ff" onclick="highlightPhase(1)">
                 <strong>Phase Beta</strong> (6 Streams)
             </div>
-            <div class="legend-item" style="border-color:#ffd700">
+            <div id="phase-gamma" class="legend-item" style="border-color:#ffd700" onclick="highlightPhase(2)">
                 <strong>Phase Gamma</strong> (6 Streams)
             </div>
-            <div class="legend-item" style="margin-top:10px; opacity:0.7">
-                Total Streams: 18 | Pairs: 9
+            <div class="legend-item" style="margin-top:5px; border-left:none; opacity:0.8" onclick="highlightPhase(-1)">
+                Reset Focus (Show All 18 Streams)
             </div>
+            <button id="reset-btn" onclick="resetCamera()">Reset View</button>
         </div>
     </div>
 
@@ -214,6 +270,11 @@
                 <label>Global Velocity <span id="val-speed">1.0</span></label>
                 <input type="range" id="input-speed" min="0" max="5" step="0.1" value="1.0">
             </div>
+
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-lattice" onchange="toggleLattice(this.checked)">
+                Show 4x4x4 Cubic Lattice Structure
+            </label>
         </div>
 
         <div class="section">
@@ -246,7 +307,8 @@
         
         // Camera
         const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000);
-        camera.position.set(60, 50, 60);
+        const initialCameraPos = { x: 60, y: 50, z: 60 };
+        camera.position.set(initialCameraPos.x, initialCameraPos.y, initialCameraPos.z);
         camera.lookAt(0, 20, 0);
 
         // Renderer
@@ -255,28 +317,98 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         container.appendChild(renderer.domElement);
 
+        // Orbit Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 20, 0);
+
         // Lights
         scene.add(new THREE.AmbientLight(0xffffff, 0.4));
         const pLight = new THREE.PointLight(0xffffff, 1.2);
         pLight.position.set(0, 100, 0);
         scene.add(pLight);
+        
+        // Lattice Group
+        const latticeGroup = new THREE.Group();
+        latticeGroup.visible = false;
+        scene.add(latticeGroup);
 
-        // Visual Aids
-        // const gridHelper = new THREE.GridHelper(100, 20, 0x333333, 0x111111);
-        // scene.add(gridHelper);
+        function createLattice() {
+            // Create a 4x4x4 lattice grid
+            // Size needs to encompass the simulation. 
+            // Height is 80. Max radius ~30-40.
+            // Let's make a box of 80x80x80 centered at y=40
+            
+            const size = 80;
+            const divisions = 4;
+            const step = size / divisions;
+            const offset = size / 2;
+            const yOffset = 40; // Center vertical
+
+            const material = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.3 });
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+
+            // Generate grid lines
+            for (let i = 0; i <= divisions; i++) {
+                for (let j = 0; j <= divisions; j++) {
+                    const k = -offset + i * step;
+                    const l = -offset + j * step;
+                    
+                    // X-axis lines (varying X, fixed Y/Z)
+                    // We iterate through 3 dimensions to create the full cubic grid
+                    
+                    // Vertical Pillars (Lines along Y)
+                    vertices.push(k, yOffset - offset, l);
+                    vertices.push(k, yOffset + offset, l);
+
+                    // Horizontal Layers (Lines along X)
+                    vertices.push(-offset, yOffset + k, l);
+                    vertices.push(offset, yOffset + k, l);
+                    
+                    // Depth Layers (Lines along Z)
+                    vertices.push(l, yOffset + k, -offset);
+                    vertices.push(l, yOffset + k, offset);
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const lattice = new THREE.LineSegments(geometry, material);
+            latticeGroup.add(lattice);
+            
+            // Add nodes (dots) at intersections
+            const dotGeometry = new THREE.BufferGeometry();
+            const dotVertices = [];
+            for (let x = 0; x <= divisions; x++) {
+                for (let y = 0; y <= divisions; y++) {
+                    for (let z = 0; z <= divisions; z++) {
+                        dotVertices.push(
+                            -offset + x * step,
+                            yOffset - offset + y * step,
+                            -offset + z * step
+                        );
+                    }
+                }
+            }
+            dotGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dotVertices, 3));
+            const dotMaterial = new THREE.PointsMaterial({ color: 0x666666, size: 0.8, transparent:true, opacity:0.5 });
+            const dots = new THREE.Points(dotGeometry, dotMaterial);
+            latticeGroup.add(dots);
+        }
+        createLattice();
 
         // --- 2. The 18-Stream Logic ---
 
         class TwistorPair {
             constructor(color, phaseAngle, groupRadius, parentGroup) {
-                this.color = color;
-                this.phaseAngle = phaseAngle; // Angle within the group (0, 120, 240)
-                this.parentGroup = parentGroup; // Reference to group logic
+                this.baseColor = color;
+                this.phaseAngle = phaseAngle; 
+                this.parentGroup = parentGroup; 
                 
                 this.particleCount = 100;
                 this.height = 80;
                 
-                // We create 2 streams for this pair
                 this.streamA = this.createStreamMesh();
                 this.streamB = this.createStreamMesh();
                 
@@ -287,7 +419,6 @@
             createStreamMesh() {
                 const geometry = new THREE.BufferGeometry();
                 const positions = new Float32Array(this.particleCount * 3);
-                // Initialize flat
                 for(let i=0; i<this.particleCount; i++) {
                     positions[i*3] = 0;
                     positions[i*3+1] = (i/this.particleCount) * this.height;
@@ -297,7 +428,7 @@
                 
                 const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
                 const material = new THREE.PointsMaterial({
-                    color: this.color,
+                    color: this.baseColor,
                     size: 0.8,
                     map: sprite,
                     transparent: true,
@@ -307,59 +438,52 @@
                 
                 return new THREE.Points(geometry, material);
             }
+            
+            setHighlight(active) {
+                const opacity = active ? 0.9 : 0.05;
+                const size = active ? 0.8 : 0.4;
+                this.streamA.material.opacity = opacity;
+                this.streamB.material.opacity = opacity;
+                this.streamA.material.size = size;
+                this.streamB.material.size = size;
+            }
 
             update(time, state, groupCenterAngle, groupCenterRadius) {
                 const posA = this.streamA.geometry.attributes.position.array;
                 const posB = this.streamB.geometry.attributes.position.array;
                 
                 for(let i=0; i<this.particleCount; i++) {
-                    // 1. Vertical Sync
                     const yBase = (i/this.particleCount) * this.height;
                     const y = (yBase + time * state.speed) % this.height;
                     
-                    // --- MACRO TRANSFORM (The Group Position) ---
-                    // The Group spirals around the center (Macro Twist)
                     const macroTwistAngle = y * state.macroTwist * 0.05;
                     const groupAngle = groupCenterAngle + macroTwistAngle;
                     
                     const gx = groupCenterRadius * Math.cos(groupAngle);
                     const gz = groupCenterRadius * Math.sin(groupAngle);
                     
-                    // --- MICRO TRANSFORM (The Pair Position in the Group) ---
-                    // Twist within the group
                     const microTwistAngle = y * state.microTwist * 0.1;
-                    const pairAngle = this.phaseAngle + microTwistAngle; // 120 deg separation + twist
+                    const pairAngle = this.phaseAngle + microTwistAngle; 
                     
-                    // Base position of the pair center relative to group center
-                    // We apply Buckle here (Expansion away from group center)
                     const buckleOffset = state.buckle * Math.cos(y * 0.1); 
                     const r_pair = 4.0 + state.buckle + buckleOffset; 
                     
                     const px_local = r_pair * Math.cos(pairAngle);
                     const pz_local = r_pair * Math.sin(pairAngle);
                     
-                    // --- NANO TRANSFORM (The 2 Streams in the Pair) ---
-                    // They spiral around the pair center
                     const doubletSep = state.pairSep;
-                    const doubletAngle = y * 0.5; // Fixed spiral speed for doublet
+                    const doubletAngle = y * 0.5; 
                     
-                    // Stream A
                     const dx_a = doubletSep * Math.cos(doubletAngle);
                     const dz_a = doubletSep * Math.sin(doubletAngle);
                     
-                    // Stream B (180 deg offset)
                     const dx_b = doubletSep * Math.cos(doubletAngle + Math.PI);
                     const dz_b = doubletSep * Math.sin(doubletAngle + Math.PI);
 
-                    // Combine All
-                    // Final X = GroupX + PairX + DoubletX
-                    
-                    // Stream A Update
                     posA[i*3] = gx + px_local + dx_a;
                     posA[i*3+1] = y;
                     posA[i*3+2] = gz + pz_local + dz_a;
                     
-                    // Stream B Update
                     posB[i*3] = gx + px_local + dx_b;
                     posB[i*3+1] = y;
                     posB[i*3+2] = gz + pz_local + dz_b;
@@ -372,32 +496,25 @@
 
         class TwistorPhaseGroup {
             constructor(color, angleOffset) {
-                this.angleOffset = angleOffset; // 0, 120, 240 global
+                this.angleOffset = angleOffset; 
                 this.pairs = [];
                 
-                // Create 3 Pairs (Red, Green, Blueish tints relative to base color)
-                // We vary the lightness slightly to distinguish pairs
-                
-                // Pair 1
                 this.pairs.push(new TwistorPair(this.adjustColor(color, 1.0), 0, 0, this));
-                // Pair 2
                 this.pairs.push(new TwistorPair(this.adjustColor(color, 0.7), (Math.PI*2)/3, 0, this));
-                // Pair 3
                 this.pairs.push(new TwistorPair(this.adjustColor(color, 1.3), (Math.PI*4)/3, 0, this));
             }
             
             adjustColor(hex, factor) {
-                // Simple dimmer/brightener
                 const color = new THREE.Color(hex);
                 color.multiplyScalar(factor);
                 return color;
             }
+            
+            highlight(shouldHighlight) {
+                this.pairs.forEach(p => p.setHighlight(shouldHighlight));
+            }
 
             update(time, state) {
-                // Determine this Group's center based on Phase Separation
-                // The group itself might spiral if we added super-macro twist, 
-                // but for now it's just the macro-twist in the Pair update.
-                
                 this.pairs.forEach(pair => {
                     pair.update(time, state, this.angleOffset, state.phaseSep);
                 });
@@ -406,11 +523,8 @@
 
         // --- 3. Instantiation ---
 
-        // Phase Alpha (Magenta)
         const phaseAlpha = new TwistorPhaseGroup(0xff0055, 0);
-        // Phase Beta (Cyan)
         const phaseBeta = new TwistorPhaseGroup(0x00f2ff, (Math.PI*2)/3);
-        // Phase Gamma (Gold)
         const phaseGamma = new TwistorPhaseGroup(0xffd700, (Math.PI*4)/3);
 
         const phases = [phaseAlpha, phaseBeta, phaseGamma];
@@ -428,12 +542,10 @@
         
         let time = 0;
 
-        // Event Listeners
         function bind(id, key) {
             const el = document.getElementById(id);
             el.addEventListener('input', (e) => {
                 state[key] = parseFloat(e.target.value);
-                // Update label
                 const label = document.getElementById(id.replace('input-', 'val-'));
                 if(label) label.innerText = state[key].toFixed(1);
             });
@@ -446,18 +558,47 @@
         bind('input-macro-twist', 'macroTwist');
         bind('input-speed', 'speed');
 
+        // Functions exposed to window for UI
+        window.resetCamera = function() {
+            camera.position.set(initialCameraPos.x, initialCameraPos.y, initialCameraPos.z);
+            camera.lookAt(0, 20, 0);
+            controls.target.set(0, 20, 0);
+            controls.update();
+        };
+
+        window.toggleLattice = function(checked) {
+            latticeGroup.visible = checked;
+        };
+
+        window.highlightPhase = function(index) {
+            // Index: 0=Alpha, 1=Beta, 2=Gamma, -1=Reset
+            phases.forEach((phase, i) => {
+                if (index === -1) {
+                    phase.highlight(true); // Show all
+                } else {
+                    phase.highlight(i === index); // Highlight only match
+                }
+            });
+            
+            // UI visual feedback
+            const ids = ['phase-alpha', 'phase-beta', 'phase-gamma'];
+            ids.forEach((id, i) => {
+                const el = document.getElementById(id);
+                if (index === -1) el.classList.remove('active');
+                else {
+                    if (i === index) el.classList.add('active');
+                    else el.classList.remove('active');
+                }
+            });
+        };
+
         // --- 5. Animation Loop ---
 
         function animate() {
             requestAnimationFrame(animate);
-            
             time += 0.05;
-
             phases.forEach(p => p.update(time, state));
-
-            // Slow camera rotation
-            scene.rotation.y = Math.sin(time * 0.05) * 0.1; 
-
+            controls.update();
             renderer.render(scene, camera);
         }
         
