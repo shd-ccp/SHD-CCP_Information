@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Phase Torsional Twistor (18-Stream System)</title>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #05070a;
+            --panel-bg: rgba(15, 18, 24, 0.95);
+            --text-primary: #e0e0e0;
+            --accent-gold: #ffd700;
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff0055;
+            --border-color: #2d333b;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #12141a 0%, #000000 100%);
+        }
+
+        #sidebar {
+            width: 480px;
+            min-width: 480px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 1.0rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            font-size: 0.9rem;
+            margin: 15px 0 5px 0;
+            color: #fff;
+            border-left: 3px solid var(--accent-gold);
+            padding-left: 10px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        /* Overlay UI */
+        #canvas-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            backdrop-filter: blur(4px);
+            color: white;
+            border-left: 2px solid transparent;
+        }
+        
+        .math-block {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #ccc;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Visualization Container -->
+    <div id="canvas-container">
+        <div id="canvas-ui">
+            <div class="legend-item" style="border-color:#ff0055">
+                <strong>Phase Alpha</strong> (6 Streams)
+            </div>
+            <div class="legend-item" style="border-color:#00f2ff">
+                <strong>Phase Beta</strong> (6 Streams)
+            </div>
+            <div class="legend-item" style="border-color:#ffd700">
+                <strong>Phase Gamma</strong> (6 Streams)
+            </div>
+            <div class="legend-item" style="margin-top:10px; opacity:0.7">
+                Total Streams: 18 | Pairs: 9
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        
+        <div class="section">
+            <h2>Micro-Structure Controls</h2>
+            
+            <div class="control-group">
+                <label>Micro-Twist (Stream Helix) <span id="val-twist">0.0</span></label>
+                <input type="range" id="input-twist" min="0" max="15" step="0.01" value="2.5">
+            </div>
+
+            <div class="control-group">
+                <label>Stream Expansion (Buckle) <span id="val-buckle">0.0</span></label>
+                <input type="range" id="input-buckle" min="0" max="15" step="0.1" value="2.0">
+            </div>
+            
+             <div class="control-group">
+                <label>Pair Separation (Doublet Width) <span id="val-pair-sep">0.5</span></label>
+                <input type="range" id="input-pair-sep" min="0.1" max="2.0" step="0.1" value="0.5">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>Macro-Tesselation Controls</h2>
+            
+            <div class="control-group">
+                <label>Phase Separation (Tier 2 Radius) <span id="val-separation">15.0</span></label>
+                <input type="range" id="input-separation" min="0" max="40" step="0.1" value="15.0">
+            </div>
+
+            <div class="control-group">
+                <label>Macro-Twist (Tesselation Rotation) <span id="val-macro-twist">0.0</span></label>
+                <input type="range" id="input-macro-twist" min="0" max="5" step="0.01" value="0.5">
+            </div>
+            
+            <div class="control-group">
+                <label>Global Velocity <span id="val-speed">1.0</span></label>
+                <input type="range" id="input-speed" min="0" max="5" step="0.1" value="1.0">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>System Logic: The 18-Stream Tensor</h2>
+            <p>This visualization implements the <strong>3-Phase, 3-Pair Tesselation</strong> logic.</p>
+            
+            <h3>Hierarchy</h3>
+            <ul>
+                <li><strong>3 Phases (Clusters):</strong> Representing the macro dimensions (e.g., Space, Time, Context).</li>
+                <li><strong>3 Pairs per Phase:</strong> The standard braided trefoil knot topology ($3 \times 3 = 9$ Pairs).</li>
+                <li><strong>2 Streams per Pair:</strong> A doublet (Action/Reaction or Real/Imaginary) carrying the data ($9 \times 2 = 18$ Streams).</li>
+            </ul>
+
+            <h3>Total Information Capacity</h3>
+            <p>The system forms a tensor of rank 18. This allows for the "Full Picture" deduction, defined by the generalized parity equation for the entire system $\Psi$:</p>
+            
+            <div class="math-block">
+                $$ \Psi_{total} = \sum_{k=1}^{3} \left( \sum_{j=1}^{3} \text{Pair}_{k,j}(\phi) \right) \otimes e^{i \theta_{macro}} $$
+            </div>
+            
+            <p>Where $\theta_{macro}$ is controlled by the <strong>Macro-Twist</strong> parameter, effectively twisting the entire database into a higher-order helix.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000);
+        camera.position.set(60, 50, 60);
+        camera.lookAt(0, 20, 0);
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pLight = new THREE.PointLight(0xffffff, 1.2);
+        pLight.position.set(0, 100, 0);
+        scene.add(pLight);
+
+        // Visual Aids
+        // const gridHelper = new THREE.GridHelper(100, 20, 0x333333, 0x111111);
+        // scene.add(gridHelper);
+
+        // --- 2. The 18-Stream Logic ---
+
+        class TwistorPair {
+            constructor(color, phaseAngle, groupRadius, parentGroup) {
+                this.color = color;
+                this.phaseAngle = phaseAngle; // Angle within the group (0, 120, 240)
+                this.parentGroup = parentGroup; // Reference to group logic
+                
+                this.particleCount = 100;
+                this.height = 80;
+                
+                // We create 2 streams for this pair
+                this.streamA = this.createStreamMesh();
+                this.streamB = this.createStreamMesh();
+                
+                scene.add(this.streamA);
+                scene.add(this.streamB);
+            }
+
+            createStreamMesh() {
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(this.particleCount * 3);
+                // Initialize flat
+                for(let i=0; i<this.particleCount; i++) {
+                    positions[i*3] = 0;
+                    positions[i*3+1] = (i/this.particleCount) * this.height;
+                    positions[i*3+2] = 0;
+                }
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+                const material = new THREE.PointsMaterial({
+                    color: this.color,
+                    size: 0.8,
+                    map: sprite,
+                    transparent: true,
+                    opacity: 0.8,
+                    alphaTest: 0.5
+                });
+                
+                return new THREE.Points(geometry, material);
+            }
+
+            update(time, state, groupCenterAngle, groupCenterRadius) {
+                const posA = this.streamA.geometry.attributes.position.array;
+                const posB = this.streamB.geometry.attributes.position.array;
+                
+                for(let i=0; i<this.particleCount; i++) {
+                    // 1. Vertical Sync
+                    const yBase = (i/this.particleCount) * this.height;
+                    const y = (yBase + time * state.speed) % this.height;
+                    
+                    // --- MACRO TRANSFORM (The Group Position) ---
+                    // The Group spirals around the center (Macro Twist)
+                    const macroTwistAngle = y * state.macroTwist * 0.05;
+                    const groupAngle = groupCenterAngle + macroTwistAngle;
+                    
+                    const gx = groupCenterRadius * Math.cos(groupAngle);
+                    const gz = groupCenterRadius * Math.sin(groupAngle);
+                    
+                    // --- MICRO TRANSFORM (The Pair Position in the Group) ---
+                    // Twist within the group
+                    const microTwistAngle = y * state.microTwist * 0.1;
+                    const pairAngle = this.phaseAngle + microTwistAngle; // 120 deg separation + twist
+                    
+                    // Base position of the pair center relative to group center
+                    // We apply Buckle here (Expansion away from group center)
+                    const buckleOffset = state.buckle * Math.cos(y * 0.1); 
+                    const r_pair = 4.0 + state.buckle + buckleOffset; 
+                    
+                    const px_local = r_pair * Math.cos(pairAngle);
+                    const pz_local = r_pair * Math.sin(pairAngle);
+                    
+                    // --- NANO TRANSFORM (The 2 Streams in the Pair) ---
+                    // They spiral around the pair center
+                    const doubletSep = state.pairSep;
+                    const doubletAngle = y * 0.5; // Fixed spiral speed for doublet
+                    
+                    // Stream A
+                    const dx_a = doubletSep * Math.cos(doubletAngle);
+                    const dz_a = doubletSep * Math.sin(doubletAngle);
+                    
+                    // Stream B (180 deg offset)
+                    const dx_b = doubletSep * Math.cos(doubletAngle + Math.PI);
+                    const dz_b = doubletSep * Math.sin(doubletAngle + Math.PI);
+
+                    // Combine All
+                    // Final X = GroupX + PairX + DoubletX
+                    
+                    // Stream A Update
+                    posA[i*3] = gx + px_local + dx_a;
+                    posA[i*3+1] = y;
+                    posA[i*3+2] = gz + pz_local + dz_a;
+                    
+                    // Stream B Update
+                    posB[i*3] = gx + px_local + dx_b;
+                    posB[i*3+1] = y;
+                    posB[i*3+2] = gz + pz_local + dz_b;
+                }
+                
+                this.streamA.geometry.attributes.position.needsUpdate = true;
+                this.streamB.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+
+        class TwistorPhaseGroup {
+            constructor(color, angleOffset) {
+                this.angleOffset = angleOffset; // 0, 120, 240 global
+                this.pairs = [];
+                
+                // Create 3 Pairs (Red, Green, Blueish tints relative to base color)
+                // We vary the lightness slightly to distinguish pairs
+                
+                // Pair 1
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 1.0), 0, 0, this));
+                // Pair 2
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 0.7), (Math.PI*2)/3, 0, this));
+                // Pair 3
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 1.3), (Math.PI*4)/3, 0, this));
+            }
+            
+            adjustColor(hex, factor) {
+                // Simple dimmer/brightener
+                const color = new THREE.Color(hex);
+                color.multiplyScalar(factor);
+                return color;
+            }
+
+            update(time, state) {
+                // Determine this Group's center based on Phase Separation
+                // The group itself might spiral if we added super-macro twist, 
+                // but for now it's just the macro-twist in the Pair update.
+                
+                this.pairs.forEach(pair => {
+                    pair.update(time, state, this.angleOffset, state.phaseSep);
+                });
+            }
+        }
+
+        // --- 3. Instantiation ---
+
+        // Phase Alpha (Magenta)
+        const phaseAlpha = new TwistorPhaseGroup(0xff0055, 0);
+        // Phase Beta (Cyan)
+        const phaseBeta = new TwistorPhaseGroup(0x00f2ff, (Math.PI*2)/3);
+        // Phase Gamma (Gold)
+        const phaseGamma = new TwistorPhaseGroup(0xffd700, (Math.PI*4)/3);
+
+        const phases = [phaseAlpha, phaseBeta, phaseGamma];
+
+        // --- 4. State & Controls ---
+
+        const state = {
+            microTwist: 2.5,
+            buckle: 2.0,
+            pairSep: 0.5,
+            phaseSep: 15.0,
+            macroTwist: 0.5,
+            speed: 1.0
+        };
+        
+        let time = 0;
+
+        // Event Listeners
+        function bind(id, key) {
+            const el = document.getElementById(id);
+            el.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value);
+                // Update label
+                const label = document.getElementById(id.replace('input-', 'val-'));
+                if(label) label.innerText = state[key].toFixed(1);
+            });
+        }
+
+        bind('input-twist', 'microTwist');
+        bind('input-buckle', 'buckle');
+        bind('input-pair-sep', 'pairSep');
+        bind('input-separation', 'phaseSep');
+        bind('input-macro-twist', 'macroTwist');
+        bind('input-speed', 'speed');
+
+        // --- 5. Animation Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            time += 0.05;
+
+            phases.forEach(p => p.update(time, state));
+
+            // Slow camera rotation
+            scene.rotation.y = Math.sin(time * 0.05) * 0.1; 
+
+            renderer.render(scene, camera);
+        }
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
