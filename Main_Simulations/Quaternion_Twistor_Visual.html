@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quaternion Twistor Tutorial</title>
+    <!-- 1. Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 2. Basic styles */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a; /* Slate 900 */
+            font-family: 'Inter', sans-serif;
+            color: white;
+        }
+        canvas {
+            display: block;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        /* Serif font for math variables */
+        .math-var {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+    <!-- 3. Import Map for three.js modules -->
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+            "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <!-- Main Content Wrapper -->
+    <div class="flex flex-1 relative overflow-hidden">
+        
+        <!-- Left Tutorial Sidebar -->
+        <div class="w-80 h-full glass-panel z-10 flex flex-col p-6 overflow-y-auto border-r border-white/10 shadow-2xl">
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400 mb-2">
+                Quaternion Twistor
+            </h1>
+            <div class="text-xs font-mono text-gray-400 mb-6 border-b border-gray-700 pb-4">
+                Mathematical Model: <br>
+                <span class="text-yellow-400 math-var">q</span> = 
+                <span class="text-white font-bold math-var">w</span> + 
+                <span class="text-red-400 math-var">xi</span> + 
+                <span class="text-green-400 math-var">yj</span> + 
+                <span class="text-blue-400 math-var">zk</span>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Concept 1 -->
+                <div>
+                    <h3 class="font-bold text-gray-200 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-cyan-400"></div>
+                        The Concept (Vector)
+                    </h3>
+                    <p class="text-sm text-gray-400 mt-1 leading-relaxed">
+                        The 3 colored orbs represent complex variables (<span class="math-var">i, j, k</span>). They carry hyperbolic data and follow a 3-step cycle. The lines connecting them to the center represent the vector magnitude (<span class="math-var">r</span>).
+                    </p>
+                </div>
+
+                <!-- Concept 2 -->
+                <div>
+                    <h3 class="font-bold text-gray-200 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-white animate-pulse"></div>
+                        The Scalar (Real)
+                    </h3>
+                    <p class="text-sm text-gray-400 mt-1 leading-relaxed">
+                        The central white orb is the Real component (<span class="math-var">w</span>). As vectors compress (amplitude &to; 0), the scalar expands to conserve information, preventing a singularity.
+                    </p>
+                </div>
+
+                <!-- Concept 3: Spin-1/2 -->
+                <div class="bg-purple-900/20 p-3 rounded border border-purple-500/30">
+                    <h3 class="font-bold text-purple-300 flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-purple-500"></div>
+                        Spin-½ Topology (2:1)
+                    </h3>
+                    <p class="text-sm text-gray-400 mt-1 leading-relaxed">
+                        Note the <strong>Purple Spin Vector</strong>. For every 1 Data Cycle (Compression), the system rotates <strong>720°</strong>.
+                    </p>
+                    <ul class="text-xs text-gray-500 mt-2 list-disc list-inside">
+                        <li>360°: Vector Inverted (<span class="math-var">-&psi;</span>)</li>
+                        <li>720°: Vector Restored (<span class="math-var">&psi;</span>)</li>
+                    </ul>
+                    <p class="text-xs text-purple-400 mt-2">This double-loop allows data encapsulation.</p>
+                </div>
+                
+                <div class="bg-blue-900/30 p-3 rounded border border-blue-500/30 mt-4">
+                    <h4 class="text-xs font-bold text-blue-300 uppercase mb-1">Current Phase</h4>
+                    <div id="phase-indicator" class="text-lg font-mono text-white">Detecting...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3D Canvas Area -->
+        <div class="flex-1 relative bg-gradient-to-b from-gray-900 to-black">
+            <div id="canvas-container" class="absolute inset-0"></div>
+            
+            <!-- Floating Label -->
+            <div class="absolute top-6 right-6 text-right pointer-events-none">
+                <div class="text-4xl font-bold text-white/50">2:1</div>
+                <div class="text-sm text-gray-500 uppercase tracking-widest">Spin Ratio (720°)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Graph Panel -->
+    <div class="h-48 glass-panel border-t border-white/10 z-20 flex relative">
+        <div class="absolute top-2 left-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Synchronized Time Wave Functions
+        </div>
+        
+        <canvas id="graphCanvas" class="w-full h-full"></canvas>
+    </div>
+
+    <!-- Main Logic Script -->
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+        // --- 3D Variables ---
+        let scene, camera, renderer, controls;
+        let concepts = [];
+        let conceptLines = [];
+        let conceptPaths = [];
+        let codex;
+        let conceptGroup;
+        let conceptTriangle;
+        let scalarOrb;
+        let orthogonalAxis;
+        let spinVectorArrow;
+
+        // --- Graph Variables ---
+        const graphCanvas = document.getElementById('graphCanvas');
+        const ctx = graphCanvas.getContext('2d');
+        let dataHistory = []; 
+        const maxHistory = 300; 
+
+        // --- Config ---
+        const cycleDuration = 8;
+        const codexSize = 10;
+        const codexResolution = 8;
+        const MAX_PATH_POINTS = 400;
+
+        function init() {
+            // Setup 3D Container
+            const container = document.getElementById('canvas-container');
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0f172a, 10, 40);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(10, 6, 12);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0, 0);
+
+            // Lights
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+            pointLight.position.set(0, 5, 0);
+            scene.add(pointLight);
+
+            // --- Object Creation ---
+            conceptGroup = new THREE.Group();
+            scene.add(conceptGroup);
+
+            // 1. Scalar Orb
+            const scalarGeo = new THREE.SphereGeometry(0.5, 32, 32);
+            const scalarMat = new THREE.MeshStandardMaterial({
+                color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 2,
+                roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.8
+            });
+            scalarOrb = new THREE.Mesh(scalarGeo, scalarMat);
+            conceptGroup.add(scalarOrb);
+
+            // 2. Orthogonal Axis
+            const axisGeo = new THREE.CylinderGeometry(0.02, 0.02, 30, 8);
+            const axisMat = new THREE.MeshBasicMaterial({ 
+                color: 0xffaa00, transparent: true, opacity: 0, blending: THREE.AdditiveBlending 
+            });
+            orthogonalAxis = new THREE.Mesh(axisGeo, axisMat);
+            orthogonalAxis.rotation.x = Math.PI / 2;
+            orthogonalAxis.rotation.z = Math.PI / 4; 
+            conceptGroup.add(orthogonalAxis);
+
+            // 2b. Spin Vector Arrow
+            const arrowGeo = new THREE.ConeGeometry(0.2, 0.8, 16);
+            const arrowMat = new THREE.MeshStandardMaterial({ color: 0xa855f7, emissive: 0xa855f7, emissiveIntensity: 1 });
+            spinVectorArrow = new THREE.Mesh(arrowGeo, arrowMat);
+            spinVectorArrow.position.y = 1.5; 
+            conceptGroup.add(spinVectorArrow);
+            
+            const shaftGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.5, 8);
+            const shaft = new THREE.Mesh(shaftGeo, arrowMat);
+            shaft.position.y = -0.75; 
+            spinVectorArrow.add(shaft);
+
+
+            // 3. Concepts
+            const colors = [0xff4141, 0x41ff6b, 0x416bff];
+            const conceptGeometry = new THREE.SphereGeometry(0.3, 32, 32);
+
+            for (let i = 0; i < 3; i++) {
+                // Orb
+                const material = new THREE.MeshStandardMaterial({
+                    color: colors[i], metalness: 0.7, roughness: 0.2,
+                    emissive: colors[i], emissiveIntensity: 0.5
+                });
+                const concept = new THREE.Mesh(conceptGeometry, material);
+                
+                const scale = 2.5;
+                const tParam = i * (Math.PI * 2 / 3);
+                const pos = getTrefoilPosition(tParam, scale);
+                concept.position.copy(pos);
+                
+                concepts.push(concept);
+                conceptGroup.add(concept);
+
+                // Line from Concept to Center (Vector Radius)
+                const lineMat = new THREE.LineBasicMaterial({ color: colors[i], transparent: true, opacity: 0.8 });
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+                const line = new THREE.Line(lineGeo, lineMat);
+                conceptLines.push(line);
+                scene.add(line);
+
+                // Trails
+                const pathMat = new THREE.LineBasicMaterial({ color: colors[i], transparent: true, opacity: 0.3 });
+                const pathGeo = new THREE.BufferGeometry();
+                const pathPos = new Float32Array(MAX_PATH_POINTS * 3);
+                for(let j=0; j<MAX_PATH_POINTS; j++) pathPos.set([pos.x, pos.y, pos.z], j*3);
+                pathGeo.setAttribute('position', new THREE.BufferAttribute(pathPos, 3));
+                const pathLine = new THREE.Line(pathGeo, pathMat);
+                conceptPaths.push(pathLine);
+                conceptGroup.add(pathLine);
+            }
+
+            // 4. Triangle
+            const triGeo = new THREE.BufferGeometry();
+            const triPos = new Float32Array(9);
+            triGeo.setAttribute('position', new THREE.BufferAttribute(triPos, 3));
+            triGeo.setIndex([0, 1, 2]);
+            const triMat = new THREE.MeshBasicMaterial({ 
+                color: 0xffffff, wireframe: true, transparent: true, opacity: 0.2, side: THREE.DoubleSide 
+            });
+            conceptTriangle = new THREE.Mesh(triGeo, triMat);
+            conceptGroup.add(conceptTriangle);
+
+            // 5. Codex (Lattice)
+            createCodex();
+
+            // Resize Listeners
+            window.addEventListener('resize', onWindowResize);
+            resizeGraph(); 
+
+            animate();
+        }
+
+        function createCodex() {
+            const points = [];
+            const half = (codexResolution - 1) * codexSize / (codexResolution * 2);
+            for (let x = 0; x < codexResolution; x++) {
+                for (let y = 0; y < codexResolution; y++) {
+                    for (let z = 0; z < codexResolution; z++) {
+                        // Removed the random sparse check to make lattice denser/full
+                        points.push(new THREE.Vector3(
+                            THREE.MathUtils.mapLinear(x, 0, codexResolution - 1, -half, half),
+                            THREE.MathUtils.mapLinear(y, 0, codexResolution - 1, -half, half),
+                            THREE.MathUtils.mapLinear(z, 0, codexResolution - 1, -half, half)
+                        ));
+                    }
+                }
+            }
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            // Increased opacity to 0.7 for higher visibility
+            const mat = new THREE.PointsMaterial({ color: 0x64748b, size: 0.05, transparent: true, opacity: 0.7 });
+            codex = new THREE.Points(geo, mat);
+            scene.add(codex);
+        }
+
+        function getTrefoilPosition(t, scale) {
+            return new THREE.Vector3(
+                Math.sin(t) + 2 * Math.sin(2 * t),
+                Math.cos(t) - 2 * Math.cos(2 * t),
+                -Math.sin(3 * t)
+            ).multiplyScalar(scale);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            resizeGraph();
+        }
+
+        function resizeGraph() {
+            const rect = graphCanvas.parentElement.getBoundingClientRect();
+            graphCanvas.width = rect.width;
+            graphCanvas.height = rect.height;
+        }
+
+        function updateGraphs(vectorMag, scalarMag) {
+            // Push data
+            dataHistory.push({
+                vector: vectorMag,
+                scalar: scalarMag
+            });
+            if (dataHistory.length > maxHistory) dataHistory.shift();
+
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            
+            // Clear
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw Grid
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            for(let i=0; i<w; i+=50) { ctx.moveTo(i, 0); ctx.lineTo(i, h); }
+            for(let i=0; i<h; i+=30) { ctx.moveTo(0, i); ctx.lineTo(w, i); }
+            ctx.stroke();
+
+            // Helper to map y
+            const mapY = (val, min, max, yOffset, height) => {
+                const norm = (val - min) / (max - min);
+                return yOffset + height - (norm * height);
+            }
+
+            const step = w / maxHistory;
+
+            // --- Draw Top Graph (Vector Distances) ---
+            // Area: Top 50%
+            const topH = h * 0.45;
+            const topY = 20; // Padding top
+
+            // Draw baseline
+            ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+            ctx.beginPath();
+            ctx.moveTo(0, topY + topH); ctx.lineTo(w, topY + topH);
+            ctx.stroke();
+
+            // Label
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px monospace';
+            ctx.fillText("VECTOR MAGNITUDE (Distance)", 10, topY + 10);
+
+            // Draw 3 offset lines for RGB (since they are symmetric in 3D but we want to visualize them)
+            ['#ef4444', '#22c55e', '#3b82f6'].forEach((color, idx) => {
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                const offset = (idx - 1) * 0.05; 
+                
+                dataHistory.forEach((d, i) => {
+                    const val = d.vector + offset; // Visual separation
+                    const x = i * step;
+                    const y = mapY(val, 0, 1.2, topY, topH);
+                    if(i===0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            });
+
+
+            // --- Draw Bottom Graph (Scalar Amplitude) ---
+            // Area: Bottom 50%
+            const botH = h * 0.45;
+            const botY = h * 0.5 + 10;
+
+            // Label
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText("ORTHOGONAL SCALAR AMPLITUDE", 10, botY + 10);
+
+            ctx.strokeStyle = '#fbbf24'; // Yellow
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 10;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            dataHistory.forEach((d, i) => {
+                const x = i * step;
+                const y = mapY(d.scalar, 0, 1.2, botY, botH);
+                if(i===0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+            const t = (time || 0) * 0.001;
+
+            const timeStep = Math.floor(t / cycleDuration);
+            const cycleTime = t % cycleDuration;
+            const phase = cycleTime / cycleDuration; // 0.0 to 1.0
+
+            // --- 720 Degree Rotation Logic (Spin 1/2) ---
+            conceptGroup.rotation.y = phase * Math.PI * 4; 
+            
+            // --- Spin Vector Logic ---
+            if (spinVectorArrow) {
+                spinVectorArrow.rotation.x = phase * Math.PI * 2;
+                const isInverted = (phase > 0.25 && phase < 0.75);
+                const targetColor = isInverted ? new THREE.Color(0xff4141) : new THREE.Color(0xa855f7);
+                spinVectorArrow.material.color.lerp(targetColor, 0.1);
+                spinVectorArrow.material.emissive.lerp(targetColor, 0.1);
+            }
+
+            codex.rotation.y = t * 0.02; // Codex rotates slowly independently
+
+            let lerpFactor;
+            let isFeedback = false;
+            const phaseLabel = document.getElementById('phase-indicator');
+
+            // Phase Calc
+            if (phase < 0.5) {
+                // Compression
+                lerpFactor = 0.5 * (1 - Math.cos(phase * 2 * Math.PI));
+                phaseLabel.innerText = "1. COMPRESSION / ROTATING";
+                phaseLabel.className = "text-lg font-mono text-red-400 animate-pulse";
+            } else if (phase < 0.6) {
+                // Feedback
+                lerpFactor = 1;
+                isFeedback = true;
+                phaseLabel.innerText = "2. FEEDBACK / INVERSION";
+                phaseLabel.className = "text-lg font-mono text-yellow-400";
+            } else {
+                // Decompression
+                const decompressPhase = (phase - 0.6) / 0.4;
+                lerpFactor = 0.5 * (1 + Math.cos(decompressPhase * Math.PI));
+                phaseLabel.innerText = "3. DECOMPRESSION / ENCAPSULATION";
+                phaseLabel.className = "text-lg font-mono text-blue-400";
+            }
+
+            // --- Quaternion & Scalar Math ---
+            const normalizedVectorMag = (1 - lerpFactor); 
+            const scalarVisMag = Math.sqrt(1 - (normalizedVectorMag * normalizedVectorMag * 0.95));
+
+            // Update Scalar Mesh
+            const baseScale = 0.1;
+            const targetScale = baseScale + (lerpFactor * 1.5);
+            scalarOrb.scale.setScalar(targetScale);
+            scalarOrb.material.emissiveIntensity = lerpFactor * 4;
+            
+            // Update Axis
+            const axisVis = Math.max(0, (lerpFactor - 0.9) * 10);
+            orthogonalAxis.material.opacity = axisVis;
+            orthogonalAxis.scale.x = 1 + Math.sin(t * 30) * 0.2;
+            orthogonalAxis.scale.z = 1 + Math.cos(t * 30) * 0.2;
+
+            // --- Concepts Update ---
+            const center = new THREE.Vector3(0, 0, 0);
+            
+            concepts.forEach((concept, i) => {
+                // Pos
+                const scale = 3.5;
+                const tParam = t * 0.5 + i * (Math.PI * 2 / 3);
+                const knotPos = getTrefoilPosition(tParam, scale);
+                concept.position.lerpVectors(knotPos, center, lerpFactor);
+
+                // Feedback FX
+                if(isFeedback) {
+                    concept.material.emissiveIntensity = 5;
+                    concept.scale.setScalar(0.5); 
+                } else {
+                    concept.material.emissiveIntensity = 0.5;
+                    concept.scale.setScalar(1.0);
+                }
+
+                // Trails
+                const path = conceptPaths[i];
+                const posArr = path.geometry.attributes.position.array;
+                posArr.copyWithin(0, 3);
+                posArr[posArr.length-3] = concept.position.x;
+                posArr[posArr.length-2] = concept.position.y;
+                posArr[posArr.length-1] = concept.position.z;
+                path.geometry.attributes.position.needsUpdate = true;
+
+                // Lines: Directly from Concept to Center (0,0,0)
+                const linePos = conceptLines[i].geometry.attributes.position;
+                linePos.setXYZ(0, concept.position.x, concept.position.y, concept.position.z);
+                // Center point (where scalar is)
+                linePos.setXYZ(1, center.x, center.y, center.z);
+                linePos.needsUpdate = true;
+                // Keep visible during decompression to show the vector radius
+                conceptLines[i].material.opacity = 0.5; 
+            });
+
+            // Triangle
+            const triAttr = conceptTriangle.geometry.attributes.position;
+            concepts.forEach((c, i) => triAttr.setXYZ(i, c.position.x, c.position.y, c.position.z));
+            triAttr.needsUpdate = true;
+            conceptTriangle.material.opacity = 0.1 + (lerpFactor * 0.5);
+
+            // --- Update 2D Graphs ---
+            updateGraphs(normalizedVectorMag, scalarVisMag);
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
