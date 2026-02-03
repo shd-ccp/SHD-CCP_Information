@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3-Phase Torsional Twistor (Dual Trefoil Equilibrium)</title>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #05070a;
+            --panel-bg: rgba(15, 18, 24, 0.95);
+            --text-primary: #e0e0e0;
+            --accent-gold: #ffd700;
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff0055;
+            --border-color: #2d333b;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #12141a 0%, #000000 100%);
+        }
+
+        #sidebar {
+            width: 480px;
+            min-width: 480px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .section {
+            padding: 20px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 1.0rem;
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        h3 {
+            font-size: 0.9rem;
+            margin: 15px 0 5px 0;
+            color: #fff;
+            border-left: 3px solid var(--accent-gold);
+            padding-left: 10px;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 4px;
+            font-weight: 500;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+        }
+        
+        /* Checkbox styling */
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 0.8rem;
+            color: var(--text-primary);
+            cursor: pointer;
+        }
+        
+        input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            accent-color: var(--accent-cyan);
+            cursor: pointer;
+        }
+
+        /* Overlay UI */
+        #canvas-ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            background: rgba(0,0,0,0.6);
+            padding: 6px 12px;
+            border-radius: 4px;
+            backdrop-filter: blur(4px);
+            color: white;
+            border-left: 3px solid transparent;
+            pointer-events: auto;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        
+        .legend-item:hover {
+            background: rgba(255,255,255,0.1);
+            transform: translateX(5px);
+        }
+        
+        .legend-item.active {
+            background: rgba(255,255,255,0.2);
+            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+        }
+
+        #reset-btn {
+            margin-top: 10px;
+            padding: 6px 12px;
+            background: rgba(45, 51, 59, 0.8);
+            border: 1px solid var(--border-color);
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            pointer-events: auto;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            width: fit-content;
+        }
+        
+        #reset-btn:hover {
+            background: var(--accent-cyan);
+            color: black;
+        }
+        
+        .math-block {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            color: #ccc;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 3D Visualization Container -->
+    <div id="canvas-container">
+        <div id="canvas-ui">
+            <div id="phase-alpha" class="legend-item" style="border-color:#ff0055" onclick="highlightPhase(0)">
+                <strong>Phase Alpha</strong> (Positive Knot)
+            </div>
+            <div id="phase-beta" class="legend-item" style="border-color:#00f2ff" onclick="highlightPhase(1)">
+                <strong>Phase Beta</strong> (Inverse Knot)
+            </div>
+            <div id="phase-gamma" class="legend-item" style="border-color:#ffd700" onclick="highlightPhase(2)">
+                <strong>Phase Gamma</strong> (Equilibrium/Split)
+            </div>
+            <div class="legend-item" style="margin-top:5px; border-left:none; opacity:0.8" onclick="highlightPhase(-1)">
+                Reset Focus (Show All)
+            </div>
+            <button id="reset-btn" onclick="resetCamera()">Reset View</button>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        
+        <div class="section">
+            <h2>Knot Topology Controls</h2>
+            
+            <div class="control-group">
+                <label>Micro-Twist (Stream Helix) <span id="val-twist">0.0</span></label>
+                <input type="range" id="input-twist" min="0" max="15" step="0.01" value="3.5">
+            </div>
+
+            <div class="control-group">
+                <label>Stream Expansion (Tube Radius) <span id="val-buckle">0.0</span></label>
+                <input type="range" id="input-buckle" min="0.5" max="8.0" step="0.1" value="2.5">
+            </div>
+            
+             <div class="control-group">
+                <label>Pair Separation (Doublet Width) <span id="val-pair-sep">0.5</span></label>
+                <input type="range" id="input-pair-sep" min="0.1" max="2.0" step="0.1" value="0.5">
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>System Controls</h2>
+            
+            <div class="control-group">
+                <label>Knot Scale (Tesselation Volume) <span id="val-separation">18.0</span></label>
+                <input type="range" id="input-separation" min="10" max="30" step="0.1" value="18.0">
+            </div>
+            
+            <div class="control-group">
+                <label>Flow Velocity <span id="val-speed">0.5</span></label>
+                <input type="range" id="input-speed" min="0" max="2.0" step="0.01" value="0.2">
+            </div>
+
+            <label class="checkbox-wrapper">
+                <input type="checkbox" id="check-lattice" checked onchange="toggleLattice(this.checked)">
+                Show 4x4x4 Cubic Lattice Structure
+            </label>
+        </div>
+
+        <div class="section">
+            <h2>Logic: Dual Trefoil Equilibrium</h2>
+            <p>The system visualizes 18 streams mapped onto two inverse Trefoil Knots ($K$ and $K'$), demonstrating equilibrium within a 64-bit cubic lattice.</p>
+            
+            <h3>The Path Equation</h3>
+            <div class="math-block">
+                $$ x = S(\sin(t) + 2\sin(2t)) $$
+                $$ y = S(\cos(t) - 2\cos(2t)) $$
+                $$ z = S(-\sin(3t)) $$
+            </div>
+            <p><strong>Inverse Path:</strong> $K'$ is generated by mirroring the coordinates, representing the opposing spin state required for zero-point equilibrium.</p>
+
+            <h3>Data Stream Axis</h3>
+            <p>Each stream acts as a coordinate axis flowing along the knot, stabilized by the Frenet-Serret frame which prevents topological collapse even under high torsional stress.</p>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 1. Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000);
+        const initialCameraPos = { x: 0, y: 0, z: 120 }; // Front view for Trefoil
+        camera.position.set(initialCameraPos.x, initialCameraPos.y, initialCameraPos.z);
+        camera.lookAt(0, 0, 0);
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Orbit Controls
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pLight = new THREE.PointLight(0xffffff, 1.2);
+        pLight.position.set(50, 50, 50);
+        scene.add(pLight);
+        const pLight2 = new THREE.PointLight(0x4a9eff, 0.8);
+        pLight2.position.set(-50, -50, 50);
+        scene.add(pLight2);
+        
+        // Lattice Group
+        const latticeGroup = new THREE.Group();
+        latticeGroup.visible = true; // Default On
+        scene.add(latticeGroup);
+
+        function createLattice() {
+            // Create a 4x4x4 lattice grid
+            const size = 80;
+            const divisions = 4;
+            const step = size / divisions;
+            const offset = size / 2;
+            
+            const material = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.15 });
+            const geometry = new THREE.BufferGeometry();
+            const vertices = [];
+
+            for (let i = 0; i <= divisions; i++) {
+                for (let j = 0; j <= divisions; j++) {
+                    const k = -offset + i * step;
+                    const l = -offset + j * step;
+                    
+                    // X-axis lines
+                    vertices.push(k, -offset, l);
+                    vertices.push(k, offset, l);
+                    // Y-axis lines
+                    vertices.push(-offset, k, l);
+                    vertices.push(offset, k, l);
+                    // Z-axis lines
+                    vertices.push(l, k, -offset);
+                    vertices.push(l, k, offset);
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const lattice = new THREE.LineSegments(geometry, material);
+            latticeGroup.add(lattice);
+            
+            // Nodes
+            const dotGeometry = new THREE.BufferGeometry();
+            const dotVertices = [];
+            for (let x = 0; x <= divisions; x++) {
+                for (let y = 0; y <= divisions; y++) {
+                    for (let z = 0; z <= divisions; z++) {
+                        dotVertices.push(
+                            -offset + x * step,
+                            -offset + y * step,
+                            -offset + z * step
+                        );
+                    }
+                }
+            }
+            dotGeometry.setAttribute('position', new THREE.Float32BufferAttribute(dotVertices, 3));
+            const dotMaterial = new THREE.PointsMaterial({ color: 0x666666, size: 0.8, transparent:true, opacity:0.3 });
+            const dots = new THREE.Points(dotGeometry, dotMaterial);
+            latticeGroup.add(dots);
+        }
+        createLattice();
+
+        // --- 2. Trefoil Geometry Logic ---
+
+        // Returns point on Trefoil at parameter t
+        // Type: 1 = Normal, -1 = Inverse (Mirrored)
+        function getTrefoilPoint(t, scale, type) {
+            // Standard Trefoil Equations
+            // x = sin(t) + 2sin(2t)
+            // y = cos(t) - 2cos(2t)
+            // z = -sin(3t)
+            
+            let x = Math.sin(t) + 2 * Math.sin(2 * t);
+            let y = Math.cos(t) - 2 * Math.cos(2 * t);
+            let z = -Math.sin(3 * t);
+            
+            // Apply Scale
+            x *= scale;
+            y *= scale;
+            z *= scale;
+            
+            if (type === -1) {
+                // Inverse Knot: Reflection across XY plane (z -> -z) 
+                // and X -> -X to create a proper opposing chirality/shape
+                x = -x;
+                z = -z;
+            }
+            
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // Computes Tangent, Normal, Binormal
+        function computeFrenetFrame(t, scale, type) {
+            const epsilon = 0.01;
+            const p0 = getTrefoilPoint(t, scale, type);
+            const p1 = getTrefoilPoint(t + epsilon, scale, type);
+            
+            // Tangent
+            const T = new THREE.Vector3().subVectors(p1, p0).normalize();
+            
+            // Normal (Approximate using curvature)
+            // We use a secondary point for 2nd derivative approx
+            const p2 = getTrefoilPoint(t + epsilon * 2, scale, type);
+            const T2 = new THREE.Vector3().subVectors(p2, p1).normalize();
+            const N = new THREE.Vector3().subVectors(T2, T).normalize();
+            
+            // Binormal
+            const B = new THREE.Vector3().crossVectors(T, N).normalize();
+            
+            return { T, N, B, p0 };
+        }
+
+        class TwistorPair {
+            constructor(color, phaseAngle, parentGroup, pathType) {
+                this.baseColor = color;
+                this.phaseAngle = phaseAngle; 
+                this.parentGroup = parentGroup; 
+                this.pathType = pathType; // 1 or -1
+                
+                this.particleCount = 150; // Increased for smooth knot
+                
+                this.streamA = this.createStreamMesh();
+                this.streamB = this.createStreamMesh();
+                
+                scene.add(this.streamA);
+                scene.add(this.streamB);
+            }
+
+            createStreamMesh() {
+                const geometry = new THREE.BufferGeometry();
+                const positions = new Float32Array(this.particleCount * 3);
+                // Init with zeros
+                geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+                const material = new THREE.PointsMaterial({
+                    color: this.baseColor,
+                    size: 0.8,
+                    map: sprite,
+                    transparent: true,
+                    opacity: 0.8,
+                    alphaTest: 0.5
+                });
+                
+                return new THREE.Points(geometry, material);
+            }
+            
+            setHighlight(active) {
+                const opacity = active ? 0.9 : 0.05;
+                const size = active ? 0.9 : 0.4;
+                this.streamA.material.opacity = opacity;
+                this.streamB.material.opacity = opacity;
+                this.streamA.material.size = size;
+                this.streamB.material.size = size;
+            }
+
+            update(time, state) {
+                const posA = this.streamA.geometry.attributes.position.array;
+                const posB = this.streamB.geometry.attributes.position.array;
+                
+                const scale = state.phaseSep * 0.5; // Use separation slider as scale
+                
+                for(let i=0; i<this.particleCount; i++) {
+                    // Normalize i to 0..2PI
+                    const tOffset = (i / this.particleCount) * Math.PI * 2;
+                    // Move along curve with time
+                    const t = (tOffset + time * state.speed) % (Math.PI * 2);
+                    
+                    const frame = computeFrenetFrame(t, scale, this.pathType);
+                    
+                    // --- Micro Twist Logic ---
+                    // Rotate around the curve using Normal and Binormal vectors
+                    // Twist amount depends on position t (torsion)
+                    const twistAngle = t * state.microTwist;
+                    const localTheta = this.phaseAngle + twistAngle;
+                    
+                    // Expansion (Buckle) - Tube Radius
+                    const tubeRadius = state.buckle;
+                    
+                    // Calculate Local position in the tube cross-section
+                    // P_local = Radius * (cos(theta)*N + sin(theta)*B)
+                    
+                    const u = Math.cos(localTheta);
+                    const v = Math.sin(localTheta);
+                    
+                    // Doublet Separation (Pair width)
+                    // We separate Stream A and B by adding a small offset angle PI
+                    // Or simply offsetting radius? Let's offset angle for spiraling doublet
+                    const doubletSepAngle = 0.3 * state.pairSep; // visual separation
+                    
+                    // Stream A
+                    const uA = Math.cos(localTheta - doubletSepAngle);
+                    const vA = Math.sin(localTheta - doubletSepAngle);
+                    
+                    const xA = frame.p0.x + tubeRadius * (uA * frame.N.x + vA * frame.B.x);
+                    const yA = frame.p0.y + tubeRadius * (uA * frame.N.y + vA * frame.B.y);
+                    const zA = frame.p0.z + tubeRadius * (uA * frame.N.z + vA * frame.B.z);
+                    
+                    // Stream B
+                    const uB = Math.cos(localTheta + Math.PI + doubletSepAngle);
+                    const vB = Math.sin(localTheta + Math.PI + doubletSepAngle);
+                    
+                    const xB = frame.p0.x + tubeRadius * (uB * frame.N.x + vB * frame.B.x);
+                    const yB = frame.p0.y + tubeRadius * (uB * frame.N.y + vB * frame.B.y);
+                    const zB = frame.p0.z + tubeRadius * (uB * frame.N.z + vB * frame.B.z);
+
+                    posA[i*3] = xA; posA[i*3+1] = yA; posA[i*3+2] = zA;
+                    posB[i*3] = xB; posB[i*3+1] = yB; posB[i*3+2] = zB;
+                }
+                
+                this.streamA.geometry.attributes.position.needsUpdate = true;
+                this.streamB.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+
+        class TwistorPhaseGroup {
+            constructor(color, angleOffset, pathType) {
+                this.angleOffset = angleOffset; 
+                this.pairs = [];
+                this.pathType = pathType;
+                
+                // Create 3 pairs per phase
+                // They are offset by 120 degrees along the tube
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 1.0), 0 + angleOffset, this, pathType));
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 0.7), (Math.PI*2)/3 + angleOffset, this, pathType));
+                this.pairs.push(new TwistorPair(this.adjustColor(color, 1.3), (Math.PI*4)/3 + angleOffset, this, pathType));
+            }
+            
+            adjustColor(hex, factor) {
+                const color = new THREE.Color(hex);
+                color.multiplyScalar(factor);
+                return color;
+            }
+            
+            highlight(shouldHighlight) {
+                this.pairs.forEach(p => p.setHighlight(shouldHighlight));
+            }
+
+            update(time, state) {
+                this.pairs.forEach(pair => {
+                    pair.update(time, state);
+                });
+            }
+        }
+
+        // --- 3. Instantiation & Mapping ---
+
+        // Phase Alpha: Positive Knot
+        const phaseAlpha = new TwistorPhaseGroup(0xff0055, 0, 1);
+        
+        // Phase Beta: Inverse Knot
+        const phaseBeta = new TwistorPhaseGroup(0x00f2ff, 0, -1);
+        
+        // Phase Gamma: Split/Equilibrium
+        // We simulate "Split" by creating pairs on BOTH knots manually for this group
+        // But to fit the class structure, we'll create a special composite group
+        
+        class CompositePhaseGroup {
+            constructor(color) {
+                this.pairs = [];
+                // 3 Pairs total. 
+                // Pair 1 -> Positive Knot (Path 1)
+                // Pair 2 -> Inverse Knot (Path -1)
+                // Pair 3 -> Positive Knot (Path 1) - Alternating
+                
+                const c1 = new THREE.Color(color).multiplyScalar(1.0);
+                const c2 = new THREE.Color(color).multiplyScalar(0.7);
+                const c3 = new THREE.Color(color).multiplyScalar(1.3);
+
+                this.pairs.push(new TwistorPair(c1, Math.PI/3, this, 1)); // Offset 60 deg
+                this.pairs.push(new TwistorPair(c2, Math.PI/3, this, -1));
+                this.pairs.push(new TwistorPair(c3, Math.PI, this, 1));
+            }
+            
+            highlight(shouldHighlight) {
+                this.pairs.forEach(p => p.setHighlight(shouldHighlight));
+            }
+            
+            update(time, state) {
+                this.pairs.forEach(pair => pair.update(time, state));
+            }
+        }
+        
+        const phaseGamma = new CompositePhaseGroup(0xffd700);
+
+        const phases = [phaseAlpha, phaseBeta, phaseGamma];
+
+        // --- 4. State & Controls ---
+
+        const state = {
+            microTwist: 3.5,
+            buckle: 2.5,
+            pairSep: 0.5,
+            phaseSep: 18.0, // Used as Scale S
+            speed: 0.2
+        };
+        
+        let time = 0;
+
+        function bind(id, key) {
+            const el = document.getElementById(id);
+            el.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value);
+                const label = document.getElementById(id.replace('input-', 'val-'));
+                if(label) label.innerText = state[key].toFixed(1);
+            });
+        }
+
+        bind('input-twist', 'microTwist');
+        bind('input-buckle', 'buckle');
+        bind('input-pair-sep', 'pairSep');
+        bind('input-separation', 'phaseSep'); // Mapped to Scale
+        bind('input-speed', 'speed');
+
+        window.resetCamera = function() {
+            camera.position.set(initialCameraPos.x, initialCameraPos.y, initialCameraPos.z);
+            camera.lookAt(0, 0, 0);
+            controls.target.set(0, 0, 0);
+            controls.update();
+        };
+
+        window.toggleLattice = function(checked) {
+            latticeGroup.visible = checked;
+        };
+
+        window.highlightPhase = function(index) {
+            phases.forEach((phase, i) => {
+                if (index === -1) {
+                    phase.highlight(true); 
+                } else {
+                    phase.highlight(i === index); 
+                }
+            });
+            
+            const ids = ['phase-alpha', 'phase-beta', 'phase-gamma'];
+            ids.forEach((id, i) => {
+                const el = document.getElementById(id);
+                if (index === -1) el.classList.remove('active');
+                else {
+                    if (i === index) el.classList.add('active');
+                    else el.classList.remove('active');
+                }
+            });
+        };
+
+        // --- 5. Animation Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.05;
+            phases.forEach(p => p.update(time, state));
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
