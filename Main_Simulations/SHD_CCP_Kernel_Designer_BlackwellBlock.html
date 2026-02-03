@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schism Labs - SHD-CCP Blackwell Block Architect V1.4a</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #e2e8f0; }
+        .grid-cell { transition: all 0.2s; }
+        .grid-cell:hover { transform: scale(1.1); z-index: 10; border-color: white; }
+        .sidebar { background-color: #1e293b; border-right: 1px solid #334155; transition: width 0.3s ease; }
+        .sidebar.collapsed { width: 40px; }
+        .sidebar-content { transition: opacity 0.2s ease; }
+        .sidebar.collapsed .sidebar-content { opacity: 0; pointer-events: none; }
+        .panel { background-color: #1e293b; border: 1px solid #334155; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        .hardware-badge { font-size: 0.65rem; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold; }
+        .badge-tma { background-color: #be185d; color: white; } /* Pink */
+        .badge-dsmem { background-color: #6d28d9; color: white; } /* Purple */
+        .badge-alu { background-color: #059669; color: white; } /* Emerald */
+        
+        .precision-tag { font-size: 0.6rem; font-family: 'JetBrains Mono', monospace; color: #94a3b8; border: 1px solid #334155; padding: 0 4px; border-radius: 2px; margin-left: 4px; }
+
+        /* Flowchart Styles */
+        .flow-box { border: 1px solid #475569; background: #0f172a; border-radius: 6px; padding: 8px; position: relative; transition: all 0.3s; }
+        .flow-box.active { border-color: #00ffff; box-shadow: 0 0 15px rgba(0, 255, 255, 0.3); background-color: rgba(0, 255, 255, 0.05); }
+        .flow-title { font-size: 0.7rem; font-weight: bold; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; display: block; border-bottom: 1px solid #334155; padding-bottom: 2px;}
+        .mem-block { font-size: 0.7rem; padding: 4px; margin-bottom: 2px; border-radius: 3px; border-left: 3px solid; display: flex; justify-content: space-between; opacity: 0.5; transition: opacity 0.3s; }
+        .mem-block.active { opacity: 1; font-weight: bold; }
+        
+        /* Draggable Window Styles */
+        .draggable-window { position: absolute; cursor: move; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3); }
+        .window-header { cursor: grab; user-select: none; }
+        .window-header:active { cursor: grabbing; }
+        .minimized .window-content { display: none; }
+        .minimized { width: auto !important; height: auto !important; }
+        .chevron-icon { transition: transform 0.2s; }
+        .minimized .chevron-icon { transform: rotate(-90deg); }
+        .rotated { transform: rotate(180deg); }
+
+        /* 2D Canvas Container */
+        #canvas-wrapper {
+             overflow: hidden;
+             position: relative;
+             cursor: grab;
+        }
+        #canvas-wrapper:active { cursor: grabbing; }
+        #bit-grid-container {
+             transform-origin: center center;
+             transition: transform 0.1s ease-out;
+        }
+
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-slate-900 border-b border-slate-700 p-4 flex justify-between items-center shrink-0">
+        <div>
+            <h1 class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
+                Schism Labs - SHD-CCP Blackwell Block Architect V1.4a
+            </h1>
+            <p class="text-xs text-slate-400 font-mono">SHD-CCP 64-BIT PACKET GENERATOR // SM100 OPTIMIZED</p>
+        </div>
+        <div class="flex space-x-4 text-xs font-mono">
+            <div class="flex items-center"><span class="w-3 h-3 bg-pink-600 mr-2 rounded"></span> TMA (Tensor Memory)</div>
+            <div class="flex items-center"><span class="w-3 h-3 bg-violet-600 mr-2 rounded"></span> DSMEM (Halo)</div>
+            <div class="flex items-center"><span class="w-3 h-3 bg-emerald-600 mr-2 rounded"></span> ALU (Scaling)</div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex flex-1 overflow-hidden relative">
+        
+        <!-- Left Sidebar: Field Definitions -->
+        <aside id="left-sidebar" class="sidebar w-80 flex flex-col relative transition-all duration-300">
+            <button onclick="toggleSidebar('left-sidebar')" class="absolute top-2 right-2 text-slate-400 hover:text-white z-50">
+                <svg class="w-4 h-4 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+            </button>
+
+            <div class="sidebar-content flex flex-col h-full p-4 overflow-y-auto">
+                <h2 class="text-sm font-bold text-cyan-400 mb-4 uppercase tracking-wider">Kernel Group Design</h2>
+                
+                <div id="fields-container" class="space-y-3 mb-6">
+                    <!-- Fields injected here -->
+                </div>
+
+                <!-- Edit Field Modal (Hidden by default) -->
+                <div id="edit-field-modal" class="hidden bg-slate-800 p-4 rounded border border-slate-600 mb-4">
+                     <h3 class="text-xs font-bold mb-2 text-yellow-400">Edit Field</h3>
+                     <input type="hidden" id="edit-field-id">
+                     <div class="space-y-2">
+                        <input type="text" id="edit-field-name" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                        <select id="edit-field-precision" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                                <option value="FP32">FP32 (IEEE)</option>
+                                <option value="TF32">TF32 (Tensor)</option>
+                                <option value="BF16">BF16 (Brain)</option>
+                                <option value="FP16">FP16 (Half)</option>
+                                <option value="FP8_E4M3">FP8 (E4M3)</option>
+                                <option value="FP8_E5M2">FP8 (E5M2)</option>
+                                <option value="FP6">FP6 (E3M2)</option>
+                                <option value="FP4">FP4 (E2M1)</option>
+                                <option value="INT8">INT8</option>
+                                <option value="INT4">INT4</option>
+                                <option value="UINT">UINT (Raw)</option>
+                        </select>
+                        <select id="edit-field-strategy" class="w-full bg-slate-900 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                            <option value="standard">Standard (ALU/Reg)</option>
+                            <option value="core">Core (TMA -> TMEM)</option>
+                            <option value="halo">Halo (DSMEM -> Neighbor)</option>
+                        </select>
+                        <div class="flex space-x-2">
+                            <button onclick="saveFieldEdit()" class="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs py-1 rounded">Save</button>
+                            <button onclick="cancelFieldEdit()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white text-xs py-1 rounded">Cancel</button>
+                        </div>
+                     </div>
+                </div>
+
+
+                <div class="border-t border-slate-700 pt-4">
+                    <h3 class="text-xs font-bold mb-2">Add New Field</h3>
+                    <div class="space-y-2">
+                        <input type="text" id="new-field-name" placeholder="Field Name" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-cyan-500">
+                        <div class="flex space-x-2">
+                            <input type="number" id="new-field-size" placeholder="Bits" class="w-1/3 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                            <select id="new-field-precision" class="w-2/3 bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                                <option value="FP32">FP32 (IEEE)</option>
+                                <option value="TF32">TF32 (Tensor)</option>
+                                <option value="BF16">BF16 (Brain)</option>
+                                <option value="FP16">FP16 (Half)</option>
+                                <option value="FP8_E4M3">FP8 (E4M3)</option>
+                                <option value="FP8_E5M2">FP8 (E5M2)</option>
+                                <option value="FP6">FP6 (E3M2)</option>
+                                <option value="FP4">FP4 (E2M1)</option>
+                                <option value="INT8">INT8</option>
+                                <option value="INT4">INT4</option>
+                                <option value="UINT">UINT (Raw)</option>
+                            </select>
+                        </div>
+                        <select id="new-field-strategy" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-white">
+                            <option value="standard">Standard (ALU/Reg)</option>
+                            <option value="core">Core (TMA -> TMEM)</option>
+                            <option value="halo">Halo (DSMEM -> Neighbor)</option>
+                        </select>
+                        <button onclick="addField()" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs font-bold py-2 rounded transition-colors">ADD TO CODEX</button>
+                    </div>
+                </div>
+                
+                 <div class="mt-4 border-t border-slate-700 pt-4">
+                    <button onclick="loadDefaultPreset()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-2 rounded transition-colors mb-2">LOAD DEFAULT SHD-CCP</button>
+                    <button onclick="loadXORTorusPreset()" class="w-full bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 rounded transition-colors mb-2">LOAD XOR-TORUS PRESET</button>
+                     <button onclick="runOptimization()" class="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold py-3 rounded shadow-lg transition-all transform hover:scale-105">
+                        RUN OPTIMIZER (DP)
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center: Visualization & Flowchart -->
+        <main class="flex-1 bg-slate-900 relative flex flex-col h-full overflow-hidden" id="main-area">
+            
+            <!-- Tabs -->
+            <div class="flex border-b border-slate-700 bg-slate-950 shrink-0 overflow-x-auto">
+                <button onclick="switchTab('tile')" id="tab-tile" class="px-6 py-3 text-sm font-bold text-cyan-400 border-b-2 border-cyan-400 hover:bg-slate-800 transition-colors whitespace-nowrap">Kernel Projector</button>
+                <button onclick="switchTab('codex')" id="tab-codex" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap">Codex Parity</button>
+                <button onclick="switchTab('flow')" id="tab-flow" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap">Architecture Flow</button>
+                <button onclick="switchTab('modes')" id="tab-modes" class="px-6 py-3 text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors whitespace-nowrap">Preset Kernel Modes</button>
+            </div>
+
+            <!-- Kernel Projector (Tile Layout) View -->
+            <div id="view-tile" class="flex-1 relative h-full w-full bg-slate-900 overflow-hidden" onwheel="handleZoom(event)" onmousedown="startPan(event)" onmousemove="doPan(event)" onmouseup="endPan(event)" onmouseleave="endPan(event)">
+                
+                <!-- Reset View Button -->
+                <button onclick="resetView()" class="absolute top-4 right-4 z-50 bg-slate-700/80 hover:bg-slate-600 text-white text-xs px-3 py-2 rounded backdrop-blur">
+                    Reset View
+                </button>
+
+                <div id="canvas-wrapper" class="w-full h-full flex items-center justify-center">
+                    <div id="bit-grid-container" class="relative transition-transform duration-75"> <!-- Wrapper for scaling/panning -->
+                        
+                        <div class="absolute -top-12 left-0 w-full text-center text-xs text-violet-400 font-mono font-bold tracking-widest">NORTH HALO (Row 0)</div>
+                        <div class="absolute -bottom-12 left-0 w-full text-center text-xs text-violet-400 font-mono font-bold tracking-widest">SOUTH HALO (Row 7)</div>
+                        <div class="absolute top-0 -left-16 h-full flex items-center"><span class="-rotate-90 text-xs text-slate-500 font-mono tracking-widest">L2 Cache Line 0</span></div>
+
+                        <div id="bit-grid" class="grid grid-cols-8 gap-2 bg-slate-800 p-4 rounded-xl border-4 border-slate-700 shadow-2xl" style="width: 500px; height: 500px;">
+                            <!-- 64 Bits Injected Here -->
+                        </div>
+                        
+                        <!-- Core TMA Indicator -->
+                        <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[104%] h-[54%] border-4 border-pink-500/30 rounded-xl pointer-events-none flex items-center justify-center">
+                            <span class="text-pink-500/20 font-bold text-6xl rotate-45 select-none">TMA ZONE</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Overlay (Draggable) -->
+                <div id="stats-window" class="draggable-window absolute bottom-8 right-8 bg-slate-800/95 backdrop-blur rounded-lg border border-slate-600 w-64 z-50">
+                    <div class="window-header flex justify-between items-center p-2 border-b border-slate-700 bg-slate-900/50 rounded-t-lg">
+                        <h3 class="text-xs font-bold text-cyan-400">Optimization Score</h3>
+                        <button onclick="toggleWindow()" class="text-slate-400 hover:text-white focus:outline-none">
+                             <svg class="w-3 h-3 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                    </div>
+                    <div class="window-content p-4">
+                        <div class="flex justify-between text-xs mb-1"><span>TMA Contiguity (FP4 Ready)</span><span id="score-tma">0%</span></div>
+                        <div class="w-full bg-slate-700 h-1.5 rounded-full mb-3"><div id="bar-tma" class="bg-pink-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+                        
+                        <div class="flex justify-between text-xs mb-1"><span>Halo Efficiency (DSMEM)</span><span id="score-halo">0%</span></div>
+                        <div class="w-full bg-slate-700 h-1.5 rounded-full mb-3"><div id="bar-halo" class="bg-violet-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+                        
+                        <div class="flex justify-between text-xs mb-1"><span>Fragmentation</span><span id="score-frag">0%</span></div>
+                        <div class="w-full bg-slate-700 h-1.5 rounded-full"><div id="bar-frag" class="bg-red-500 h-1.5 rounded-full" style="width: 0%"></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Codex Parity View -->
+            <div id="view-codex" class="flex-1 hidden bg-slate-900 p-8 overflow-auto">
+                 <div class="w-full max-w-5xl mx-auto">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">XOR-Torus Benchmark Architecture</h2>
+                        <button class="btn bg-blue-600 hover:bg-blue-700 text-xs py-1 px-3 w-auto" onclick="runBenchmark()">Run XOR-Torus Benchmark</button>
+                    </div>
+                    <!-- Reuse previous layout -->
+                    <div class="grid grid-cols-2 gap-8">
+                         <div>
+                             <h3 class="text-sm font-bold text-cyan-400 mb-2 uppercase">Stream Pairing</h3>
+                             <div class="bg-slate-950 p-4 rounded border border-slate-700 space-y-3">
+                                 <div class="lookup-path border-pink-500"><div class="flex flex-col"><span class="text-xs font-bold text-pink-400">Path A: Orientation</span><span class="text-[10px] text-slate-500">Source: <span id="path-a-source">Quaternion</span></span></div><span class="text-[10px] font-mono text-white">L1 Const Cache</span></div>
+                                 <div class="lookup-path border-violet-500"><div class="flex flex-col"><span class="text-xs font-bold text-violet-400">Path B: Semiotics</span><span class="text-[10px] text-slate-500">Source: <span id="path-b-source">Structure ID</span></span></div><span class="text-[10px] font-mono text-white">Shared Mem</span></div>
+                             </div>
+                        </div>
+                        <div>
+                             <h3 class="text-sm font-bold text-blue-400 mb-2 uppercase">TMEM Layout</h3>
+                             <div class="bg-slate-950 p-4 rounded border border-slate-700 h-64 flex flex-col">
+                                 <div class="flex-1 bg-blue-900/20 border-blue-500/50 mb-1 flex items-center justify-center text-xs text-blue-300">Accumulator (FP32)</div>
+                                 <div class="h-1/4 bg-violet-900/20 border-violet-500/50 mb-1 flex items-center justify-center text-xs text-violet-300">Codex Buffer (FP4)</div>
+                                 <div class="h-1/4 bg-pink-900/20 border-pink-500/50 flex items-center justify-center text-xs text-pink-300">Input Ring (FP4)</div>
+                             </div>
+                        </div>
+                    </div>
+                    <div id="benchmark-results" class="mt-8 hidden p-4 bg-slate-800 rounded border border-slate-600">
+                        <h3 class="text-sm font-bold text-green-400 mb-2">Benchmark Results</h3>
+                        <p class="text-xs text-slate-300 mb-1">Mode: 5 (Multicast)</p>
+                        <p class="text-xs text-slate-300 mb-1">Precision: NVFP4</p>
+                        <p class="text-lg font-bold text-white mt-2">Throughput: 1.25B PPS (Simulated)</p>
+                    </div>
+                 </div>
+            </div>
+
+            <!-- Architecture Flowchart View -->
+            <div id="view-flow" class="flex-1 hidden bg-slate-900 p-8 overflow-auto flex flex-col">
+                <div class="w-full max-w-6xl mx-auto flex-1 flex flex-col">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-bold text-white">Cycle Flow Visualization</h2>
+                        <div class="flex space-x-2">
+                             <span id="cycle-step-display" class="text-cyan-400 font-mono text-sm self-center mr-4">Step: IDLE</span>
+                             <button onclick="nextCycleStep()" class="btn bg-cyan-600 hover:bg-cyan-700 text-xs py-1 px-4 w-auto">Next Cycle Step</button>
+                             <button onclick="resetCycle()" class="btn bg-slate-600 hover:bg-slate-700 text-xs py-1 px-4 w-auto">Reset</button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-4 gap-8 h-full">
+                        <!-- Columns populated by JS -->
+                        <div class="flex flex-col h-full"><div class="flow-title text-center text-blue-400">1. Global Memory</div><div class="flex-1 flow-box bg-slate-900 border-blue-900/50 flex flex-col justify-center gap-2 p-4" id="flow-hbm"></div></div>
+                        <div class="flex flex-col justify-center gap-8"><div class="flow-box border-pink-500/50 bg-pink-900/10" id="unit-tma"><span class="flow-title text-pink-400">2. TMA Unit</span></div><div class="flow-box border-violet-500/50 bg-violet-900/10" id="unit-dsmem"><span class="flow-title text-violet-400">2. DSMEM Fabric</span></div></div>
+                        <div class="flex flex-col h-full gap-4"><div class="flow-title text-center text-emerald-400">3. On-Chip Memory</div><div class="flex-1 flow-box border-pink-500/30" id="flow-tmem"></div><div class="flex-1 flow-box border-emerald-500/30" id="flow-regs"></div></div>
+                        <div class="flex flex-col justify-center gap-8"><div class="flow-box border-pink-500 bg-pink-900/20" id="unit-tensor"><span class="flow-title text-pink-400">4. Tensor Core</span></div><div class="flow-box border-emerald-500 bg-emerald-900/20" id="unit-cuda"><span class="flow-title text-emerald-400">4. CUDA Core</span></div></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kernel Modes Tab (Static Content) -->
+            <div id="view-modes" class="flex-1 hidden bg-slate-900 p-8 overflow-auto">
+                 <!-- Same as before -->
+                 <div class="w-full max-w-4xl mx-auto">
+                    <h2 class="text-xl font-bold text-white mb-6">Blackwell Kernel Maturity Model</h2>
+                     <!-- Cards from previous version -->
+                     <div class="mode-card bg-slate-800 border border-slate-700 p-4 rounded-lg mb-4"><div class="mode-title text-white font-bold">Mode 3: FP4 Precision Block</div><p class="text-slate-400 text-xs">Utilizes 5th Gen Tensor Cores...</p></div>
+                 </div>
+            </div>
+
+        </main>
+
+        <!-- Right Sidebar: Generated Lookups -->
+        <aside id="right-sidebar" class="sidebar w-96 flex flex-col relative transition-all duration-300">
+             <button onclick="toggleSidebar('right-sidebar')" class="absolute top-2 left-2 text-slate-400 hover:text-white z-50">
+                <svg class="w-4 h-4 chevron-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+            <div class="sidebar-content flex flex-col h-full p-4 overflow-y-auto pt-8">
+                <h2 class="text-sm font-bold text-green-400 mb-4 uppercase tracking-wider text-right">Generated O(1) Lookups</h2>
+                
+                <div class="space-y-4 font-mono text-xs">
+                    <div class="bg-slate-950 p-3 rounded border border-slate-700"><pre id="lut-tma" class="text-pink-300 whitespace-pre-wrap">// Run Optimizer</pre></div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-700"><pre id="lut-dsmem" class="text-violet-300 whitespace-pre-wrap">// Run Optimizer</pre></div>
+                    <div class="bg-slate-950 p-3 rounded border border-slate-700"><pre id="lut-epilogue" class="text-emerald-300 whitespace-pre-wrap">// Run Optimizer</pre></div>
+                </div>
+                
+                <button onclick="exportConfig()" class="mt-auto w-full bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded transition-colors mt-4">
+                    EXPORT JSON CONFIG
+                </button>
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        
+        let fields = [
+            { id: 'f_sf', name: 'Structural Form ID', size: 4, strategy: 'halo', precision: 'INT4', color: '#8b5cf6' },
+            { id: 'f_p', name: 'Parity', size: 1, strategy: 'halo', precision: 'UINT', color: '#94a3b8' },
+            { id: 'f_sp', name: 'Spin Class', size: 3, strategy: 'standard', precision: 'INT4', color: '#ef4444' },
+            { id: 'f_q', name: 'Comp. Quaternion', size: 32, strategy: 'core', precision: 'FP4', color: '#ec4899' },
+            { id: 'f_pl', name: 'Payload Scale', size: 16, strategy: 'standard', precision: 'FP16', color: '#10b981' },
+            { id: 'f_fr', name: 'Frequency ID', size: 5, strategy: 'standard', precision: 'INT8', color: '#3b82f6' },
+            { id: 'f_amp', name: 'Amplitude ID', size: 3, strategy: 'standard', precision: 'INT4', color: '#f59e0b' }
+        ];
+
+        let bitMap = new Array(64).fill(null); 
+
+        // --- Draggable Window Logic ---
+        const statsWindow = document.getElementById('stats-window');
+        const mainArea = document.getElementById('main-area');
+        let isDraggingWindow = false;
+        let startX, startY, initialLeft, initialTop;
+
+        statsWindow.querySelector('.window-header').addEventListener('mousedown', dragStart);
+
+        function dragStart(e) {
+            if(e.target.closest('button')) return; 
+            isDraggingWindow = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            const rect = statsWindow.getBoundingClientRect();
+            const parentRect = mainArea.getBoundingClientRect();
+            initialLeft = rect.left - parentRect.left;
+            initialTop = rect.top - parentRect.top;
+            statsWindow.style.right = 'auto';
+            statsWindow.style.bottom = 'auto';
+            statsWindow.style.left = `${initialLeft}px`;
+            statsWindow.style.top = `${initialTop}px`;
+            document.addEventListener('mousemove', drag);
+            document.addEventListener('mouseup', dragEnd);
+        }
+
+        function drag(e) {
+            if (!isDraggingWindow) return;
+            e.preventDefault();
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            statsWindow.style.left = `${initialLeft + dx}px`;
+            statsWindow.style.top = `${initialTop + dy}px`;
+        }
+
+        function dragEnd() {
+            isDraggingWindow = false;
+            document.removeEventListener('mousemove', drag);
+            document.removeEventListener('mouseup', dragEnd);
+        }
+        
+        function toggleWindow() {
+            statsWindow.classList.toggle('minimized');
+        }
+
+        function toggleSidebar(id) {
+            const sidebar = document.getElementById(id);
+            sidebar.classList.toggle('collapsed');
+            const icon = sidebar.querySelector('.chevron-icon');
+            icon.classList.toggle('rotated');
+        }
+
+        // --- Canvas Pan/Zoom Logic ---
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+        let isPanning = false;
+        let panStartX, panStartY;
+
+        function updateCanvasTransform() {
+            const container = document.getElementById('bit-grid-container');
+            container.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        }
+
+        function handleZoom(e) {
+            e.preventDefault();
+            const delta = e.deltaY * -0.001;
+            const newScale = Math.min(Math.max(0.5, scale + delta), 4);
+            scale = newScale;
+            updateCanvasTransform();
+        }
+
+        function startPan(e) {
+            if (e.target.closest('.grid-cell')) return; // Allow interaction with cells
+            isPanning = true;
+            panStartX = e.clientX - panX;
+            panStartY = e.clientY - panY;
+            document.getElementById('view-tile').style.cursor = 'grabbing';
+        }
+
+        function doPan(e) {
+            if (!isPanning) return;
+            e.preventDefault();
+            panX = e.clientX - panStartX;
+            panY = e.clientY - panStartY;
+            updateCanvasTransform();
+        }
+
+        function endPan() {
+            isPanning = false;
+            document.getElementById('view-tile').style.cursor = 'default';
+        }
+
+        function resetView() {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            updateCanvasTransform();
+        }
+
+
+        // --- Cycle Visualization Logic ---
+        let cycleStep = 0;
+        const cycleSteps = [
+            { id: 'HBM', text: '1. Data in Global Memory', highlight: ['flow-hbm'] },
+            { id: 'FETCH', text: '2. Async Fetch (TMA/DSMEM)', highlight: ['unit-tma', 'unit-dsmem'] },
+            { id: 'ARRIVE', text: '3. Data Arrives On-Chip', highlight: ['flow-tmem', 'flow-regs'] },
+            { id: 'EXEC', text: '4. Compute Execution', highlight: ['unit-tensor', 'unit-cuda'] }
+        ];
+
+        function nextCycleStep() {
+            cycleStep = (cycleStep + 1) % (cycleSteps.length + 1); // +1 for idle state
+            updateCycleVisuals();
+        }
+
+        function resetCycle() {
+            cycleStep = 0;
+            updateCycleVisuals();
+        }
+
+        function updateCycleVisuals() {
+            // Reset all highlights
+            document.querySelectorAll('.flow-box').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.mem-block').forEach(el => el.classList.remove('active'));
+            
+            const display = document.getElementById('cycle-step-display');
+
+            if (cycleStep === 0) {
+                display.innerText = "Step: IDLE";
+                return;
+            }
+
+            const current = cycleSteps[cycleStep - 1];
+            display.innerText = `Step: ${current.text}`;
+            
+            current.highlight.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) {
+                    el.classList.add('active');
+                    // If it's a container of mem-blocks, highlight them too
+                    if(id.startsWith('flow-')) {
+                         el.querySelectorAll('.mem-block').forEach(b => b.classList.add('active'));
+                    }
+                }
+            });
+        }
+
+
+        // --- UI Initialization ---
+
+        function init() {
+            // Wait for DOM to be ready before rendering charts/grids
+            setTimeout(() => {
+                 loadDefaultPreset();
+            }, 100);
+        }
+
+        function switchTab(tabId) {
+            // Hide all views
+            ['view-tile', 'view-flow', 'view-modes', 'view-codex'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            // Reset all tabs
+            ['tab-tile', 'tab-flow', 'tab-modes', 'tab-codex'].forEach(id => {
+                const tab = document.getElementById(id);
+                tab.classList.remove('border-cyan-400', 'text-cyan-400');
+                tab.classList.add('text-slate-400');
+            });
+
+            // Activate selected
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+            const activeTab = document.getElementById(`tab-${tabId}`);
+            activeTab.classList.add('border-cyan-400', 'text-cyan-400');
+            activeTab.classList.remove('text-slate-400');
+
+            if(tabId === 'flow') renderFlowchart();
+            if(tabId === 'codex') updateCodexView();
+        }
+
+        function updateCodexView() {
+            const coreField = fields.find(f => f.strategy === 'core');
+            const haloField = fields.find(f => f.strategy === 'halo');
+            
+            if(coreField) {
+                 const el = document.getElementById('path-a-source');
+                 if(el) el.innerText = `${coreField.name} (${coreField.precision})`;
+            }
+             if(haloField) {
+                 const el = document.getElementById('path-b-source');
+                 if(el) el.innerText = `${haloField.name} (${haloField.precision})`;
+            }
+        }
+
+        function renderFieldList() {
+            const container = document.getElementById('fields-container');
+            if(!container) return;
+            container.innerHTML = '';
+            
+            let totalBits = 0;
+
+            fields.forEach(field => {
+                totalBits += field.size;
+                const div = document.createElement('div');
+                div.className = 'panel p-2 rounded flex justify-between items-center group';
+                
+                let badgeClass = 'badge-alu';
+                if(field.strategy === 'core') badgeClass = 'badge-tma';
+                if(field.strategy === 'halo') badgeClass = 'badge-dsmem';
+
+                div.innerHTML = `
+                    <div class="flex items-center cursor-pointer" onclick="openFieldEdit('${field.id}')">
+                        <div class="w-4 h-4 rounded mr-2" style="background-color: ${field.color}"></div>
+                        <div>
+                            <div class="text-xs font-bold">${field.name} <span class="precision-tag">${field.precision}</span></div>
+                            <div class="text-[10px] text-slate-400">${field.size} bits</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="hardware-badge ${badgeClass}">${field.strategy}</span>
+                        <button onclick="openFieldEdit('${field.id}')" class="text-slate-400 hover:text-white"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg></button>
+                        <button onclick="removeField('${field.id}')" class="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+
+            const counterDiv = document.createElement('div');
+            counterDiv.className = `text-xs text-center font-mono mt-2 ${totalBits > 64 ? 'text-red-400' : 'text-slate-400'}`;
+            counterDiv.innerText = `Total Allocation: ${totalBits} / 64 bits`;
+            container.appendChild(counterDiv);
+        }
+        
+        // --- Edit Field Logic ---
+        function openFieldEdit(id) {
+            const field = fields.find(f => f.id === id);
+            if(!field) return;
+            
+            document.getElementById('edit-field-id').value = id;
+            document.getElementById('edit-field-name').value = field.name;
+            document.getElementById('edit-field-precision').value = field.precision;
+            document.getElementById('edit-field-strategy').value = field.strategy;
+            
+            document.getElementById('edit-field-modal').classList.remove('hidden');
+        }
+        
+        function saveFieldEdit() {
+            const id = document.getElementById('edit-field-id').value;
+            const name = document.getElementById('edit-field-name').value;
+            const precision = document.getElementById('edit-field-precision').value;
+            const strategy = document.getElementById('edit-field-strategy').value;
+            
+            const idx = fields.findIndex(f => f.id === id);
+            if(idx !== -1) {
+                fields[idx].name = name;
+                fields[idx].precision = precision;
+                fields[idx].strategy = strategy;
+                renderFieldList();
+                runOptimization();
+                cancelFieldEdit();
+            }
+        }
+        
+        function cancelFieldEdit() {
+            document.getElementById('edit-field-modal').classList.add('hidden');
+        }
+
+
+        function renderGrid() {
+            const grid = document.getElementById('bit-grid');
+            if(!grid) return;
+            grid.innerHTML = '';
+
+            for (let i = 0; i < 64; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell w-full h-full rounded border border-slate-700 bg-slate-900 flex items-center justify-center text-[9px] font-mono text-slate-500 cursor-default aspect-square';
+                
+                if (bitMap[i]) {
+                    const field = fields.find(f => f.id === bitMap[i]);
+                    if (field) {
+                        cell.style.backgroundColor = field.color;
+                        cell.style.color = 'rgba(255,255,255,0.9)';
+                        cell.style.borderColor = 'rgba(255,255,255,0.2)';
+                        cell.innerText = field.name.substring(0, 2).toUpperCase();
+                    }
+                } else {
+                    cell.innerText = i;
+                }
+
+                cell.title = `Bit ${i} (Row ${Math.floor(i/8)}, Col ${i%8})`;
+                grid.appendChild(cell);
+            }
+        }
+
+        function renderFlowchart() {
+            const hbm = document.getElementById('flow-hbm');
+            const tmem = document.getElementById('flow-tmem');
+            const regs = document.getElementById('flow-regs');
+            
+            if(!hbm || !tmem || !regs) return;
+
+            hbm.innerHTML = '';
+            tmem.innerHTML = '';
+            regs.innerHTML = '';
+
+            fields.forEach(field => {
+                const style = `background-color: ${field.color}20; border-color: ${field.color}`;
+                const hbmBlock = `<div class="mem-block" style="${style}"><span>${field.name}</span><span class="precision-tag">${field.precision}</span></div>`;
+                hbm.innerHTML += hbmBlock;
+
+                if (field.strategy === 'core') {
+                    tmem.innerHTML += `<div class="mem-block" style="${style}"><span>${field.name}</span><span class="text-[9px] text-pink-300">TMA LOAD</span></div>`;
+                } else if (field.strategy === 'halo') {
+                    regs.innerHTML += `<div class="mem-block" style="${style}"><span>${field.name}</span><span class="text-[9px] text-violet-300">DSMEM PULL</span></div>`;
+                } else {
+                    regs.innerHTML += `<div class="mem-block" style="${style}"><span>${field.name}</span><span class="text-[9px] text-emerald-300">LD.GLOBAL</span></div>`;
+                }
+            });
+        }
+
+        // --- Interaction Logic ---
+
+        function addField() {
+            const name = document.getElementById('new-field-name').value;
+            const size = parseInt(document.getElementById('new-field-size').value);
+            const strategy = document.getElementById('new-field-strategy').value;
+            const precision = document.getElementById('new-field-precision').value;
+
+            if (!name || isNaN(size) || size <= 0) return;
+
+            const id = 'f_' + Math.random().toString(36).substr(2, 9);
+            const color = `hsl(${Math.random() * 360}, 70%, 60%)`;
+
+            fields.push({ id, name, size, strategy, precision, color });
+            init(); 
+        }
+
+        function removeField(id) {
+            fields = fields.filter(f => f.id !== id);
+            init();
+        }
+
+        // --- Optimization Engine ---
+
+        function runOptimization() {
+            bitMap.fill(null);
+
+            const sortedFields = [...fields].sort((a, b) => {
+                const stratScore = { 'core': 3, 'halo': 2, 'standard': 1 };
+                if (stratScore[a.strategy] !== stratScore[b.strategy]) {
+                    return stratScore[b.strategy] - stratScore[a.strategy];
+                }
+                return b.size - a.size;
+            });
+
+            sortedFields.forEach(field => {
+                if (field.strategy === 'core') placeCoreField(field);
+                else if (field.strategy === 'halo') placeHaloField(field);
+                else placeStandardField(field);
+            });
+
+            renderGrid();
+            calculateMetrics();
+            generateLookups();
+            if(!document.getElementById('view-flow').classList.contains('hidden')) renderFlowchart();
+        }
+
+        function placeCoreField(field) {
+            const preferredStart = 16; 
+            let placed = 0;
+            if (field.size >= 8) {
+                for(let r=2; r<6; r++) {
+                    let fits = true;
+                    for(let k=0; k<field.size; k++) {
+                        if ((r*8 + k) >= 64 || bitMap[r*8 + k] !== null) fits = false;
+                    }
+                    if (fits) {
+                        for(let k=0; k<field.size; k++) bitMap[r*8 + k] = field.id;
+                        return;
+                    }
+                }
+            }
+            for (let i = 16; i < 48; i++) {
+                if (placed >= field.size) break;
+                if (bitMap[i] === null) { bitMap[i] = field.id; placed++; }
+            }
+            if (placed < field.size) {
+                 for (let i = 0; i < 64; i++) {
+                    if (placed >= field.size) break;
+                    if (bitMap[i] === null) { bitMap[i] = field.id; placed++; }
+                }
+            }
+        }
+
+        function placeHaloField(field) {
+            let placed = 0;
+            for (let i = 0; i < 8; i++) {
+                if (placed >= field.size) break;
+                if (bitMap[i] === null) { bitMap[i] = field.id; placed++; }
+            }
+            for (let i = 56; i < 64; i++) {
+                if (placed >= field.size) break;
+                if (bitMap[i] === null) { bitMap[i] = field.id; placed++; }
+            }
+        }
+
+        function placeStandardField(field) {
+            let placed = 0;
+            for (let i = 0; i < 64; i++) {
+                if (placed >= field.size) break;
+                if (bitMap[i] === null) { bitMap[i] = field.id; placed++; }
+            }
+        }
+        
+        function loadDefaultPreset() {
+             // Reset without clearing to null state first
+             fields = [
+                { id: 'f_sf', name: 'Structural Form ID', size: 4, strategy: 'halo', precision: 'INT4', color: '#8b5cf6' },
+                { id: 'f_p', name: 'Parity', size: 1, strategy: 'halo', precision: 'UINT', color: '#94a3b8' },
+                { id: 'f_sp', name: 'Spin Class', size: 3, strategy: 'standard', precision: 'INT4', color: '#ef4444' },
+                { id: 'f_q', name: 'Comp. Quaternion', size: 32, strategy: 'core', precision: 'FP4', color: '#ec4899' },
+                { id: 'f_pl', name: 'Payload Scale', size: 16, strategy: 'standard', precision: 'FP16', color: '#10b981' },
+                { id: 'f_fr', name: 'Frequency ID', size: 5, strategy: 'standard', precision: 'INT8', color: '#3b82f6' },
+                { id: 'f_amp', name: 'Amplitude ID', size: 3, strategy: 'standard', precision: 'INT4', color: '#f59e0b' }
+            ];
+            renderFieldList();
+            runOptimization();
+            switchTab('tile');
+        }
+
+        function loadXORTorusPreset() {
+            fields = [];
+            fields.push({ id: 'f_pathA', name: 'Path A: Orientation', size: 16, strategy: 'core', precision: 'FP4', color: '#ec4899' });
+            fields.push({ id: 'f_pathB', name: 'Path B: Semiotics', size: 8, strategy: 'halo', precision: 'INT8', color: '#8b5cf6' });
+            fields.push({ id: 'f_pathC', name: 'Path C: Physics', size: 40, strategy: 'standard', precision: 'INT4', color: '#10b981' });
+            renderFieldList();
+            runOptimization();
+            switchTab('codex'); 
+        }
+        
+        function runBenchmark() {
+             // Simulation of benchmark
+             document.getElementById('benchmark-results').classList.remove('hidden');
+        }
+
+        // --- Analysis & Code Gen ---
+
+        function calculateMetrics() {
+            let coreBitsTotal = 0;
+            let maxContiguous = 0;
+            let currentRun = 0;
+            let haloBitsTotal = 0;
+            let haloBitsOnEdge = 0;
+
+            for(let i=0; i<64; i++) {
+                const id = bitMap[i];
+                if (!id) { currentRun = 0; continue; }
+                const field = fields.find(f => f.id === id);
+                
+                if (field.strategy === 'core') {
+                    coreBitsTotal++;
+                    currentRun++;
+                } else {
+                    maxContiguous = Math.max(maxContiguous, currentRun);
+                    currentRun = 0;
+                }
+
+                if (field.strategy === 'halo') {
+                    haloBitsTotal++;
+                    const row = Math.floor(i/8);
+                    if (row === 0 || row === 7) haloBitsOnEdge++;
+                }
+            }
+            maxContiguous = Math.max(maxContiguous, currentRun);
+
+            const tmaScore = coreBitsTotal > 0 ? Math.round((maxContiguous / coreBitsTotal) * 100) : 0;
+            const haloScore = haloBitsTotal > 0 ? Math.round((haloBitsOnEdge / haloBitsTotal) * 100) : 0;
+            const fragScore = 100 - tmaScore; 
+
+            const tmaEl = document.getElementById('score-tma');
+            if (tmaEl) {
+                tmaEl.innerText = tmaScore + '%';
+                document.getElementById('bar-tma').style.width = tmaScore + '%';
+            }
+            
+            const haloEl = document.getElementById('score-halo');
+            if (haloEl) {
+                haloEl.innerText = haloScore + '%';
+                document.getElementById('bar-halo').style.width = haloScore + '%';
+            }
+            
+            const fragEl = document.getElementById('score-frag');
+            if (fragEl) {
+                fragEl.innerText = fragScore + '%';
+                document.getElementById('bar-frag').style.width = fragScore + '%';
+            }
+        }
+
+        function generateLookups() {
+            const coreFields = fields.filter(f => f.strategy === 'core');
+            let tmaCode = `// LUT 1: TMA Tensor Map\n`;
+            tmaCode += `// Target: TMEM (Accumulator)\n`;
+            coreFields.forEach(f => {
+                const startIdx = bitMap.indexOf(f.id);
+                if (startIdx !== -1) {
+                    const byteOffset = Math.floor(startIdx / 8);
+                    tmaCode += `tma_desc.add_field(\n  "${f.name}",\n  OFFSET=${byteOffset},\n  PRECISION=${f.precision}\n);\n`;
+                }
+            });
+
+            const haloFields = fields.filter(f => f.strategy === 'halo');
+            let dsmemCode = `// LUT 2: Halo Offsets\n`;
+            dsmemCode += `// Target: Registers via DSMEM\n`;
+            dsmemCode += `const uint8_t HALO_MAP[] = {\n`;
+            haloFields.forEach(f => {
+                const startIdx = bitMap.indexOf(f.id);
+                 if (startIdx !== -1) {
+                     const row = Math.floor(startIdx/8);
+                     const direction = row === 0 ? "NORTH" : (row === 7 ? "SOUTH" : "INTERNAL");
+                     dsmemCode += `  { ID_${f.name.substring(0,3).toUpperCase()}, OFFSET=${startIdx}, DIR=${direction} },\n`;
+                 }
+            });
+            dsmemCode += `};\n`;
+
+            let epilogueCode = `// LUT 3: Neural Epilogue\n`;
+            epilogueCode += `// Optimization: FP4/FP8 Fused Activation\n`;
+            const coreField = fields.find(f => f.strategy === 'core');
+            const precision = coreField ? coreField.precision : 'float';
+            epilogueCode += `__device__ ${precision} activate(val, state) {\n`;
+            
+            const parityField = fields.find(f => f.name.includes('Parity'));
+            const formField = fields.find(f => f.name.includes('Form'));
+            
+            if (parityField && formField) {
+                 const pIdx = bitMap.indexOf(parityField.id);
+                 const fIdx = bitMap.indexOf(formField.id);
+                 if(pIdx !== -1 && fIdx !== -1) {
+                    epilogueCode += `  bool parity = (state >> ${pIdx}) & 1;\n`;
+                    epilogueCode += `  int form = (state >> ${fIdx}) & 0xF;\n`;
+                    epilogueCode += `  float weight = (form > 8) ? 2.0f : 1.0f;\n`;
+                    epilogueCode += `  return parity ? -val : val * weight;\n`;
+                 }
+            } else {
+                epilogueCode += `  return gelu(val);\n`;
+            }
+            epilogueCode += `}\n`;
+
+            const tmaEl = document.getElementById('lut-tma');
+            if (tmaEl) tmaEl.innerText = tmaCode;
+            const dsmemEl = document.getElementById('lut-dsmem');
+            if (dsmemEl) dsmemEl.innerText = dsmemCode;
+            const epiEl = document.getElementById('lut-epilogue');
+            if (epiEl) epiEl.innerText = epilogueCode;
+        }
+
+        function exportConfig() {
+            const config = { protocol: "SHD-CCP 1.3 (Blackwell)", layout: bitMap, definitions: fields };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "blackwell_packet_config.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+        
+        function toggleSidebar(id) {
+            const sidebar = document.getElementById(id);
+            sidebar.classList.toggle('collapsed');
+            const icon = sidebar.querySelector('.chevron-icon');
+            icon.classList.toggle('rotated');
+        }
+
+        window.addEventListener('load', init);
+
+    </script>
+</body>
+</html>
