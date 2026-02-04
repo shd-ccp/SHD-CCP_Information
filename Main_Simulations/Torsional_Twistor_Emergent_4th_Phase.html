@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Torsional Twistor: Cyclic Analysis (720-Step)</title>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax -->
+    <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=JetBrains+Mono:wght@400;700&display=swap');
+
+        :root {
+            --bg-color: #05070a;
+            --panel-bg: rgba(15, 18, 24, 0.95);
+            --text-primary: #e0e0e0;
+            --accent-gold: #ffd700;
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff0055;
+            --accent-white: #ffffff;
+            --border-color: #2d333b;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-primary);
+            display: flex;
+            height: 100vh;
+        }
+
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #12141a 0%, #000000 100%);
+            transition: all 0.3s ease;
+        }
+
+        /* Sidebar Structure */
+        #sidebar {
+            width: 420px;
+            min-width: 420px;
+            background: var(--panel-bg);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+            z-index: 10;
+            transition: transform 0.3s ease, width 0.3s ease;
+            position: relative;
+        }
+        
+        #sidebar.collapsed {
+            transform: translateX(100%);
+            width: 0;
+            min-width: 0;
+            border: none;
+        }
+
+        /* Toggle Button */
+        #sidebar-toggle {
+            position: absolute;
+            top: 20px;
+            right: 440px; /* Aligned with sidebar */
+            z-index: 20;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--accent-cyan);
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: right 0.3s ease;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        #sidebar.collapsed + #sidebar-toggle {
+            right: 20px;
+        }
+
+        /* Tabs */
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .tab-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            padding: 15px;
+            color: #888;
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .tab-btn.active {
+            color: var(--accent-cyan);
+            border-bottom: 3px solid var(--accent-cyan);
+            background: rgba(0, 242, 255, 0.05);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #ccc;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            appearance: none;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+        }
+        
+        h2 {
+            font-size: 0.9rem;
+            color: var(--accent-gold);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 10px;
+        }
+
+        /* Playback Controls */
+        #playback-bar {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 18, 24, 0.9);
+            border: 1px solid var(--border-color);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+        
+        .play-btn {
+            background: transparent;
+            border: 1px solid #444;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .play-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+        
+        .step-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--accent-cyan);
+            min-width: 80px;
+            text-align: center;
+        }
+        
+        #progress-container {
+            width: 200px;
+            height: 6px;
+            background: #333;
+            border-radius: 3px;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        #progress-fill {
+            height: 100%;
+            background: var(--accent-cyan);
+            width: 0%;
+            border-radius: 3px;
+        }
+
+        .math-block {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            color: #aaa;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="sidebar-toggle" onclick="toggleSidebar()">≡ MENU</button>
+
+    <!-- Playback Bar -->
+    <div id="playback-bar">
+        <button class="play-btn" onclick="controls.reverse()">«</button>
+        <button class="play-btn" id="btn-play" onclick="controls.toggle()">►</button>
+        <button class="play-btn" onclick="controls.forward()">»</button>
+        <div class="step-display">STEP <span id="step-count">000</span>/720</div>
+        <div id="progress-container" onclick="controls.seek(event)">
+            <div id="progress-fill"></div>
+        </div>
+    </div>
+
+    <!-- 3D Visualization Container -->
+    <div id="canvas-container"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="tab-header">
+            <button class="tab-btn active" onclick="switchTab('tab-mechanics')">MECHANICS</button>
+            <button class="tab-btn" onclick="switchTab('tab-emergent')">EMERGENT PHASE</button>
+        </div>
+        
+        <!-- TAB 1: Mechanics -->
+        <div id="tab-mechanics" class="tab-content active">
+            <h2>Quaternion Mechanics</h2>
+            
+            <div class="control-group">
+                <label>Micro-Twist (Rotation) <span id="val-twist">2.5</span></label>
+                <input type="range" id="input-twist" min="0" max="15" step="0.01" value="2.5">
+            </div>
+
+            <div class="control-group">
+                <label>Tube Radius (Buckle) <span id="val-buckle">3.0</span></label>
+                <input type="range" id="input-buckle" min="0.5" max="8.0" step="0.1" value="3.0">
+            </div>
+            
+             <div class="control-group">
+                <label>Inverse Separation <span id="val-pair-sep">0.8</span></label>
+                <input type="range" id="input-pair-sep" min="0.1" max="2.0" step="0.1" value="0.8">
+            </div>
+
+            <h2>Topology</h2>
+            
+            <div class="control-group">
+                <label>Torus Radius <span id="val-separation">25.0</span></label>
+                <input type="range" id="input-separation" min="10" max="40" step="0.1" value="25.0">
+            </div>
+            
+             <div class="control-group">
+                <label>Z-Scale (Height) <span id="val-zscale">12.0</span></label>
+                <input type="range" id="input-zscale" min="5" max="30" step="0.1" value="12.0">
+            </div>
+            
+            <div class="math-block">
+                $$ P' = q \cdot P \cdot q^{-1} $$
+                Rotation via Quaternion Conjugation
+            </div>
+        </div>
+
+        <!-- TAB 2: Emergent Phase -->
+        <div id="tab-emergent" class="tab-content">
+            <h2>Phase 4 Analysis</h2>
+            <p style="font-size:0.8rem; color:#888; margin-bottom:15px;">
+                Controls for the emergent white core (The Singularity). Modifying these changes how the system calculates the "Zero Point" equilibrium from the 3 outer streams.
+            </p>
+
+            <div class="control-group">
+                <label>Centroid Sensitivity (Binding) <span id="val-sensitivity">1.0</span></label>
+                <input type="range" id="input-sensitivity" min="0.1" max="5.0" step="0.1" value="1.0">
+                <small style="color:#666">Higher values force tighter binding to the mathematical center.</small>
+            </div>
+
+            <div class="control-group">
+                <label>Visual Intensity (Core Size) <span id="val-core-size">2.0</span></label>
+                <input type="range" id="input-core-size" min="0.5" max="10.0" step="0.1" value="2.0">
+            </div>
+            
+            <div class="control-group">
+                <label>Harmonic Resonance (Pulse) <span id="val-pulse">0.0</span></label>
+                <input type="range" id="input-pulse" min="0.0" max="1.0" step="0.01" value="0.0">
+                <small style="color:#666">Visualizes the "Heartbeat" of the SHD-CCP packet.</small>
+            </div>
+
+            <div class="math-block">
+                $$ \Psi_{4} = \frac{1}{3} \sum \omega_{i} \cdot S_i $$
+                Weighted Centroid Calculation
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- UI Logic ---
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const btn = document.getElementById('sidebar-toggle');
+            sidebar.classList.toggle('collapsed');
+            
+            // Adjust toggle button position logic is handled by CSS specific selection
+            // But we update text
+            if(sidebar.classList.contains('collapsed')) {
+                btn.style.right = '20px';
+                btn.innerText = "OPEN";
+            } else {
+                btn.style.right = '440px';
+                btn.innerText = "CLOSE";
+            }
+        }
+
+        function switchTab(tabId) {
+            // Buttons
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Content
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // --- 1. Three.js Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        
+        // Camera
+        const camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 2000);
+        camera.position.set(0, 0, 120);
+        camera.lookAt(0, 0, 0);
+
+        // Renderer
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        // Orbit Controls
+        const orbit = new THREE.OrbitControls(camera, renderer.domElement);
+        orbit.enableDamping = true;
+        orbit.dampingFactor = 0.05;
+
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+        const pLight = new THREE.PointLight(0xffffff, 1.2);
+        pLight.position.set(50, 50, 50);
+        scene.add(pLight);
+        const pLight2 = new THREE.PointLight(0x4a9eff, 0.8);
+        pLight2.position.set(-50, -50, 50);
+        scene.add(pLight2);
+        
+        // Lattice (Visual Ref)
+        const latticeGroup = new THREE.Group();
+        scene.add(latticeGroup);
+        // Create simple lattice
+        const size = 80; const div = 2; const step = size/div; const off = size/2;
+        const latMat = new THREE.LineBasicMaterial({ color: 0x444444, transparent: true, opacity: 0.1 });
+        const latGeo = new THREE.BufferGeometry();
+        const verts = [];
+        for(let i=0; i<=div; i++) {
+            for(let j=0; j<=div; j++) {
+                const k = -off + i*step; const l = -off + j*step;
+                verts.push(k, -off, l, k, off, l); // Y
+                verts.push(-off, k, l, off, k, l); // X
+                verts.push(l, k, -off, l, k, off); // Z
+            }
+        }
+        latGeo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+        latticeGroup.add(new THREE.LineSegments(latGeo, latMat));
+
+
+        // --- 2. Physics & Logic ---
+        
+        // Helper: Torus Trefoil Point
+        function getTorusTrefoilPoint(t, R, zScale, phaseOffset) {
+            // R = Major Radius. Minor R fixed at 6.0
+            const minorR = 6.0;
+            const tubeAngle = 3 * t + phaseOffset;
+            const torusAngle = 2 * t;
+            
+            const r = minorR * Math.cos(tubeAngle);
+            const z = minorR * Math.sin(tubeAngle);
+            
+            const x = (R + r) * Math.cos(torusAngle);
+            const y = (R + r) * Math.sin(torusAngle);
+            
+            return new THREE.Vector3(x, y, z * (zScale/10.0));
+        }
+        
+        // Helper: Quaternion Frame
+        function computeQuaternionFrame(t, R, zScale, phaseOffset) {
+            const epsilon = 0.01;
+            const p0 = getTorusTrefoilPoint(t, R, zScale, phaseOffset);
+            const p1 = getTorusTrefoilPoint(t + epsilon, R, zScale, phaseOffset);
+            
+            const T = new THREE.Vector3().subVectors(p1, p0).normalize();
+            const p2 = getTorusTrefoilPoint(t + epsilon * 2, R, zScale, phaseOffset);
+            const T2 = new THREE.Vector3().subVectors(p2, p1).normalize();
+            const N = new THREE.Vector3().subVectors(T2, T).normalize();
+            const B = new THREE.Vector3().crossVectors(T, N).normalize();
+            
+            const m = new THREE.Matrix4();
+            m.makeBasis(N, B, T);
+            const q = new THREE.Quaternion();
+            q.setFromRotationMatrix(m);
+            return { p: p0, q: q };
+        }
+
+        class TwistorPair {
+            constructor(color, phaseOffset) {
+                this.phaseOffset = phaseOffset;
+                this.particleCount = 200;
+                
+                // Meshes
+                const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/disc.png');
+                const mat = new THREE.PointsMaterial({ color: color, size: 0.8, map: sprite, transparent: true, opacity: 0.8, alphaTest: 0.5 });
+                
+                const geoA = new THREE.BufferGeometry();
+                geoA.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.particleCount*3), 3));
+                this.streamA = new THREE.Points(geoA, mat);
+                
+                const geoB = new THREE.BufferGeometry();
+                geoB.setAttribute('position', new THREE.BufferAttribute(new Float32Array(this.particleCount*3), 3));
+                this.streamB = new THREE.Points(geoB, mat);
+                
+                scene.add(this.streamA);
+                scene.add(this.streamB);
+                
+                this.posA_cache = [];
+                this.posB_cache = [];
+            }
+            
+            update(step0to1, state) {
+                const posA = this.streamA.geometry.attributes.position.array;
+                const posB = this.streamB.geometry.attributes.position.array;
+                
+                // Convert normalized step (0-1) to Radians (0-4PI for 720 deg cycle)
+                const timeRad = step0to1 * Math.PI * 4; 
+                
+                this.posA_cache = [];
+                this.posB_cache = [];
+
+                for(let i=0; i<this.particleCount; i++) {
+                    const tOffset = (i / this.particleCount) * Math.PI * 2;
+                    // Current t for this particle
+                    const t = (tOffset + timeRad) % (Math.PI * 2);
+                    
+                    const frame = computeQuaternionFrame(t, state.phaseSep, state.zScale, this.phaseOffset);
+                    
+                    // Buckle Vector
+                    const vLocal = new THREE.Vector3(state.buckle, 0, 0);
+                    
+                    // Twist
+                    const twistAngle = t * state.microTwist;
+                    const sepAngle = state.pairSep * 0.5;
+                    
+                    // A
+                    const qA = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), twistAngle + sepAngle);
+                    const vA = vLocal.clone().applyQuaternion(qA).applyQuaternion(frame.q);
+                    const finalA = new THREE.Vector3().addVectors(frame.p, vA);
+                    
+                    // B
+                    const qB = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,0,1), twistAngle + Math.PI - sepAngle);
+                    const vB = vLocal.clone().applyQuaternion(qB).applyQuaternion(frame.q);
+                    const finalB = new THREE.Vector3().addVectors(frame.p, vB);
+                    
+                    posA[i*3] = finalA.x; posA[i*3+1] = finalA.y; posA[i*3+2] = finalA.z;
+                    posB[i*3] = finalB.x; posB[i*3+1] = finalB.y; posB[i*3+2] = finalB.z;
+                    
+                    if(i%10===0) {
+                        this.posA_cache.push(finalA);
+                        this.posB_cache.push(finalB);
+                    }
+                }
+                
+                this.streamA.geometry.attributes.position.needsUpdate = true;
+                this.streamB.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+        
+        class EmergentCore {
+            constructor() {
+                const geo = new THREE.BufferGeometry();
+                // 20 sample points per pair * 3 pairs = ~60 pts? 
+                // We actually average them per index. Sample count matches TwistorPair sampling.
+                // TwistorPair samples every 10th of 200 = 20 points.
+                const positions = new Float32Array(20 * 3);
+                geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+                
+                const sprite = new THREE.TextureLoader().load('https://threejs.org/examples/textures/sprites/spark1.png');
+                this.mat = new THREE.PointsMaterial({
+                    color: 0xffffff, size: 2.0, map: sprite, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending
+                });
+                this.mesh = new THREE.Points(geo, this.mat);
+                scene.add(this.mesh);
+            }
+            
+            update(pairs, state, step0to1) {
+                const pos = this.mesh.geometry.attributes.position.array;
+                const count = 20; // Number of sampled points
+                
+                // Pulse Effect
+                const pulse = Math.sin(step0to1 * Math.PI * 4 * 4) * 0.5 + 0.5; // 4 pulses per cycle
+                const pulseFactor = 1.0 + (pulse * state.pulse * 0.5);
+                this.mat.size = state.coreSize * pulseFactor;
+                
+                for(let i=0; i<count; i++) {
+                    let sumX=0, sumY=0, sumZ=0;
+                    
+                    // Weighted Centroid
+                    pairs.forEach(p => {
+                        const pA = p.posA_cache[i];
+                        const pB = p.posB_cache[i];
+                        if(pA && pB) {
+                            sumX += pA.x + pB.x;
+                            sumY += pA.y + pB.y;
+                            sumZ += pA.z + pB.z;
+                        }
+                    });
+                    
+                    // There are 6 streams total contributing
+                    // Sensitivity: if sensitivity is high, we pull it tighter to 0,0,0
+                    // If sensitivity is 1.0, it's pure average.
+                    const avgX = sumX / 6;
+                    const avgY = sumY / 6;
+                    const avgZ = sumZ / 6;
+                    
+                    // Lerp towards zero based on sensitivity
+                    // Sensitivity > 1 means we dampen the wobble
+                    const damp = 1.0 / state.sensitivity;
+                    
+                    pos[i*3] = avgX * damp;
+                    pos[i*3+1] = avgY * damp;
+                    pos[i*3+2] = avgZ * damp;
+                }
+                this.mesh.geometry.attributes.position.needsUpdate = true;
+            }
+        }
+
+        // --- 3. State & Instantiation ---
+        
+        const pair1 = new TwistorPair(0xff0055, 0);             // Alpha
+        const pair2 = new TwistorPair(0x00f2ff, (Math.PI*2)/3); // Beta
+        const pair3 = new TwistorPair(0xffd700, (Math.PI*4)/3); // Gamma
+        const pairs = [pair1, pair2, pair3];
+        const emergent = new EmergentCore();
+
+        const state = {
+            // Tab 1
+            microTwist: 2.5,
+            buckle: 3.0,
+            pairSep: 0.8,
+            phaseSep: 25.0,
+            zScale: 12.0,
+            // Tab 2
+            sensitivity: 1.0,
+            coreSize: 2.0,
+            pulse: 0.0,
+            // Playback
+            currentStep: 0,
+            totalSteps: 720,
+            isPlaying: true,
+            direction: 1
+        };
+
+        // --- 4. Controls Logic ---
+        
+        function bind(id, key) {
+            const el = document.getElementById(id);
+            el.addEventListener('input', (e) => {
+                state[key] = parseFloat(e.target.value);
+                const label = document.getElementById(id.replace('input-', 'val-'));
+                if(label) label.innerText = state[key].toFixed(1);
+            });
+        }
+        
+        bind('input-twist', 'microTwist');
+        bind('input-buckle', 'buckle');
+        bind('input-pair-sep', 'pairSep');
+        bind('input-separation', 'phaseSep');
+        bind('input-zscale', 'zScale');
+        bind('input-sensitivity', 'sensitivity');
+        bind('input-core-size', 'coreSize');
+        bind('input-pulse', 'pulse');
+        
+        // Playback API
+        const controls = {
+            toggle: () => {
+                state.isPlaying = !state.isPlaying;
+                document.getElementById('btn-play').innerText = state.isPlaying ? '►' : '||';
+            },
+            reverse: () => {
+                state.direction = -1;
+                if(!state.isPlaying) controls.toggle();
+            },
+            forward: () => {
+                state.direction = 1;
+                if(!state.isPlaying) controls.toggle();
+            },
+            seek: (e) => {
+                const rect = document.getElementById('progress-container').getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const pct = Math.max(0, Math.min(1, x / rect.width));
+                state.currentStep = Math.floor(pct * state.totalSteps);
+                updateUI();
+            }
+        };
+        
+        function updateUI() {
+            document.getElementById('step-count').innerText = state.currentStep.toString().padStart(3, '0');
+            const pct = (state.currentStep / state.totalSteps) * 100;
+            document.getElementById('progress-fill').style.width = pct + '%';
+        }
+
+        // --- 5. Animation Loop ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Time Logic
+            if(state.isPlaying) {
+                state.currentStep += state.direction;
+                
+                // Loop Logic
+                if(state.currentStep >= state.totalSteps) state.currentStep = 0;
+                if(state.currentStep < 0) state.currentStep = state.totalSteps - 1;
+                
+                updateUI();
+            }
+            
+            // Normalize Step to 0.0 - 1.0
+            const normStep = state.currentStep / state.totalSteps;
+            
+            // Update Objects
+            pairs.forEach(p => p.update(normStep, state));
+            emergent.update(pairs, state, normStep);
+            
+            orbit.update();
+            renderer.render(scene, camera);
+        }
+        
+        // Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        });
+
+        animate();
+
+    </script>
+</body>
+</html>
