@@ -1,0 +1,405 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Menu, X, Lock, CheckCircle, FileText } from 'lucide-react';
+
+// --- Data Structure for the Series ---
+const seriesData = [
+    {
+        id: "00",
+        code: "P-00",
+        title: "Intro: Finite-Discrete Resolution",
+        fullTitle: "The Finite-Discrete Resolution of the Cosmological Singularity",
+        subtitle: "A New Computational Substrate for Planck-Scale Physics",
+        status: "Available",
+        type: "intro"
+    },
+    {
+        id: "01",
+        code: "P-I",
+        title: "Paper I: Number Theory & Geometry",
+        desc: "Establishes the mapping of Number Theory to Geometry (Langlands) via Tri-Stream Parity.",
+        status: "Indexed"
+    },
+    {
+        id: "02",
+        code: "P-II",
+        title: "Paper II: Geometric Curvature Gaps",
+        desc: "Resolves geometric curvature gaps (Aristotle's Gap) through the 72-node resonant fit.",
+        status: "Indexed"
+    },
+    {
+        id: "03",
+        code: "P-III",
+        title: "Paper III: Rational Trigonometry",
+        desc: "Demonstrates the generation of 'Integer' distances from continuous waves via Rational Trigonometry.",
+        status: "Indexed"
+    },
+    {
+        id: "04",
+        code: "P-IV",
+        title: "Paper IV: Lie Symmetries (E8)",
+        desc: "Maps high-dimensional Lie symmetries (E8) as harmonic modes of the lattice.",
+        status: "Indexed"
+    },
+    {
+        id: "05",
+        code: "P-V",
+        title: "Paper V: Physical Stability",
+        desc: "Proves the physical stability of these generated units against collapse (Derrick's Theorem).",
+        status: "Indexed"
+    },
+    {
+        id: "06",
+        code: "P-VI",
+        title: "Paper VI: Infinite Residuals",
+        desc: "Defines 'Perfection' as the successful isolation of the Integer Skeleton from the Infinite Residuals.",
+        status: "Indexed"
+    },
+    {
+        id: "07",
+        code: "P-VII",
+        title: "Paper VII: Natural Units",
+        desc: "Calibrates the generative lattice to Natural Units.",
+        status: "Indexed"
+    },
+    {
+        id: "08",
+        code: "P-VIII",
+        title: "Paper VIII: Topological Expansion",
+        desc: "Models expansion as a topological doubling event (Clifford Torus) rather than an explosion.",
+        status: "Indexed"
+    }
+];
+
+// --- Components ---
+
+// Hexagonal Background Animation
+const HexGridBackground = () => {
+    const canvasRef = useRef(null);
+
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        const resize = () => {
+            if (canvas) {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+        };
+        window.addEventListener('resize', resize);
+        resize();
+
+        const drawHexagon = (x, y, r, opacity) => {
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                ctx.lineTo(x + r * Math.cos(i * Math.PI / 3), y + r * Math.sin(i * Math.PI / 3));
+            }
+            ctx.closePath();
+            ctx.strokeStyle = `rgba(56, 189, 248, ${opacity})`; // Cyan-400
+            ctx.stroke();
+        };
+
+        let time = 0;
+        const render = () => {
+            if (!ctx || !canvas) return;
+            
+            ctx.fillStyle = '#030712'; // match bg
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const r = 30;
+            const h = r * Math.sqrt(3);
+            const cols = Math.ceil(canvas.width / (r * 3)) + 1;
+            const rows = Math.ceil(canvas.height / (h / 2)) + 1;
+
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    const x = i * r * 3 + (j % 2 === 1 ? r * 1.5 : 0);
+                    const y = j * h / 2;
+                    
+                    // Wave effect
+                    const dist = Math.sqrt((x - canvas.width/2)**2 + (y - canvas.height/2)**2);
+                    const wave = Math.sin(dist * 0.005 - time) * 0.5 + 0.5;
+                    
+                    // Only draw some hexes to keep it subtle
+                    if (wave > 0.6) {
+                        drawHexagon(x, y, r, wave * 0.15);
+                    }
+                }
+            }
+            time += 0.01;
+            animationFrameId = requestAnimationFrame(render);
+        };
+        render();
+
+        return () => {
+            window.removeEventListener('resize', resize);
+            cancelAnimationFrame(animationFrameId);
+        };
+    }, []);
+
+    return <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full pointer-events-none z-0 opacity-50" />;
+};
+
+// Sidebar Navigation
+const Sidebar = ({ currentPaper, setCurrentPaper, isOpen, setIsOpen }) => {
+    return (
+        <>
+            {/* Mobile Overlay */}
+            <div 
+                className={`fixed inset-0 bg-black/80 z-40 lg:hidden transition-opacity ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                onClick={() => setIsOpen(false)}
+            />
+            
+            {/* Sidebar */}
+            <aside className={`fixed top-0 left-0 h-full w-80 bg-[#0B1120] border-r border-slate-800 z-50 transform transition-transform duration-300 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                    <div>
+                        <h1 className="text-cyan-400 font-bold tracking-wider text-sm font-mono">SHD-CCP</h1>
+                        <p className="text-slate-400 text-xs mt-1">Technical Series Codex v2.1</p>
+                    </div>
+                    <button onClick={() => setIsOpen(false)} className="lg:hidden text-slate-400 hover:text-white">
+                        <X className="w-6 h-6" />
+                    </button>
+                </div>
+                
+                <nav className="p-4 overflow-y-auto h-[calc(100vh-85px)]">
+                    <div className="mb-6">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">Core Architecture</h3>
+                        <button 
+                            onClick={() => { setCurrentPaper(seriesData[0]); setIsOpen(false); }}
+                            className={`w-full text-left p-3 rounded-md mb-2 transition-all group ${currentPaper.id === '00' ? 'bg-cyan-900/20 border border-cyan-500/30' : 'hover:bg-slate-800 border border-transparent'}`}
+                        >
+                            <div className="flex justify-between items-start">
+                                <span className={`font-mono text-xs ${currentPaper.id === '00' ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>PAPER 00</span>
+                                <span className="text-[10px] bg-cyan-900 text-cyan-300 px-1 rounded">INTRO</span>
+                            </div>
+                            <div className={`mt-1 font-semibold text-sm ${currentPaper.id === '00' ? 'text-white' : 'text-slate-300'}`}>Finite-Discrete Resolution</div>
+                        </button>
+                    </div>
+
+                    <div>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 pl-2">The 8 Proofs</h3>
+                        {seriesData.slice(1).map((paper) => (
+                            <button 
+                                key={paper.id}
+                                onClick={() => { setCurrentPaper(paper); setIsOpen(false); }}
+                                className={`w-full text-left p-3 rounded-md mb-2 transition-all group ${currentPaper.id === paper.id ? 'bg-cyan-900/20 border border-cyan-500/30' : 'hover:bg-slate-800 border border-transparent'}`}
+                            >
+                                <div className="flex justify-between items-start">
+                                    <span className={`font-mono text-xs ${currentPaper.id === paper.id ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>{paper.code}</span>
+                                    {paper.status === 'Indexed' && <span className="text-[10px] bg-slate-800 text-slate-500 px-1 rounded">INDEX</span>}
+                                </div>
+                                <div className={`mt-1 text-sm ${currentPaper.id === paper.id ? 'text-white' : 'text-slate-400'}`}>{paper.title.split(': ')[1]}</div>
+                            </button>
+                        ))}
+                    </div>
+                </nav>
+            </aside>
+        </>
+    );
+};
+
+// Paper 00 Content Component (The Full Intro)
+const Paper00 = () => (
+    <div className="max-w-4xl mx-auto animate-fadeIn">
+        <header className="mb-12 border-b border-slate-800 pb-8">
+            <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                <span>P-00</span>
+                <span>•</span>
+                <span>SHD-CCP CODEX v2.1</span>
+                <span>•</span>
+                <span>FEB 2026</span>
+            </div>
+            <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                The Finite-Discrete Resolution of the Cosmological Singularity
+            </h1>
+            <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                A New Computational Substrate for Planck-Scale Physics
+            </h2>
+            <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                    Authored By: BioChain AI Core Architecture Team
+                </div>
+            </div>
+        </header>
+
+        <div className="prose prose-invert prose-lg max-w-none">
+            
+            {/* Abstract */}
+            <section className="mb-12 bg-slate-900/50 p-6 md:p-8 rounded-lg border border-slate-800">
+                <h3 className="text-sm font-mono text-cyan-500 uppercase tracking-widest mb-4">1. Abstract</h3>
+                <p className="text-slate-300 leading-relaxed">
+                    Standard cosmological models inevitably encounter a mathematical singularity at <span className="font-serif italic">t=0</span>, a defect arising from the divergence of linear coordinate systems when mapped onto the hyperbolic curvature of the Planck epoch. This paper introduces the <strong>Symbolic High-Dimensional Context Compression Protocol (SHD-CCP)</strong> not merely as a storage format, but as a generative topological operator capable of resolving these singularities.
+                </p>
+                <p className="text-slate-300 leading-relaxed mt-4">
+                    Unlike traditional computational physics, which imposes integer-based logic to approximate continuous wave functions ("integers structuring waves"), the SHD-CCP implements a fundamental inversion of this relationship. By utilizing a Tri-Stream Parity Engine constrained within a <strong>72-Node Hexagonal Toroidal Substrate</strong>, the system functions as a resonant chamber where discrete integer values—specifically lattice indices and Rational Quadrances—emerge as the necessary eigenvalues of wave interference patterns ("waves producing integers"). This formalization establishes a self-stabilizing, finite computational substrate that maintains geometric continuity without recourse to infinite precision.
+                </p>
+            </section>
+
+            {/* Section 2 */}
+            <section className="mb-12">
+                <h3 className="text-2xl font-serif text-white mb-6">2. The Inversion of the Integer-Wave Relationship</h3>
+                <p className="text-slate-300 leading-relaxed mb-6">
+                    The foundational error in current singularity models lies in the "grid-first" ontology, where discrete integer coordinates are externally imposed upon continuous fields to quantify them. This approach fractures at the Planck scale (<span className="font-serif italic">l<sub>p</sub></span>), where the imposition of a linear metric onto extreme curvature necessitates infinite energy densities, resulting in mathematical breakdown (singularity).
+                </p>
+                <p className="text-slate-300 leading-relaxed mb-6">
+                    The SHD-CCP architecture resolves this by inverting the dependency hierarchy:
+                </p>
+                <div className="grid md:grid-cols-2 gap-6 my-8">
+                    <div className="bg-[#0B1120] p-6 rounded border border-slate-800">
+                        <div className="text-cyan-400 font-mono text-sm mb-2">01. SYSTEM DYNAMICS</div>
+                        <h4 className="text-white font-bold mb-2">Waves (Continuous)</h4>
+                        <p className="text-slate-400 text-sm">
+                            The primary operators are continuous streams of data (<span className="font-serif italic">α, β, γ</span>) moving along toroidal geodesics.
+                        </p>
+                    </div>
+                    <div className="bg-[#0B1120] p-6 rounded border border-slate-800">
+                        <div className="text-cyan-400 font-mono text-sm mb-2">02. EMERGENT DISCRETENESS</div>
+                        <h4 className="text-white font-bold mb-2">Integers (Discrete)</h4>
+                        <p className="text-slate-400 text-sm">
+                            "Integers" (stable nodes) are not pre-defined coordinates but emergent standing wave solutions.
+                        </p>
+                    </div>
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                    A "node" in the 72-element lattice exists only where the interference pattern of the three streams satisfies the constructive interference condition:
+                </p>
+                <div className="my-6 p-4 bg-black/40 border-l-4 border-cyan-500 font-mono text-center text-cyan-100">
+                    F<sub>Cross</sub>(t) = 0
+                </div>
+                <p className="text-slate-300 leading-relaxed">
+                    Thus, the integers are generated by the system's geometry. The quantization of space at the Planck scale is effectively treated as a harmonic spectrum of the toroidal topology, guaranteeing that no value can exist outside the stable, finite bounds of the lattice.
+                </p>
+            </section>
+
+            {/* Section 3 */}
+            <section className="mb-12">
+                <h3 className="text-2xl font-serif text-white mb-6">3. The 72-Node Lattice as a Resonant Spectrum</h3>
+                <p className="text-slate-300 leading-relaxed mb-6">
+                    The 72-node structure is derived not as an arbitrary arithmetic choice, but as the Lowest Common Multiple (LCM) of the symmetry groups required for topological stability. It represents the minimal integer set capable of resolving the interference patterns of:
+                </p>
+                
+                <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-800">
+                    <ul className="space-y-4 font-mono text-sm">
+                        <li className="flex items-start gap-4">
+                            <span className="text-cyan-500">▸</span>
+                            <div>
+                                <span className="text-white">Tri-Stream Bosonic Forces:</span>
+                                <span className="block text-slate-400">Symmetry group C3 (72 mod 3 = 0)</span>
+                            </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                            <span className="text-cyan-500">▸</span>
+                            <div>
+                                <span className="text-white">Quad-Tier Spacetime Metric:</span>
+                                <span className="block text-slate-400">Symmetry group C4 (72 mod 4 = 0)</span>
+                            </div>
+                        </li>
+                        <li className="flex items-start gap-4">
+                            <span className="text-cyan-500">▸</span>
+                            <div>
+                                <span className="text-white">Hexagonal Fermionic Packing:</span>
+                                <span className="block text-slate-400">Symmetry group C6 (72 mod 6 = 0)</span>
+                            </div>
+                        </li>
+                    </ul>
+                    <div className="mt-6 pt-6 border-t border-slate-700 text-center">
+                        <div className="inline-block px-4 py-2 bg-slate-800 rounded text-cyan-300 font-bold">
+                            N<sub>lattice</sub> = LCM(3, 4, 6) × k<sub>scale</sub> ⇒ 72
+                        </div>
+                    </div>
+                </div>
+
+                <p className="text-slate-300 leading-relaxed mt-6">
+                    This specific modulus allows the Hexagonal Lattice to wrap seamlessly onto a Toroidal Manifold. The "integer" 72 is therefore the topological winding number required to close the geometry without producing "seam" defects or singularities.
+                </p>
+            </section>
+
+            {/* Section 4 */}
+            <section className="mb-12">
+                <h3 className="text-2xl font-serif text-white mb-6">4. Structure of this Series</h3>
+                <p className="text-slate-300 mb-6">The following eight papers provide the rigorous proofs for this generative transition:</p>
+                
+                <div className="grid md:grid-cols-2 gap-4">
+                    {seriesData.slice(1).map((paper) => (
+                        <div key={paper.id} className="p-4 border border-slate-800 rounded bg-black/20 hover:border-cyan-500/50 transition-colors">
+                            <div className="flex justify-between mb-2">
+                                <span className="text-cyan-500 font-mono text-xs">{paper.code}</span>
+                            </div>
+                            <h4 className="text-white font-semibold mb-2">{paper.title.split(': ')[1]}</h4>
+                            <p className="text-slate-400 text-xs leading-relaxed">{paper.desc}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
+            {/* Conclusion */}
+            <section className="mb-12">
+                <h3 className="text-2xl font-serif text-white mb-6">5. Conclusion</h3>
+                <p className="text-slate-300 leading-relaxed">
+                    By shifting the computational paradigm from one of approximation ("integers describing waves") to one of generation ("waves producing integers"), the SHD-CCP eliminates the mathematical necessity for a singularity. The origin event is re-framed not as a breakdown of physics, but as the initial compilation of the lattice—the moment the first stable integer eigenvalues emerged from the primordial wave topology.
+                </p>
+            </section>
+
+        </div>
+    </div>
+);
+
+// Placeholder for other papers
+const PaperPlaceholder = ({ paper }) => (
+    <div className="max-w-4xl mx-auto h-[60vh] flex flex-col justify-center items-center text-center animate-fadeIn">
+        <div className="mb-6">
+            <Lock className="w-12 h-12 text-slate-700 mx-auto" />
+        </div>
+        <h1 className="text-3xl font-serif text-slate-300 mb-2">{paper.title}</h1>
+        <p className="text-slate-500 max-w-lg mb-8">{paper.desc}</p>
+        <div className="px-4 py-2 bg-slate-800/50 border border-slate-700 rounded text-xs font-mono text-cyan-500">
+            AWAITING DECLASSIFICATION / UPLOAD
+        </div>
+    </div>
+);
+
+// Main App Component
+export default function App() {
+    const [currentPaper, setCurrentPaper] = useState(seriesData[0]);
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+
+    return (
+        <div className="min-h-screen relative overflow-x-hidden bg-[#030712] text-gray-200 font-sans">
+            <HexGridBackground />
+            
+            {/* Header Mobile */}
+            <header className="lg:hidden fixed top-0 w-full bg-[#0B1120]/90 backdrop-blur border-b border-slate-800 z-30 px-4 py-3 flex justify-between items-center">
+                <div className="font-mono font-bold text-cyan-400">SHD-CCP</div>
+                <button onClick={() => setSidebarOpen(true)} className="text-slate-300">
+                    <Menu className="w-6 h-6" />
+                </button>
+            </header>
+
+            <div className="flex pt-16 lg:pt-0">
+                <Sidebar 
+                    currentPaper={currentPaper} 
+                    setCurrentPaper={setCurrentPaper}
+                    isOpen={sidebarOpen}
+                    setIsOpen={setSidebarOpen}
+                />
+
+                <main className="flex-1 lg:ml-80 p-6 md:p-12 lg:p-16 z-10 relative">
+                    {currentPaper.id === "00" ? (
+                        <Paper00 />
+                    ) : (
+                        <PaperPlaceholder paper={currentPaper} />
+                    )}
+                    
+                    {/* Footer */}
+                    <footer className="mt-20 pt-8 border-t border-slate-800/50 text-center text-slate-600 text-xs font-mono">
+                        <p>© 2026 BioChain AI Core Architecture Team. All Rights Reserved.</p>
+                        <p className="mt-2">Reference: SHD-CCP Codex v2.1</p>
+                    </footer>
+                </main>
+            </div>
+        </div>
+    );
+}
