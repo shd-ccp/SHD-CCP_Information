@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>72-Node Tri-Stream Architecture Animation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: white; font-family: sans-serif; }
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            max-width: 350px;
+            z-index: 10;
+        }
+        h1 { font-size: 1.2rem; margin-top: 0; color: #38bdf8; }
+        p { font-size: 0.9rem; line-height: 1.5; color: #cbd5e1; }
+        .highlight { color: #f472b6; font-weight: bold; }
+        #controls { margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap; }
+        button {
+            background: #334155;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: background 0.2s;
+        }
+        button:hover { background: #475569; }
+        button.active { background: #0ea5e9; }
+    </style>
+</head>
+<body>
+    <div id="info-panel">
+        <h1>72-Node Tri-Stream Architecture</h1>
+        <p>This visualization demonstrates the geometric necessity of the <span class="highlight">72-node substrate</span> for the SHD-CCP Codex.</p>
+        <p id="desc">
+            The lattice must satisfy three constraints simultaneously:<br>
+            1. <strong>Hexagonal Packing</strong> (Max Density)<br>
+            2. <strong>Toroidal Wrap</strong> (No Seams)<br>
+            3. <strong>Tri-Stream Symmetry</strong> (Alpha, Beta, Gamma)
+        </p>
+        <div id="controls">
+            <button id="btn-lattice" class="active">1. Hexagonal Lattice</button>
+            <button id="btn-torus">2. Toroidal Wrap</button>
+            <button id="btn-streams">3. Tri-Stream Flow</button>
+            <button id="btn-parity">4. Parity Check</button>
+        </div>
+    </div>
+
+    <script>
+        // --- SCENE SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0f172a);
+        // Add fog for depth
+        scene.fog = new THREE.FogExp2(0x0f172a, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 15, 25);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // --- LIGHTING ---
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        dirLight.position.set(10, 20, 10);
+        scene.add(dirLight);
+        
+        const pointLight = new THREE.PointLight(0x38bdf8, 1, 50);
+        pointLight.position.set(0, 5, 0);
+        scene.add(pointLight);
+
+        // --- GEOMETRY DATA ---
+        const NODES_COUNT = 72;
+        const GRID_ROWS = 6;
+        const GRID_COLS = 12; // 6 * 12 = 72
+        const TORUS_MAJOR_R = 10;
+        const TORUS_MINOR_R = 3;
+        
+        const nodes = [];
+        let currentState = 'lattice'; // lattice, torus, streams, parity
+        let animationTime = 0;
+
+        // Materials
+        const streamColors = [0xef4444, 0x22c55e, 0x3b82f6]; // Red (Alpha), Green (Beta), Blue (Gamma)
+        const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.3, metalness: 0.7 });
+        
+        // Create 72 Nodes
+        const geometry = new THREE.SphereGeometry(0.4, 16, 16);
+        
+        for (let i = 0; i < NODES_COUNT; i++) {
+            const mesh = new THREE.Mesh(geometry, baseMaterial.clone());
+            
+            // Grid Coordinates (u, v)
+            const u = i % GRID_COLS;
+            const v = Math.floor(i / GRID_COLS);
+            
+            // Store data for animation
+            mesh.userData = {
+                id: i,
+                u: u,
+                v: v,
+                streamId: i % 3, // 0, 1, 2 for Tri-Stream
+                // Lattice Position (Flat Hexagonal)
+                posLattice: calculateHexLatticePos(u, v),
+                // Torus Position (Wrapped)
+                posTorus: calculateTorusPos(u, v)
+            };
+            
+            // Initial Position
+            mesh.position.copy(mesh.userData.posLattice);
+            
+            scene.add(mesh);
+            nodes.push(mesh);
+        }
+
+        // --- CONNECTIONS (EDGES) ---
+        // We create lines to visualize the Hexagonal Grid structure
+        const edges = [];
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x475569, transparent: true, opacity: 0.3 });
+        
+        // Connect neighbors based on Hexagonal Logic
+        for (let i = 0; i < NODES_COUNT; i++) {
+            const u = nodes[i].userData.u;
+            const v = nodes[i].userData.v;
+            
+            // Hexagonal neighbors (simplified for grid visualization)
+            // Ideally we connect (u+1, v), (u, v+1), and (u+1, v+1) for triangulation
+            const neighbors = [
+                getNodeIndex((u + 1) % GRID_COLS, v), // Right
+                getNodeIndex(u, (v + 1) % GRID_ROWS), // Down
+                getNodeIndex((u + 1) % GRID_COLS, (v + 1) % GRID_ROWS) // Diagonal
+            ];
+            
+            neighbors.forEach(nIdx => {
+                if (nIdx !== -1) {
+                    const geometry = new THREE.BufferGeometry().setFromPoints([nodes[i].position, nodes[nIdx].position]);
+                    const line = new THREE.Line(geometry, lineMaterial);
+                    line.userData = { startIdx: i, endIdx: nIdx };
+                    scene.add(line);
+                    edges.push(line);
+                }
+            });
+        }
+
+        // --- MATH FUNCTIONS ---
+
+        function getNodeIndex(u, v) {
+            return v * GRID_COLS + u;
+        }
+
+        function calculateHexLatticePos(u, v) {
+            // Hexagonal Offset: Every odd row is shifted by half a width
+            const xOffset = (v % 2) * 0.5;
+            const spacingX = 1.5;
+            const spacingY = 1.5 * Math.sqrt(3) / 2; // Height of equilateral triangle
+            
+            const x = (u + xOffset) * spacingX - (GRID_COLS * spacingX / 2);
+            const z = v * spacingY - (GRID_ROWS * spacingY / 2);
+            return new THREE.Vector3(x, 0, z);
+        }
+
+        function calculateTorusPos(u, v) {
+            // Map u, v to angles
+            // u -> Major Angle (around the big ring)
+            // v -> Minor Angle (around the tube)
+            
+            // Twist factor for Hexagonal Wrap
+            // To make the hex grid seamless, we add a twist to the mapping
+            const twist = v * 0.5; 
+            const theta = ((u + twist) / GRID_COLS) * Math.PI * 2; // Major Angle
+            const phi = (v / GRID_ROWS) * Math.PI * 2; // Minor Angle
+            
+            const x = (TORUS_MAJOR_R + TORUS_MINOR_R * Math.cos(phi)) * Math.cos(theta);
+            const y = TORUS_MINOR_R * Math.sin(phi);
+            const z = (TORUS_MAJOR_R + TORUS_MINOR_R * Math.cos(phi)) * Math.sin(theta);
+            
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // --- ANIMATION LOOP ---
+
+        function animate() {
+            requestAnimationFrame(animate);
+            animationTime += 0.01;
+            
+            // Update node positions (LERP)
+            nodes.forEach(node => {
+                let targetPos;
+                let targetColor;
+                let targetScale = 1;
+
+                if (currentState === 'lattice') {
+                    targetPos = node.userData.posLattice;
+                    targetColor = new THREE.Color(0x94a3b8);
+                } else {
+                    targetPos = node.userData.posTorus;
+                    
+                    if (currentState === 'streams') {
+                        // Color by Stream ID
+                        const streamId = node.userData.streamId;
+                        targetColor = new THREE.Color(streamColors[streamId]);
+                        
+                        // Add flow animation
+                        const flow = Math.sin(animationTime * 5 + node.userData.u * 0.5) * 0.2 + 1;
+                        targetScale = flow;
+                    } else if (currentState === 'parity') {
+                        // Highlight parity groups (triplets)
+                        // Group nodes by 3: (i, i+1, i+2)
+                        const groupIdx = Math.floor(node.userData.id / 3);
+                        // Make only one group active at a time to visualize scanning
+                        const activeGroup = Math.floor(animationTime * 2) % (NODES_COUNT / 3);
+                        
+                        if (groupIdx === activeGroup) {
+                            targetColor = new THREE.Color(0xffffff); // Active scanning white
+                            targetScale = 1.5;
+                        } else {
+                            targetColor = new THREE.Color(0x334155); // Dimmed
+                        }
+                    } else { // 'torus'
+                        targetColor = new THREE.Color(0x38bdf8);
+                    }
+                }
+                
+                // Smooth transition
+                node.position.lerp(targetPos, 0.05);
+                node.material.color.lerp(targetColor, 0.1);
+                node.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.1);
+            });
+
+            // Update Edges
+            edges.forEach(edge => {
+                const startPos = nodes[edge.userData.startIdx].position;
+                const endPos = nodes[edge.userData.endIdx].position;
+                const positions = edge.geometry.attributes.position.array;
+                
+                positions[0] = startPos.x; positions[1] = startPos.y; positions[2] = startPos.z;
+                positions[3] = endPos.x; positions[4] = endPos.y; positions[5] = endPos.z;
+                edge.geometry.attributes.position.needsUpdate = true;
+                
+                // Hide edges in stream view to reduce clutter
+                edge.visible = currentState !== 'streams';
+            });
+
+            // Rotate Camera slightly for effect
+            if (currentState !== 'lattice') {
+                scene.rotation.y += 0.001;
+            } else {
+                scene.rotation.y = 0; // Reset rotation for flat view
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- INTERACTION ---
+        
+        const buttons = {
+            lattice: document.getElementById('btn-lattice'),
+            torus: document.getElementById('btn-torus'),
+            streams: document.getElementById('btn-streams'),
+            parity: document.getElementById('btn-parity')
+        };
+        
+        const descText = document.getElementById('desc');
+
+        function setActive(state) {
+            currentState = state;
+            
+            // Update buttons UI
+            Object.values(buttons).forEach(btn => btn.classList.remove('active'));
+            buttons[state].classList.add('active');
+            
+            // Update Description Text
+            switch(state) {
+                case 'lattice':
+                    descText.innerHTML = "<strong>1. Hexagonal Lattice (Flat):</strong><br>We start with a 6x12 grid. Notice the staggered rows. This is the <span class='highlight'>densest possible packing</span> for circles on a 2D plane.";
+                    break;
+                case 'torus':
+                    descText.innerHTML = "<strong>2. Toroidal Wrap:</strong><br>We wrap the grid onto a torus. Because we chose <span class='highlight'>72 nodes</span> (6x12), the hexagonal pattern closes perfectly without any seams or distorted triangles.";
+                    break;
+                case 'streams':
+                    descText.innerHTML = "<strong>3. Tri-Stream Flow:</strong><br>The nodes are colored by their stream ID (Alpha, Beta, Gamma). Notice how they form <span class='highlight'>three continuous, interlaced helices</span> around the torus. This is only possible because 72 is divisible by 3.";
+                    break;
+                case 'parity':
+                    descText.innerHTML = "<strong>4. Parity Check:</strong><br>The system scans the lattice in triplets. The <span class='highlight'>Triple Quad Formula</span> checks the geometric relationship between these 3 nodes to verify data integrity.";
+                    break;
+            }
+        }
+
+        buttons.lattice.onclick = () => setActive('lattice');
+        buttons.torus.onclick = () => setActive('torus');
+        buttons.streams.onclick = () => setActive('streams');
+        buttons.parity.onclick = () => setActive('parity');
+
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Start Animation
+        animate();
+
+    </script>
+</body>
+</html>
