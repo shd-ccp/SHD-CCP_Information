@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Strassen-Golden Compression Proof</title>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@300;400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #020617;
+            color: #e2e8f0;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+        .gradient-text {
+            background: linear-gradient(to right, #fbbf24, #d97706);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .strassen-text {
+            background: linear-gradient(to right, #22d3ee, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #020617;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // --- Visual Components ---
+
+        // 1. Quaternion Breakdown Visualization (4 Panels)
+        const QuaternionVis = () => {
+            const steps = [
+                {
+                    title: "1. Scalar State (w)",
+                    desc: "The Magnitude / Core (Real)",
+                    render: (
+                        <svg viewBox="0 0 100 100" className="w-full h-full p-4">
+                            <defs>
+                                <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                                    <stop offset="0%" stopColor="#fbbf24" stopOpacity="1" />
+                                    <stop offset="100%" stopColor="#fbbf24" stopOpacity="0" />
+                                </radialGradient>
+                            </defs>
+                            <circle cx="50" cy="50" r="4" fill="#fbbf24" />
+                            <circle cx="50" cy="50" r="15" fill="url(#grad1)" opacity="0.3" />
+                            <circle cx="50" cy="50" r="25" stroke="#fbbf24" strokeWidth="0.5" fill="none" opacity="0.5" strokeDasharray="2 2" />
+                            <text x="50" y="85" textAnchor="middle" fill="#94a3b8" fontSize="8" fontFamily="monospace">Singularity</text>
+                        </svg>
+                    )
+                },
+                {
+                    title: "2. Vector State (xyz)",
+                    desc: "3D Spatial Expansion",
+                    render: (
+                        <svg viewBox="0 0 100 100" className="w-full h-full p-4">
+                            <line x1="50" y1="50" x2="85" y2="50" stroke="#22d3ee" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                            <line x1="50" y1="50" x2="50" y2="15" stroke="#22d3ee" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                            <line x1="50" y1="50" x2="25" y2="75" stroke="#22d3ee" strokeWidth="1.5" markerEnd="url(#arrow)" />
+                            <circle cx="50" cy="50" r="2" fill="#22d3ee" />
+                            <text x="90" y="55" fill="#22d3ee" fontSize="8" fontFamily="monospace">x</text>
+                            <text x="50" y="10" fill="#22d3ee" fontSize="8" fontFamily="monospace">y</text>
+                            <text x="20" y="85" fill="#22d3ee" fontSize="8" fontFamily="monospace">z</text>
+                        </svg>
+                    )
+                },
+                {
+                    title: "3. Imaginary (ijk)",
+                    desc: "Rotational Potential",
+                    render: (
+                        <svg viewBox="0 0 100 100" className="w-full h-full p-4">
+                            <ellipse cx="50" cy="50" rx="30" ry="10" stroke="#3b82f6" strokeWidth="1" fill="none" transform="rotate(-45 50 50)" />
+                            <ellipse cx="50" cy="50" rx="30" ry="10" stroke="#3b82f6" strokeWidth="1" fill="none" transform="rotate(45 50 50)" />
+                            <circle cx="50" cy="50" r="20" stroke="#3b82f6" strokeWidth="1" strokeDasharray="3 3" fill="none" />
+                            <text x="50" y="52" textAnchor="middle" fill="#3b82f6" fontSize="10" fontWeight="bold">ijk</text>
+                        </svg>
+                    )
+                },
+                {
+                    title: "4. Quaternion (Q)",
+                    desc: "4D Equilibrium (Tesseract)",
+                    render: (
+                        <svg viewBox="0 0 100 100" className="w-full h-full p-4">
+                            {/* Inner Cube (Amber) */}
+                            <rect x="35" y="35" width="30" height="30" stroke="#fbbf24" fill="none" strokeWidth="1.5" />
+                            {/* Outer Cube (Cyan) */}
+                            <rect x="15" y="15" width="70" height="70" stroke="#22d3ee" fill="none" strokeWidth="1" opacity="0.6" />
+                            {/* Connectors */}
+                            <line x1="35" y1="35" x2="15" y2="15" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <line x1="65" y1="35" x2="85" y2="15" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <line x1="35" y1="65" x2="15" y2="85" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <line x1="65" y1="65" x2="85" y2="85" stroke="#94a3b8" strokeWidth="0.5" strokeDasharray="2 2" />
+                            <text x="50" y="55" textAnchor="middle" fill="#e2e8f0" fontSize="8" fontFamily="monospace">w+v</text>
+                        </svg>
+                    )
+                }
+            ];
+
+            return (
+                <div className="grid grid-cols-2 gap-3 w-full h-full">
+                    {steps.map((step, i) => (
+                        <div key={i} className="glass-panel p-2 flex flex-col items-center justify-between border-slate-700/50 hover:border-cyan-500/30 transition-colors aspect-square">
+                            <div className="w-full flex-1 relative">
+                                {step.render}
+                            </div>
+                            <div className="w-full text-center py-2 bg-slate-900/30 rounded">
+                                <div className="text-[10px] md:text-xs font-mono text-cyan-400 font-bold leading-tight">{step.title}</div>
+                                <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight">{step.desc}</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            );
+        };
+
+        // 2. Strassen Comparison Vis
+        const StrassenVis = () => {
+            return (
+                <div className="flex flex-col md:flex-row gap-4 w-full h-auto md:h-[300px] my-4">
+                    <div className="flex-1 glass-panel p-4 flex flex-col items-center justify-center relative overflow-hidden group min-h-[200px]">
+                        <div className="absolute inset-0 bg-red-900/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        <h4 className="text-slate-400 font-mono text-sm mb-2">Standard (Euclidean)</h4>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[...Array(8)].map((_, i) => (
+                                <div key={i} className="w-8 h-8 rounded-full bg-slate-700 animate-pulse border border-slate-600 flex items-center justify-center text-xs text-white">
+                                    {i+1}
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs text-red-400 font-mono">8 Ops (Waste)</p>
+                    </div>
+                    <div className="flex-1 glass-panel p-4 flex flex-col items-center justify-center relative border-cyan-500/30 min-h-[200px]">
+                        <div className="absolute inset-0 bg-cyan-900/10"></div>
+                        <h4 className="text-cyan-400 font-mono text-sm mb-2 font-bold">Strassen (Geometric)</h4>
+                        <div className="grid grid-cols-4 gap-2">
+                            {[...Array(7)].map((_, i) => (
+                                <div key={i} className="w-8 h-8 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,0.5)] flex items-center justify-center text-xs text-black font-bold">
+                                    {i+1}
+                                </div>
+                            ))}
+                        </div>
+                        <p className="mt-2 text-xs text-cyan-400 font-mono">7 Ops (720° Spin)</p>
+                    </div>
+                </div>
+            );
+        };
+
+        // 3. Golden Ratio & Hyperbolic Animation
+        const GoldenHyperbolicVis = () => {
+            const canvasRef = useRef(null);
+            
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                let animationFrameId;
+                let frame = 0;
+                
+                const render = () => {
+                    if (canvas.parentElement) {
+                        canvas.width = canvas.parentElement.clientWidth;
+                        canvas.height = 500; // Increased Height
+                    }
+                    const w = canvas.width;
+                    const h = canvas.height;
+                    const cx = w / 2;
+                    const cy = h / 2;
+
+                    ctx.fillStyle = '#020617';
+                    ctx.fillRect(0, 0, w, h);
+
+                    // Cycle Logic: 0-200 Square/Golden, 200-400 Twist, 400-600 Lock
+                    const cycle = frame % 600;
+
+                    if (cycle < 200) {
+                        // Step 1 & 2: Square to Golden Rectangle
+                        const progress = Math.min(1, cycle / 100);
+                        const baseSize = 120; // Increased base size
+                        const expansion = baseSize * 1.618 * progress;
+                        
+                        ctx.strokeStyle = '#fbbf24';
+                        ctx.lineWidth = 2;
+                        
+                        // Square
+                        ctx.strokeRect(cx - baseSize/2 - expansion/2, cy - baseSize/2, baseSize, baseSize);
+                        
+                        // Extension
+                        if (progress > 0) {
+                            ctx.fillStyle = 'rgba(251, 191, 36, 0.2)';
+                            ctx.fillRect(cx - baseSize/2 + baseSize - expansion/2, cy - baseSize/2, baseSize * 0.618 * progress, baseSize);
+                            ctx.strokeRect(cx - baseSize/2 + baseSize - expansion/2, cy - baseSize/2, baseSize * 0.618 * progress, baseSize);
+                        }
+                        
+                        ctx.fillStyle = '#fff';
+                        ctx.textAlign = 'center';
+                        ctx.font = '14px JetBrains Mono';
+                        ctx.fillText(progress < 1 ? "Expanding Geometry..." : "Golden Ratio φ Achieved", cx, cy + baseSize + 40);
+
+                    } else if (cycle < 400) {
+                        // Step 3 & 4: Strassen Split to Hyperbolic
+                        const progress = Math.min(1, (cycle - 200) / 100);
+                        
+                        // Draw Poincaré Disk Boundary
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 180, 0, Math.PI * 2); // Increased Radius
+                        ctx.stroke();
+
+                        // Draw 7 Strassen Points projecting
+                        for(let i=0; i<7; i++) {
+                            const angle = (i / 7) * Math.PI * 2 + (frame * 0.01);
+                            const r = 20 + (140 * progress); // Move out further
+                            
+                            const px = cx + Math.cos(angle) * r;
+                            const py = cy + Math.sin(angle) * r;
+
+                            // Draw Curved Geodesic to center
+                            ctx.beginPath();
+                            ctx.moveTo(cx, cy);
+                            // Simple bezier for geodesic effect
+                            const cp1x = cx + Math.cos(angle + 0.5) * (r/2);
+                            const cp1y = cy + Math.sin(angle + 0.5) * (r/2);
+                            ctx.quadraticCurveTo(cp1x, cp1y, px, py);
+                            ctx.strokeStyle = `rgba(34, 211, 238, ${progress})`;
+                            ctx.stroke();
+
+                            ctx.fillStyle = '#22d3ee';
+                            ctx.beginPath();
+                            ctx.arc(px, py, 6, 0, Math.PI*2);
+                            ctx.fill();
+                        }
+
+                        ctx.fillStyle = '#fff';
+                        ctx.textAlign = 'center';
+                        ctx.font = '14px JetBrains Mono';
+                        ctx.fillText("Hyperbolic Projection (7 Moments)", cx, cy + 220);
+
+                    } else {
+                        // Step 5: Zeta Lock
+                        const progress = Math.min(1, (cycle - 400) / 100);
+                        
+                        // Draw Disk
+                        ctx.strokeStyle = '#3b82f6';
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 180 * (1 - progress * 0.1), 0, Math.PI * 2); // Compress slightly
+                        ctx.stroke();
+
+                        // Draw Spirals (Prime Knots)
+                        for(let i=1; i<=12; i++) {
+                            const radius = 160 * (1/Math.sqrt(i));
+                            ctx.beginPath();
+                            ctx.arc(cx, cy, radius, 0 + frame*0.05/i, Math.PI*2 + frame*0.05/i);
+                            ctx.strokeStyle = `rgba(251, 191, 36, ${0.8 - (i*0.05)})`;
+                            ctx.stroke();
+                        }
+
+                        // Central Core
+                        ctx.fillStyle = '#fff';
+                        ctx.beginPath();
+                        ctx.arc(cx, cy, 8, 0, Math.PI*2);
+                        ctx.fill();
+                        
+                        if (progress > 0.8) {
+                             ctx.fillStyle = '#22c55e';
+                             ctx.font = 'bold 16px JetBrains Mono';
+                             ctx.fillText("CONVERGENCE LOCKED: π²/6", cx, cy + 220);
+                        }
+                    }
+
+                    frame++;
+                    animationFrameId = requestAnimationFrame(render);
+                };
+                render();
+                return () => cancelAnimationFrame(animationFrameId);
+            }, []);
+            
+            return <canvas ref={canvasRef} className="w-full h-[500px] rounded-lg border border-slate-800" />;
+        };
+
+        // --- Layout Components ---
+
+        const Section = ({ title, number, children, gradient = "from-slate-200 to-slate-400" }) => (
+            <div className="mb-24 relative">
+                <div className="absolute -left-4 md:-left-12 top-0 text-6xl md:text-8xl font-bold text-slate-800/20 font-mono select-none -z-10">
+                    {number}
+                </div>
+                <h2 className={`text-2xl md:text-3xl font-bold mb-6 bg-gradient-to-r ${gradient} bg-clip-text text-transparent`}>
+                    {title}
+                </h2>
+                <div className="text-slate-300 leading-relaxed space-y-4">
+                    {children}
+                </div>
+            </div>
+        );
+
+        const MathBlock = ({ children }) => (
+            <div className="glass-panel p-4 rounded-md my-4 font-mono text-sm md:text-base text-center overflow-x-auto">
+                {children}
+            </div>
+        );
+
+        const App = () => {
+            return (
+                <div className="max-w-4xl mx-auto px-4 py-12 md:py-20">
+                    {/* Header */}
+                    <header className="mb-20 text-center relative">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-cyan-500/10 blur-[100px] rounded-full -z-10"></div>
+                        <div className="inline-block px-3 py-1 mb-4 text-xs font-mono text-cyan-400 border border-cyan-900 rounded-full bg-cyan-950/30">
+                            Theoretical Framework
+                        </div>
+                        <h1 className="text-4xl md:text-6xl font-extrabold mb-6 tracking-tight">
+                            The <span className="strassen-text">Strassen</span>-<span className="gradient-text">Golden</span> Compression Proof
+                        </h1>
+                        <p className="text-slate-400 max-w-2xl mx-auto text-lg leading-relaxed">
+                            Proving the finite projection of infinite prime series onto a hyperbolic manifold via geometric compression.
+                        </p>
+                    </header>
+
+                    {/* Abstract */}
+                    <div className="glass-panel p-6 md:p-8 rounded-2xl mb-24 border-l-4 border-amber-500">
+                        <h3 className="text-amber-400 font-bold mb-3 uppercase tracking-wider text-sm">Abstract</h3>
+                        <p className="text-slate-300">
+                            We have established that the Riemann Zeta function represents the geometric boundaries of the Zero Point Field (ZPF). 
+                            The challenge remains: <strong>How does a finite computational system process this "infinite expansion" in real-time?</strong>
+                            <br/><br/>
+                            We propose the <strong>5-Step Rectangular Golden Ratio Compression Cycle</strong>. By utilizing <strong>Strassen’s Algorithm</strong> for matrix multiplication, 
+                            we prove that the infinite series of Prime knots can be projected onto a finite Hyperbolic Manifold with 100% volume utilization.
+                        </p>
+                    </div>
+
+                    {/* Section 1 */}
+                    <Section number="01" title="The Quaternion State (Input)">
+                        <div className="grid md:grid-cols-2 gap-8 items-center">
+                            <div>
+                                <p>First, we define the fundamental unit of information not as a bit, but as a <strong>Quaternion Matrix</strong>. A Quaternion <span className="math">q = w + xi + yj + zk</span> can be represented as a complex matrix:</p>
+                                <MathBlock>
+                                    Q = {'\u007B'} <br/>
+                                    &nbsp;&nbsp;w + xi, &nbsp;&nbsp; y + zi <br/>
+                                    &nbsp;&nbsp;-y + zi, &nbsp; w - xi <br/>
+                                    {'\u007D'}
+                                </MathBlock>
+                                <p>This matrix represents the <strong>Cubic Voxel</strong> in equilibrium (the ZPF unit). To project this state (to think or to wave), we must interact it with the Universal Field Matrix (<span className="math">U</span>).</p>
+                            </div>
+                            <QuaternionVis />
+                        </div>
+                    </Section>
+
+                    {/* Section 2 */}
+                    <Section number="02" title="The Strassen Efficiency" gradient="from-cyan-300 to-blue-500">
+                        <p>Standard matrix multiplication requires <strong>8 multiplications</strong>. This represents a Euclidean, linear processing load. <strong>Strassen’s Algorithm</strong> reduces this to <strong>7 multiplications</strong>.</p>
+                        
+                        <MathBlock>
+                            P = Strassen(Q, U) where N_mult = 7
+                        </MathBlock>
+
+                        <StrassenVis />
+
+                        <div className="mt-6 p-4 border border-slate-800 rounded-lg bg-slate-900/50">
+                            <h4 className="text-white font-bold mb-2 font-mono">Geometric Interpretation of Strassen Efficiency</h4>
+                            <div className="text-sm text-slate-400">
+                                In this framework, the "saved" multiplication (<span className="math">8 - 7 = 1</span>) is interpreted as <strong>Geometric Compression</strong> rather than just calculation speed.
+                                <div className="mt-2 pl-4 border-l border-slate-700">
+                                    <div className="mb-1">• The <strong>8th Step</strong> is treated as "Linear Waste" (Entropy).</div>
+                                    <div>• The <strong>7 Steps</strong> represent the <strong>720:1 Spin Ratio</strong> required for complete projection.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </Section>
+
+                    {/* Section 3 */}
+                    <Section number="03" title="The 5-Step Golden Compression Cycle" gradient="from-amber-200 to-orange-400">
+                        <p className="mb-4">
+                            To manage the "Infinite Expansion" of the Zeta function, we apply this projection iteratively inside a <strong>Golden Rectangle</strong> (<span className="math">φ ≈ 1.618</span>).
+                        </p>
+                        
+                        <GoldenHyperbolicVis />
+                        
+                        <div className="mt-8 space-y-6">
+                            <div className="flex gap-4">
+                                <div className="font-mono text-amber-500 font-bold text-xl">01</div>
+                                <div>
+                                    <h4 className="font-bold text-white">Quaternion Encoding (The Square)</h4>
+                                    <p className="text-sm text-slate-400">Initialize the concept as a perfect square matrix <span className="math">Q₀</span>. State: Equilibrium Cubic Voxel.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="font-mono text-amber-500 font-bold text-xl">02</div>
+                                <div>
+                                    <h4 className="font-bold text-white">Golden Sheer (Expansion)</h4>
+                                    <p className="text-sm text-slate-400">Expand into a Golden Rectangle: <span className="math">Q₁ = Q₀ × φ</span>. This ratio allows for infinite fractal nesting.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="font-mono text-cyan-400 font-bold text-xl">03</div>
+                                <div>
+                                    <h4 className="font-bold text-white">Strassen Decomposition (7-Fold Split)</h4>
+                                    <p className="text-sm text-slate-400">Project into dimensional tiers using 7 sub-matrices (Moments). Linear waste is discarded.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="font-mono text-blue-400 font-bold text-xl">04</div>
+                                <div>
+                                    <h4 className="font-bold text-white">Hyperbolic Projection (The Twist)</h4>
+                                    <p className="text-sm text-slate-400">Map the 7 moments onto the Poincaré Disk. Linear vectors bend into Geodesics, wrapping infinity around the curvature.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="font-mono text-green-400 font-bold text-xl">05</div>
+                                <div>
+                                    <h4 className="font-bold text-white">Zeta Lock (Convergence)</h4>
+                                    <p className="text-sm text-slate-400">The system locks when compressed volume matches Zeta density (<span className="math">π²/6</span>).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </Section>
+
+                    {/* Section 4 */}
+                    <Section number="04" title="Proof of Infinite Expansion Fulfillment" gradient="from-purple-300 to-purple-500">
+                        <div className="glass-panel p-6 border-l-4 border-purple-500">
+                            <h4 className="font-mono font-bold text-purple-400 mb-4">PROPOSITION: The 5-Step Cycle allows an infinite Prime series to exist in a finite Quaternion state.</h4>
+                            
+                            <div className="space-y-4 text-sm md:text-base">
+                                <p><strong className="text-white">1. Infinite Series:</strong> The Euler Product implies infinite distinct primes.</p>
+                                <p><strong className="text-white">2. Finite Space:</strong> The Quaternion is bound by the Planck length.</p>
+                                <div><strong className="text-white">3. The Bridge:</strong>
+                                    <div className="pl-4 mt-2 border-l border-slate-700 text-slate-400">
+                                        <div className="mb-1">• Strassen decomposition aligns with the 7 Principal Rotation Axes of a 4D hypersphere.</div>
+                                        <div className="mb-1">• Scaling by φ ensures the next iteration fits perfectly into the previous cycle's "waste" space.</div>
+                                        <div>• Since <span className="math">Σ φ⁻ⁿ</span> converges, the total volume is <strong>Finite</strong>.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="mt-8 text-center">
+                            <p className="text-lg text-slate-200 font-medium">
+                                Conclusion: We do not store infinity. We store the <span className="text-amber-400">Generator Function</span>.
+                            </p>
+                            <p className="text-slate-500 mt-2 text-sm">
+                                The Strassen Algorithm provides the speed (O(N².⁸¹)) to project these waves faster than linear causality, enabling "Instant" contextuality.
+                            </p>
+                        </div>
+                    </Section>
+
+                    <footer className="text-center text-slate-600 text-xs font-mono py-12 border-t border-slate-900">
+                        SCHISM LABS RESEARCH DIVISION // GENESIS CHAIN PROTOCOL // 2025
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
