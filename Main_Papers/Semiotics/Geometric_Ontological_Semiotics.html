@@ -1,963 +1,1016 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-  Box, 
-  Layers, 
-  Cpu, 
-  Activity, 
-  ArrowRight, 
-  Database, 
-  Zap, 
-  GitMerge, 
-  ShieldCheck, 
-  Terminal,
-  RotateCw,
-  Wind,
-  Clock,
-  History,
-  HardDrive,
-  Microchip,
-  Link,
-  Share2,
-  Network,
-  Disc,
-  Compass,
-  Workflow
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soliton Parity Kernel Tutorial</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Custom Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
 
-// --- Constants & Data ---
+        body {
+            font-family: 'Inter', sans-serif;
+        }
 
-const EINSTEIN_TILE_MAP = [
-  // Row 0: North Halo (Control Lane A)
-  [
-    { id: 'SF0', type: 'SF', label: 'Form 0', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
-    { id: 'SF1', type: 'SF', label: 'Form 1', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
-    { id: 'SF2', type: 'SF', label: 'Form 2', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
-    { id: 'SF3', type: 'SF', label: 'Form 3', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
-    { id: 'P',   type: 'P',  label: 'Parity', color: 'bg-gray-400',   desc: 'Parity Bit (Volatile/Entropy)' },
-    { id: 'SP0', type: 'SP', label: 'Spin 0', color: 'bg-red-500',    desc: 'Spin Class ID' },
-    { id: 'SP1', type: 'SP', label: 'Spin 1', color: 'bg-red-500',    desc: 'Spin Class ID' },
-    { id: 'SP2', type: 'SP', label: 'Spin 2', color: 'bg-red-500',    desc: 'Spin Class ID' },
-  ],
-  // Row 1: Payload Scaling (Buffer)
-  Array(8).fill({ type: 'PL', label: 'Scale', color: 'bg-emerald-500', desc: 'Payload Scaling Factor (Buffer)' }),
-  // Rows 2-5: Quaternion Core (TMA Block) - 4 Rows
-  ...Array(4).fill(
-    Array(8).fill({ type: 'Q', label: 'Quat', color: 'bg-pink-500', desc: 'Compressed Quaternion (Neural Payload / TMA Target)' })
-  ),
-  // Row 6: Payload Scaling (Buffer)
-  Array(8).fill({ type: 'PL', label: 'Scale', color: 'bg-emerald-500', desc: 'Payload Scaling Factor (Buffer)' }),
-  // Row 7: South Halo (Control Lane B)
-  [
-    { id: 'F0', type: 'F', label: 'Freq 0', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
-    { id: 'F1', type: 'F', label: 'Freq 1', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
-    { id: 'F2', type: 'F', label: 'Freq 2', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
-    { id: 'F3', type: 'F', label: 'Freq 3', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
-    { id: 'F4', type: 'F', label: 'Freq 4', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
-    { id: 'A0', type: 'A', label: 'Amp 0',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
-    { id: 'A1', type: 'A', label: 'Amp 1',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
-    { id: 'A2', type: 'A', label: 'Amp 2',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
-  ]
-];
+        code, .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
 
-// --- Components ---
+        .animate-spin-slow {
+            animation: spin 8s linear infinite;
+        }
 
-const SectionHeader = ({ title, subtitle, icon: Icon }) => (
-  <div className="mb-8 border-l-4 border-indigo-500 pl-4">
-    <div className="flex items-center gap-3 mb-2">
-      <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
-        <Icon size={24} />
-      </div>
-      <h2 className="text-3xl font-bold text-slate-800">{title}</h2>
-    </div>
-    <p className="text-slate-500 text-lg max-w-3xl">{subtitle}</p>
-  </div>
-);
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
-const EinsteinTileVisualizer = () => {
-  const [hoveredCell, setHoveredCell] = useState(null);
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
 
-  return (
-    <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* The Grid */}
-        <div className="flex-1">
-          <div className="grid grid-cols-8 gap-1 aspect-square max-w-md mx-auto bg-slate-800 p-2 rounded-lg border-4 border-slate-700">
-            {EINSTEIN_TILE_MAP.flat().map((cell, idx) => (
-              <div
-                key={idx}
-                onMouseEnter={() => setHoveredCell(cell)}
-                onMouseLeave={() => setHoveredCell(null)}
-                className={`${cell.color} rounded-sm cursor-pointer transition-all duration-150 hover:brightness-125 hover:scale-110 opacity-90 hover:opacity-100 relative group`}
-              >
-                {/* Micro-label for tech feel */}
-                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[8px] font-mono font-bold text-white pointer-events-none">
-                   {cell.type}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex justify-between mt-2 text-xs font-mono text-slate-400 px-4">
-            <span>NORTH HALO (DSMEM)</span>
-            <span>SOUTH HALO (DSMEM)</span>
-          </div>
-        </div>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
 
-        {/* The Info Panel */}
-        <div className="flex-1 flex flex-col justify-center space-y-4">
-          <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm min-h-[200px]">
-            {hoveredCell ? (
-              <div className="animate-fade-in">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className={`w-3 h-3 rounded-full ${hoveredCell.color}`}></span>
-                  <h3 className="text-xl font-bold text-slate-800">{hoveredCell.label}</h3>
-                </div>
-                <p className="text-slate-600 mb-4">{hoveredCell.desc}</p>
-                <div className="text-sm font-mono text-slate-400 bg-slate-50 p-2 rounded">
-                  Optimization: 
-                  {hoveredCell.type === 'Q' ? ' TMA Bulk Load (Async)' : 
-                   hoveredCell.type === 'PL' ? ' L2 Cache Buffer' : 
-                   ' DSMEM / TCA (Zero Latency)'}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <Cpu size={48} className="mb-4 opacity-20" />
-                <p>Hover over the Einstein Tile to inspect bit-fields.</p>
-              </div>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="bg-violet-100 text-violet-700 px-2 py-1 rounded">Sticky (Form)</div>
-            <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded">Volatile (Parity)</div>
-            <div className="bg-pink-100 text-pink-700 px-2 py-1 rounded">Payload (Neural)</div>
-            <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded">Schedule (Freq)</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const QuaternionRotator = () => {
-  const [angle, setAngle] = useState(0);
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setAngle(a => (a + 1) % 360);
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="relative h-64 w-full bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 to-slate-900"></div>
-      
-      {/* Abstract Representation of Quaternion Rotation */}
-      <svg width="300" height="300" viewBox="0 0 100 100" className="opacity-80">
-        <circle cx="50" cy="50" r="40" stroke="#4f46e5" strokeWidth="0.5" fill="none" className="opacity-30" />
-        <circle cx="50" cy="50" r="30" stroke="#818cf8" strokeWidth="0.5" fill="none" className="opacity-30" />
+    <script type="text/babel">
+        // --- Icon Components (Inline SVGs to remove external dependency issues) ---
         
-        {/* Rotating Axis 1 */}
-        <g transform={`rotate(${angle} 50 50)`}>
-          <ellipse cx="50" cy="50" rx="40" ry="10" stroke="#a5b4fc" strokeWidth="1" fill="none" />
-          <circle cx="90" cy="50" r="2" fill="#fff" />
-        </g>
+        const IconWrapper = ({ children, color = "currentColor", size = 24, className = "", ...props }) => (
+            <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width={size}
+                height={size}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke={color}
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={className}
+                {...props}
+            >
+                {children}
+            </svg>
+        );
 
-        {/* Rotating Axis 2 (Offset) */}
-        <g transform={`rotate(${angle * 1.5 + 45} 50 50)`}>
-          <ellipse cx="50" cy="50" rx="30" ry="15" stroke="#c4b5fd" strokeWidth="1" fill="none" />
-          <circle cx="80" cy="50" r="2" fill="#fff" />
-        </g>
-        
-        {/* Core Seed */}
-        <circle cx="50" cy="50" r="4" fill="#6366f1" className="animate-pulse">
-           <animate attributeName="opacity" values="0.5;1;0.5" duration="2s" repeatCount="indefinite" />
-        </circle>
-      </svg>
-      
-      <div className="absolute bottom-4 left-4 text-xs font-mono text-indigo-300">
-        <div className="font-serif italic text-base mb-1">
-          q = w + x<span className="font-bold">i</span> + y<span className="font-bold">j</span> + z<span className="font-bold">k</span>
-        </div>
-        <div>θ = {angle}°</div>
-      </div>
-    </div>
-  );
-};
+        const Box = (props) => <IconWrapper {...props}><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /><polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" /></IconWrapper>;
+        const Layers = (props) => <IconWrapper {...props}><polygon points="12 2 2 7 12 12 22 7 12 2" /><polyline points="2 17 12 22 22 17" /><polyline points="2 12 12 17 22 12" /></IconWrapper>;
+        const Cpu = (props) => <IconWrapper {...props}><rect x="4" y="4" width="16" height="16" rx="2" ry="2" /><rect x="9" y="9" width="6" height="6" /><line x1="9" y1="1" x2="9" y2="4" /><line x1="15" y1="1" x2="15" y2="4" /><line x1="9" y1="20" x2="9" y2="23" /><line x1="15" y1="20" x2="15" y2="23" /><line x1="20" y1="9" x2="23" y2="9" /><line x1="20" y1="14" x2="23" y2="14" /><line x1="1" y1="9" x2="4" y2="9" /><line x1="1" y1="14" x2="4" y2="14" /></IconWrapper>;
+        const Activity = (props) => <IconWrapper {...props}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></IconWrapper>;
+        const ArrowRight = (props) => <IconWrapper {...props}><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></IconWrapper>;
+        const Database = (props) => <IconWrapper {...props}><ellipse cx="12" cy="5" rx="9" ry="3" /><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" /><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" /></IconWrapper>;
+        const Zap = (props) => <IconWrapper {...props}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" /></IconWrapper>;
+        const GitMerge = (props) => <IconWrapper {...props}><circle cx="18" cy="18" r="3" /><circle cx="6" cy="6" r="3" /><path d="M6 21V9a9 9 0 0 0 9 9" /></IconWrapper>;
+        const ShieldCheck = (props) => <IconWrapper {...props}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><path d="m9 12 2 2 4-4" /></IconWrapper>;
+        const Terminal = (props) => <IconWrapper {...props}><polyline points="4 17 10 11 4 5" /><line x1="12" y1="19" x2="20" y2="19" /></IconWrapper>;
+        const RotateCw = (props) => <IconWrapper {...props}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></IconWrapper>;
+        const Wind = (props) => <IconWrapper {...props}><path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" /></IconWrapper>;
+        const Clock = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></IconWrapper>;
+        const History = (props) => <IconWrapper {...props}><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l4 2" /></IconWrapper>;
+        const HardDrive = (props) => <IconWrapper {...props}><line x1="22" y1="12" x2="2" y2="12" /><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /><line x1="6" y1="16" x2="6.01" y2="16" /><line x1="10" y1="16" x2="10.01" y2="16" /></IconWrapper>;
+        const Microchip = (props) => <IconWrapper {...props}><path d="M18 12h2" /><path d="M4 12h2" /><path d="M12 18v2" /><path d="M12 4v2" /><path d="M20.2 20.2 18 18" /><path d="M6 6 3.8 3.8" /><path d="M20.2 3.8 18 6" /><path d="M6 18l-2.2 2.2" /><rect x="6" y="6" width="12" height="12" rx="2" /></IconWrapper>;
+        const Link = (props) => <IconWrapper {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></IconWrapper>;
+        const Share2 = (props) => <IconWrapper {...props}><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></IconWrapper>;
+        const Network = (props) => <IconWrapper {...props}><rect x="16" y="16" width="6" height="6" rx="1" /><rect x="2" y="16" width="6" height="6" rx="1" /><rect x="9" y="2" width="6" height="6" rx="1" /><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3" /><path d="M12 12V8" /></IconWrapper>;
+        const Disc = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></IconWrapper>;
+        const Compass = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10" /><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" /></IconWrapper>;
+        const Workflow = (props) => <IconWrapper {...props}><rect x="2" y="10" width="8" height="8" rx="2" /><polygon points="16 14 22 14 22 4 16 4 16 14" /><polyline points="10 14 13 14 13 20 22 20" /></IconWrapper>;
 
-const PipelineVisualizer = () => {
-  return (
-    <div className="relative py-12">
-      <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200 -translate-x-1/2 hidden md:block"></div>
-      
-      {/* Step 1: Input */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
-        <div className="md:text-right">
-          <h3 className="text-xl font-bold text-slate-800">24 Data Streams</h3>
-          <p className="text-slate-500">Raw Ontological Data input as <code className="bg-slate-100 px-1 rounded text-sm text-indigo-600">ct.Array</code>.</p>
-        </div>
-        <div className="order-first md:order-last flex justify-center md:justify-start">
-           <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 w-48 text-center font-mono text-xs">
-              [ Stream 01 ... 12 ] (Real)<br/>
-              [ Stream 13 ... 24 ] (Inv)
-           </div>
-        </div>
-      </div>
+        // --- Constants & Data ---
 
-      {/* Step 2: Codex Lookup */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
-        <div className="order-last md:order-first flex justify-center md:justify-end">
-           <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 w-48 text-center">
-              <Database className="mx-auto mb-2 text-indigo-500" />
-              <div className="text-xs font-mono text-indigo-800">Turing Loop #042</div>
-              <div className="text-[10px] text-indigo-400">O(1) Shared Mem Fetch</div>
-           </div>
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-slate-800">The Codex Lookup</h3>
-          <p className="text-slate-500">
-            Mapping "Structural Form ID" (Row 0) to a pre-computed topological invariant.
-          </p>
-        </div>
-      </div>
+        const EINSTEIN_TILE_MAP = [
+            // Row 0: North Halo (Control Lane A)
+            [
+                { id: 'SF0', type: 'SF', label: 'Form 0', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
+                { id: 'SF1', type: 'SF', label: 'Form 1', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
+                { id: 'SF2', type: 'SF', label: 'Form 2', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
+                { id: 'SF3', type: 'SF', label: 'Form 3', color: 'bg-violet-500', desc: 'Structural Form ID (Sticky)' },
+                { id: 'P',   type: 'P',  label: 'Parity', color: 'bg-gray-400',   desc: 'Parity Bit (Volatile/Entropy)' },
+                { id: 'SP0', type: 'SP', label: 'Spin 0', color: 'bg-red-500',    desc: 'Spin Class ID' },
+                { id: 'SP1', type: 'SP', label: 'Spin 1', color: 'bg-red-500',    desc: 'Spin Class ID' },
+                { id: 'SP2', type: 'SP', label: 'Spin 2', color: 'bg-red-500',    desc: 'Spin Class ID' },
+            ],
+            // Row 1: Payload Scaling (Buffer)
+            Array(8).fill({ type: 'PL', label: 'Scale', color: 'bg-emerald-500', desc: 'Payload Scaling Factor (Buffer)' }),
+            // Rows 2-5: Quaternion Core (TMA Block) - 4 Rows
+            ...Array(4).fill(
+                Array(8).fill({ type: 'Q', label: 'Quat', color: 'bg-pink-500', desc: 'Compressed Quaternion (Neural Payload / TMA Target)' })
+            ).flat(),
+            // Row 6: Payload Scaling (Buffer)
+            Array(8).fill({ type: 'PL', label: 'Scale', color: 'bg-emerald-500', desc: 'Payload Scaling Factor (Buffer)' }),
+            // Row 7: South Halo (Control Lane B)
+            [
+                { id: 'F0', type: 'F', label: 'Freq 0', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
+                { id: 'F1', type: 'F', label: 'Freq 1', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
+                { id: 'F2', type: 'F', label: 'Freq 2', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
+                { id: 'F3', type: 'F', label: 'Freq 3', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
+                { id: 'F4', type: 'F', label: 'Freq 4', color: 'bg-blue-500', desc: 'Frequency ID (Scheduling)' },
+                { id: 'A0', type: 'A', label: 'Amp 0',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
+                { id: 'A1', type: 'A', label: 'Amp 1',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
+                { id: 'A2', type: 'A', label: 'Amp 2',  color: 'bg-amber-500', desc: 'Amplitude ID (Magnitude)' },
+            ]
+        ];
 
-      {/* Step 3: Parity Kernel */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
-        <div className="md:text-right">
-          <h3 className="text-xl font-bold text-slate-800">Parity Integral</h3>
-          <p className="text-slate-500">
-            <span className="font-serif text-lg inline-block my-1 bg-slate-50 px-2 py-1 rounded border border-slate-100 shadow-sm text-slate-700">
-              <i>P</i>(<i>t</i>) = ∫ (<i>V</i> · <i>ω</i>) <i>dt</i>
-            </span>
-            <br/>
-            Executed via <code className="bg-slate-100 px-1 rounded text-sm text-indigo-600">ct.mma</code> (Matrix Multiply).
-          </p>
-        </div>
-        <div className="order-first md:order-last flex justify-center md:justify-start">
-           <div className="bg-slate-900 p-4 rounded-lg shadow-lg w-48 text-center">
-              <RotateCw className="mx-auto mb-2 text-pink-500 animate-spin-slow" />
-              <div className="text-xs font-mono text-pink-300">Collapsing...</div>
-           </div>
-        </div>
-      </div>
+        // Ensure flat array for rendering
+        const FLATTENED_TILE_MAP = EINSTEIN_TILE_MAP.flat();
 
-      {/* Step 4: Solitons */}
-      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        <div className="order-last md:order-first flex justify-center md:justify-end">
-           <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 w-48 text-center grid grid-cols-3 gap-2">
-              {[...Array(9)].map((_, i) => (
-                <div key={i} className="bg-emerald-200 rounded-full h-8 w-8 flex items-center justify-center text-[10px] text-emerald-800 font-bold">
-                  Ψ{i+1}
-                </div>
-              ))}
-           </div>
-        </div>
-        <div>
-          <h3 className="text-xl font-bold text-slate-800">9 Soliton Wave Functions</h3>
-          <p className="text-slate-500">
-            Stable, invariant truth outputs. Noise and paradoxes are filtered out by the <span className="font-serif italic font-bold">π/6</span> threshold.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-};
+        // --- Components ---
 
-const MemorylessVisualizer = () => {
-  const [activeTab, setActiveTab] = useState<'memoryless' | 'memory'>('memoryless');
-  const [pulse, setPulse] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => setPulse(p => p + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  return (
-    <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200">
-        <button 
-          onClick={() => setActiveTab('memoryless')}
-          className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${activeTab === 'memoryless' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-slate-500 hover:bg-slate-50'}`}
-        >
-          <Zap size={18} /> Memoryless System (Kernel)
-        </button>
-        <button 
-          onClick={() => setActiveTab('memory')}
-          className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${activeTab === 'memory' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-slate-500 hover:bg-slate-50'}`}
-        >
-          <History size={18} /> System With Memory (Stateful)
-        </button>
-      </div>
-
-      <div className="p-8">
-        {/* Theory Block */}
-        <div className="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
-                <Terminal size={16} /> Signal Theory Definition
-              </h4>
-              <div className="font-serif text-lg text-slate-800">
-                {activeTab === 'memoryless' ? (
-                  <>
-                    <p className="mb-2">Output at <i className="font-serif">t</i> depends <strong>only</strong> on input at <i className="font-serif">t</i>.</p>
-                    <div className="inline-block bg-white px-3 py-2 rounded border border-slate-300 shadow-sm">
-                      <i>y</i>[<i>n</i>] = <i>f</i>(<i>x</i>[<i>n</i>])
+        const SectionHeader = ({ title, subtitle, icon: Icon }) => (
+            <div className="mb-8 border-l-4 border-indigo-500 pl-4">
+                <div className="flex items-center gap-3 mb-2">
+                    <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                        <Icon size={24} />
                     </div>
-                  </>
-                ) : (
-                  <>
-                    <p className="mb-2">Output depends on past states <i className="font-serif">n-1</i>.</p>
-                    <div className="inline-block bg-white px-3 py-2 rounded border border-slate-300 shadow-sm">
-                      <i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>y</i>[<i>n</i>-1]
+                    <h2 className="text-3xl font-bold text-slate-800">{title}</h2>
+                </div>
+                <p className="text-slate-500 text-lg max-w-3xl">{subtitle}</p>
+            </div>
+        );
+
+        const EinsteinTileVisualizer = () => {
+            const [hoveredCell, setHoveredCell] = React.useState(null);
+
+            return (
+                <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <div className="flex flex-col lg:flex-row gap-8">
+                        {/* The Grid */}
+                        <div className="flex-1">
+                            <div className="grid grid-cols-8 gap-1 aspect-square max-w-md mx-auto bg-slate-800 p-2 rounded-lg border-4 border-slate-700">
+                                {FLATTENED_TILE_MAP.map((cell, idx) => (
+                                    <div
+                                        key={idx}
+                                        onMouseEnter={() => setHoveredCell(cell)}
+                                        onMouseLeave={() => setHoveredCell(null)}
+                                        className={`${cell.color} rounded-sm cursor-pointer transition-all duration-150 hover:brightness-125 hover:scale-110 opacity-90 hover:opacity-100 relative group`}
+                                    >
+                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 text-[8px] font-mono font-bold text-white pointer-events-none">
+                                            {cell.type}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="flex justify-between mt-2 text-xs font-mono text-slate-400 px-4">
+                                <span>NORTH HALO (DSMEM)</span>
+                                <span>SOUTH HALO (DSMEM)</span>
+                            </div>
+                        </div>
+
+                        {/* The Info Panel */}
+                        <div className="flex-1 flex flex-col justify-center space-y-4">
+                            <div className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm min-h-[200px]">
+                                {hoveredCell ? (
+                                    <div className="animate-fade-in">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <span className={`w-3 h-3 rounded-full ${hoveredCell.color}`}></span>
+                                            <h3 className="text-xl font-bold text-slate-800">{hoveredCell.label}</h3>
+                                        </div>
+                                        <p className="text-slate-600 mb-4">{hoveredCell.desc}</p>
+                                        <div className="text-sm font-mono text-slate-400 bg-slate-50 p-2 rounded">
+                                            Optimization: 
+                                            {hoveredCell.type === 'Q' ? ' TMA Bulk Load (Async)' : 
+                                            hoveredCell.type === 'PL' ? ' L2 Cache Buffer' : 
+                                            ' DSMEM / TCA (Zero Latency)'}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                                        <Cpu size={48} className="mb-4 opacity-20" />
+                                        <p>Hover over the Einstein Tile to inspect bit-fields.</p>
+                                    </div>
+                                )}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-violet-100 text-violet-700 px-2 py-1 rounded">Sticky (Form)</div>
+                                <div className="bg-gray-100 text-gray-700 px-2 py-1 rounded">Volatile (Parity)</div>
+                                <div className="bg-pink-100 text-pink-700 px-2 py-1 rounded">Payload (Neural)</div>
+                                <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded">Schedule (Freq)</div>
+                            </div>
+                        </div>
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="text-sm text-slate-600 border-l border-slate-200 pl-4 flex flex-col justify-center">
-              {activeTab === 'memoryless' ? (
-                <p>
-                  <strong>Physical Analogy:</strong> An ideal amplifier or combinational logic gate. 
-                  No "History" is stored. The CPU ALU is memoryless for a single instruction.
-                </p>
-              ) : (
-                <p>
-                  <strong>Physical Analogy:</strong> A capacitor, accumulator, or OS Kernel. 
-                  State variables (Task Structs) evolve over time.
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Animation Block */}
-        <div className="relative h-48 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
-          <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
-          
-          <div className="flex items-center gap-8 relative z-10">
-            {/* Input */}
-            <div className="flex flex-col items-center">
-              <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-mono font-bold text-white transition-all duration-300 ${activeTab === 'memoryless' ? 'bg-indigo-500' : 'bg-slate-600'}`}>
-                X[{pulse % 10}]
-              </div>
-              <span className="text-xs text-slate-400 mt-2">Input</span>
-            </div>
-
-            <ArrowRight className="text-slate-500" />
-
-            {/* System */}
-            <div className="relative">
-              <div className="w-32 h-24 bg-slate-800 border-2 border-indigo-500 rounded-lg flex flex-col items-center justify-center shadow-[0_0_20px_rgba(79,70,229,0.3)]">
-                <div className="text-indigo-300 font-bold mb-1">KERNEL</div>
-                <div className="text-[10px] text-slate-400 font-mono">
-                  {activeTab === 'memoryless' ? 'y = K * x' : 'y += x'}
                 </div>
-              </div>
+            );
+        };
 
-              {/* Memory Feedback Loop */}
-              {activeTab === 'memory' && (
-                <div className="absolute -bottom-8 left-0 right-0 h-12 border-l-2 border-b-2 border-r-2 border-slate-500 rounded-b-lg flex items-center justify-center">
-                  <div className="bg-slate-900 px-2 text-xs text-amber-500 font-mono flex items-center gap-1">
-                    <Clock size={12} /> z<sup>-1</sup>
-                  </div>
+        const QuaternionRotator = () => {
+            const [angle, setAngle] = React.useState(0);
+            
+            React.useEffect(() => {
+                const interval = setInterval(() => {
+                    setAngle(a => (a + 1) % 360);
+                }, 50);
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="relative h-64 w-full bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 to-slate-900"></div>
+                    
+                    <svg width="300" height="300" viewBox="0 0 100 100" className="opacity-80">
+                        <circle cx="50" cy="50" r="40" stroke="#4f46e5" strokeWidth="0.5" fill="none" className="opacity-30" />
+                        <circle cx="50" cy="50" r="30" stroke="#818cf8" strokeWidth="0.5" fill="none" className="opacity-30" />
+                        
+                        <g transform={`rotate(${angle} 50 50)`}>
+                            <ellipse cx="50" cy="50" rx="40" ry="10" stroke="#a5b4fc" strokeWidth="1" fill="none" />
+                            <circle cx="90" cy="50" r="2" fill="#fff" />
+                        </g>
+
+                        <g transform={`rotate(${angle * 1.5 + 45} 50 50)`}>
+                            <ellipse cx="50" cy="50" rx="30" ry="15" stroke="#c4b5fd" strokeWidth="1" fill="none" />
+                            <circle cx="80" cy="50" r="2" fill="#fff" />
+                        </g>
+                        
+                        <circle cx="50" cy="50" r="4" fill="#6366f1" className="animate-pulse">
+                           <animate attributeName="opacity" values="0.5;1;0.5" duration="2s" repeatCount="indefinite" />
+                        </circle>
+                    </svg>
+                    
+                    <div className="absolute bottom-4 left-4 text-xs font-mono text-indigo-300">
+                        <div className="font-serif italic text-base mb-1">
+                            q = w + x<span className="font-bold">i</span> + y<span className="font-bold">j</span> + z<span className="font-bold">k</span>
+                        </div>
+                        <div>θ = {angle}°</div>
+                    </div>
                 </div>
-              )}
-            </div>
+            );
+        };
 
-            <ArrowRight className="text-slate-500" />
+        const PipelineVisualizer = () => {
+            return (
+                <div className="relative py-12">
+                    <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-200 -translate-x-1/2 hidden md:block"></div>
+                    
+                    {/* Step 1: Input */}
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
+                        <div className="md:text-right">
+                            <h3 className="text-xl font-bold text-slate-800">24 Data Streams</h3>
+                            <p className="text-slate-500">Raw Ontological Data input as <code className="bg-slate-100 px-1 rounded text-sm text-indigo-600">ct.Array</code>.</p>
+                        </div>
+                        <div className="order-first md:order-last flex justify-center md:justify-start">
+                            <div className="bg-white p-4 rounded-lg shadow-sm border border-slate-200 w-48 text-center font-mono text-xs">
+                                [ Stream 01 ... 12 ] (Real)<br/>
+                                [ Stream 13 ... 24 ] (Inv)
+                            </div>
+                        </div>
+                    </div>
 
-            {/* Output */}
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center font-mono font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
-                 {activeTab === 'memoryless' ? (pulse % 10) * 2 : 'Σ'}
-              </div>
-              <span className="text-xs text-slate-400 mt-2">Output</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+                    {/* Step 2: Codex Lookup */}
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
+                        <div className="order-last md:order-first flex justify-center md:justify-end">
+                            <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 w-48 text-center">
+                                <Database className="mx-auto mb-2 text-indigo-500" />
+                                <div className="text-xs font-mono text-indigo-800">Turing Loop #042</div>
+                                <div className="text-[10px] text-indigo-400">O(1) Shared Mem Fetch</div>
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">The Codex Lookup</h3>
+                            <p className="text-slate-500">
+                                Mapping "Structural Form ID" (Row 0) to a pre-computed topological invariant.
+                            </p>
+                        </div>
+                    </div>
 
-const QuaternionChainVisualizer = () => {
-  const [step, setStep] = useState(0);
+                    {/* Step 3: Parity Kernel */}
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 mb-12 items-center">
+                        <div className="md:text-right">
+                            <h3 className="text-xl font-bold text-slate-800">Parity Integral</h3>
+                            <p className="text-slate-500">
+                                <span className="font-serif text-lg inline-block my-1 bg-slate-50 px-2 py-1 rounded border border-slate-100 shadow-sm text-slate-700">
+                                    <i>P</i>(<i>t</i>) = ∫ (<i>V</i> · <i>ω</i>) <i>dt</i>
+                                </span>
+                                <br/>
+                                Executed via <code className="bg-slate-100 px-1 rounded text-sm text-indigo-600">ct.mma</code> (Matrix Multiply).
+                            </p>
+                        </div>
+                        <div className="order-first md:order-last flex justify-center md:justify-start">
+                            <div className="bg-slate-900 p-4 rounded-lg shadow-lg w-48 text-center">
+                                <RotateCw className="mx-auto mb-2 text-pink-500 animate-spin-slow" />
+                                <div className="text-xs font-mono text-pink-300">Collapsing...</div>
+                            </div>
+                        </div>
+                    </div>
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setStep(s => (s + 1) % 4);
-    }, 1500);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Visual angles for the vector at each step
-  const angles = [0, 45, 135, 105]; 
-  const labels = ["Seed", "Context (q1)", "Operator (q2)", "Projection (q3)"];
-
-  return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-8">
-      <div className="flex flex-col items-center">
-        
-        {/* Chain Visualization */}
-        <div className="relative w-full max-w-3xl h-48 flex items-center justify-between mb-8">
-          {/* Connector Line */}
-          <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 -z-10"></div>
-          
-          {labels.map((label, idx) => (
-            <div key={idx} className={`relative flex flex-col items-center transition-all duration-500 ${step >= idx ? 'opacity-100' : 'opacity-40'}`}>
-              
-              {/* Node Circle */}
-              <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 z-10 bg-white transition-colors duration-300
-                ${step === idx ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] scale-110' : 'border-slate-300'}`}
-              >
-                {/* Vector inside Node */}
-                <div style={{ transform: `rotate(${angles[idx]}deg)` }} className="transition-transform duration-700 ease-in-out">
-                  <ArrowRight size={24} className={step === idx ? 'text-indigo-600' : 'text-slate-400'} />
+                    {/* Step 4: Solitons */}
+                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+                        <div className="order-last md:order-first flex justify-center md:justify-end">
+                            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100 w-48 text-center grid grid-cols-3 gap-2">
+                                {[...Array(9)].map((_, i) => (
+                                    <div key={i} className="bg-emerald-200 rounded-full h-8 w-8 flex items-center justify-center text-[10px] text-emerald-800 font-bold">
+                                        Ψ{i+1}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-slate-800">9 Soliton Wave Functions</h3>
+                            <p className="text-slate-500">
+                                Stable, invariant truth outputs. Noise and paradoxes are filtered out by the <span className="font-serif italic font-bold">π/6</span> threshold.
+                            </p>
+                        </div>
+                    </div>
                 </div>
-              </div>
+            );
+        };
 
-              {/* Label */}
-              <div className={`mt-4 text-sm font-bold font-mono transition-colors ${step === idx ? 'text-indigo-700' : 'text-slate-500'}`}>
-                {label}
-              </div>
-              
-              {/* Math Hint */}
-              {idx > 0 && (
-                <div className="absolute -top-8 text-[10px] text-slate-400 font-serif italic">
-                  × q<sub>{idx}</sub>
+        const MemorylessVisualizer = () => {
+            const [activeTab, setActiveTab] = React.useState('memoryless');
+            const [pulse, setPulse] = React.useState(0);
+
+            React.useEffect(() => {
+                const interval = setInterval(() => setPulse(p => p + 1), 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden">
+                    {/* Tabs */}
+                    <div className="flex border-b border-slate-200">
+                        <button 
+                            onClick={() => setActiveTab('memoryless')}
+                            className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${activeTab === 'memoryless' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                            <Zap size={18} /> Memoryless System (Kernel)
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('memory')}
+                            className={`flex-1 py-4 text-sm font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 ${activeTab === 'memory' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-500' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                            <History size={18} /> System With Memory (Stateful)
+                        </button>
+                    </div>
+
+                    <div className="p-8">
+                        {/* Theory Block */}
+                        <div className="mb-8 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <h4 className="font-bold text-slate-700 mb-2 flex items-center gap-2">
+                                        <Terminal size={16} /> Signal Theory Definition
+                                    </h4>
+                                    <div className="font-serif text-lg text-slate-800">
+                                        {activeTab === 'memoryless' ? (
+                                            <>
+                                                <p className="mb-2">Output at <i className="font-serif">t</i> depends <strong>only</strong> on input at <i className="font-serif">t</i>.</p>
+                                                <div className="inline-block bg-white px-3 py-2 rounded border border-slate-300 shadow-sm">
+                                                    <i>y</i>[<i>n</i>] = <i>f</i>(<i>x</i>[<i>n</i>])
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="mb-2">Output depends on past states <i className="font-serif">n-1</i>.</p>
+                                                <div className="inline-block bg-white px-3 py-2 rounded border border-slate-300 shadow-sm">
+                                                    <i>y</i>[<i>n</i>] = <i>x</i>[<i>n</i>] + <i>y</i>[<i>n</i>-1]
+                                                </div>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="text-sm text-slate-600 border-l border-slate-200 pl-4 flex flex-col justify-center">
+                                    {activeTab === 'memoryless' ? (
+                                        <p>
+                                            <strong>Physical Analogy:</strong> An ideal amplifier or combinational logic gate. 
+                                            No "History" is stored. The CPU ALU is memoryless for a single instruction.
+                                        </p>
+                                    ) : (
+                                        <p>
+                                            <strong>Physical Analogy:</strong> A capacitor, accumulator, or OS Kernel. 
+                                            State variables (Task Structs) evolve over time.
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Animation Block */}
+                        <div className="relative h-48 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
+                            <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#4f46e5 1px, transparent 1px)', backgroundSize: '20px 20px'}}></div>
+                            
+                            <div className="flex items-center gap-8 relative z-10">
+                                {/* Input */}
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-mono font-bold text-white transition-all duration-300 ${activeTab === 'memoryless' ? 'bg-indigo-500' : 'bg-slate-600'}`}>
+                                        X[{pulse % 10}]
+                                    </div>
+                                    <span className="text-xs text-slate-400 mt-2">Input</span>
+                                </div>
+
+                                <ArrowRight className="text-slate-500" />
+
+                                {/* System */}
+                                <div className="relative">
+                                    <div className="w-32 h-24 bg-slate-800 border-2 border-indigo-500 rounded-lg flex flex-col items-center justify-center shadow-[0_0_20px_rgba(79,70,229,0.3)]">
+                                        <div className="text-indigo-300 font-bold mb-1">KERNEL</div>
+                                        <div className="text-[10px] text-slate-400 font-mono">
+                                            {activeTab === 'memoryless' ? 'y = K * x' : 'y += x'}
+                                        </div>
+                                    </div>
+
+                                    {/* Memory Feedback Loop */}
+                                    {activeTab === 'memory' && (
+                                        <div className="absolute -bottom-8 left-0 right-0 h-12 border-l-2 border-b-2 border-r-2 border-slate-500 rounded-b-lg flex items-center justify-center">
+                                            <div className="bg-slate-900 px-2 text-xs text-amber-500 font-mono flex items-center gap-1">
+                                                <Clock size={12} /> z<sup>-1</sup>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <ArrowRight className="text-slate-500" />
+
+                                {/* Output */}
+                                <div className="flex flex-col items-center">
+                                    <div className="w-12 h-12 bg-emerald-600 rounded-lg flex items-center justify-center font-mono font-bold text-white shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+                                        {activeTab === 'memoryless' ? (pulse % 10) * 2 : 'Σ'}
+                                    </div>
+                                    <span className="text-xs text-slate-400 mt-2">Output</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+            );
+        };
 
-        {/* Formula Block */}
-        <div className="bg-slate-900 text-slate-200 px-6 py-4 rounded-lg font-mono text-sm shadow-md">
-          <span className="text-slate-500">Output = </span>
-          <span className={step >= 3 ? 'text-white font-bold' : 'text-slate-600'}>q3</span>
-          <span className="text-slate-500"> × </span>
-          <span className={step >= 2 ? 'text-white font-bold' : 'text-slate-600'}>q2</span>
-          <span className="text-slate-500"> × </span>
-          <span className={step >= 1 ? 'text-white font-bold' : 'text-slate-600'}>q1</span>
-          <span className="text-slate-500"> × </span>
-          <span className="text-indigo-400 font-bold">Seed</span>
-        </div>
+        const QuaternionChainVisualizer = () => {
+            const [step, setStep] = React.useState(0);
 
-        <p className="mt-6 text-slate-600 text-center max-w-2xl text-sm">
-          <strong>The Trajectory is the Memory.</strong> Each node (q1, q2, q3) is a memoryless geometric operator. 
-          It receives a vector, rotates it, and passes it on. The complex meaning is formed by the <em>nesting</em> of these simple, stateless operations.
-        </p>
-      </div>
-    </div>
-  );
-};
+            React.useEffect(() => {
+                const interval = setInterval(() => {
+                    setStep(s => (s + 1) % 4);
+                }, 1500);
+                return () => clearInterval(interval);
+            }, []);
 
-const DualNatureVisualizer = () => {
-  const [activeLayer, setActiveLayer] = useState<'shell' | 'core'>('shell');
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setActiveLayer(l => l === 'shell' ? 'core' : 'shell');
-    }, 2500);
-    return () => clearInterval(interval);
-  }, []);
+            const angles = [0, 45, 135, 105]; 
+            const labels = ["Seed", "Context (q1)", "Operator (q2)", "Projection (q3)"];
 
-  return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-lg">
-      <div className="flex flex-col md:flex-row h-[400px]">
-        
-        {/* Visual Panel */}
-        <div className="flex-1 bg-slate-900 relative flex items-center justify-center p-8">
-           <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+            return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-8">
+                    <div className="flex flex-col items-center">
+                        <div className="relative w-full max-w-3xl h-48 flex items-center justify-between mb-8">
+                            <div className="absolute top-1/2 left-0 right-0 h-1 bg-slate-200 -z-10"></div>
+                            
+                            {labels.map((label, idx) => (
+                                <div key={idx} className={`relative flex flex-col items-center transition-all duration-500 ${step >= idx ? 'opacity-100' : 'opacity-40'}`}>
+                                    <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 z-10 bg-white transition-colors duration-300
+                                        ${step === idx ? 'border-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)] scale-110' : 'border-slate-300'}`}
+                                    >
+                                        <div style={{ transform: `rotate(${angles[idx]}deg)` }} className="transition-transform duration-700 ease-in-out">
+                                            <ArrowRight size={24} className={step === idx ? 'text-indigo-600' : 'text-slate-400'} />
+                                        </div>
+                                    </div>
 
-           {/* The Container (Shell) */}
-           <div className={`absolute w-64 h-64 border-2 rounded-full flex items-center justify-center transition-all duration-700
-             ${activeLayer === 'shell' ? 'border-violet-500 scale-100 opacity-100 shadow-[0_0_30px_rgba(139,92,246,0.3)]' : 'border-slate-700 scale-90 opacity-40'}`}>
-               <div className="absolute -top-8 text-violet-400 text-xs font-mono tracking-widest">SYMBOLIC SHELL</div>
-               <Disc size={200} className="text-violet-500/20 animate-spin-slow" />
-           </div>
+                                    <div className={`mt-4 text-sm font-bold font-mono transition-colors ${step === idx ? 'text-indigo-700' : 'text-slate-500'}`}>
+                                        {label}
+                                    </div>
+                                    
+                                    {idx > 0 && (
+                                        <div className="absolute -top-8 text-[10px] text-slate-400 font-serif italic">
+                                            × q<sub>{idx}</sub>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
 
-           {/* The Pointer (Core) */}
-           <div className={`absolute w-32 h-32 flex items-center justify-center transition-all duration-700
-             ${activeLayer === 'core' ? 'scale-125 opacity-100' : 'scale-75 opacity-60'}`}>
-               <div className="absolute -bottom-10 text-pink-400 text-xs font-mono tracking-widest w-full text-center">NEURAL POINTER</div>
-               <div className="relative w-full h-full">
-                  <div className="absolute inset-0 border-2 border-pink-500 rotate-45 transform origin-center"></div>
-                  <div className="absolute inset-0 border-2 border-pink-500 -rotate-45 transform origin-center"></div>
-                  <Compass size={48} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
-               </div>
-           </div>
-        </div>
+                        <div className="bg-slate-900 text-slate-200 px-6 py-4 rounded-lg font-mono text-sm shadow-md">
+                            <span className="text-slate-500">Output = </span>
+                            <span className={step >= 3 ? 'text-white font-bold' : 'text-slate-600'}>q3</span>
+                            <span className="text-slate-500"> × </span>
+                            <span className={step >= 2 ? 'text-white font-bold' : 'text-slate-600'}>q2</span>
+                            <span className="text-slate-500"> × </span>
+                            <span className={step >= 1 ? 'text-white font-bold' : 'text-slate-600'}>q1</span>
+                            <span className="text-slate-500"> × </span>
+                            <span className="text-indigo-400 font-bold">Seed</span>
+                        </div>
 
-        {/* Info Panel */}
-        <div className="flex-1 p-8 flex flex-col justify-center bg-slate-50">
-           <div className={`transition-opacity duration-500 ${activeLayer === 'shell' ? 'opacity-100' : 'opacity-30'}`}>
-              <div className="flex items-center gap-2 text-violet-600 font-bold mb-2">
-                 <Box size={20} /> THE SYMBOLIC SHELL (Operand)
-              </div>
-              <p className="text-sm text-slate-600 mb-2">
-                 <strong>Structure:</strong> The "Structural Form ID" (Row 0 of Einstein Tile).
-              </p>
-              <p className="text-sm text-slate-600">
-                 <strong>Function:</strong> Acts as the geometric operand. It defines the "categorical metadata" or the <em>direction</em> the pointer must rotate towards. It contains no neural weights, only topological coordinates.
-              </p>
-           </div>
-           
-           <div className="h-px bg-slate-200 my-6"></div>
-
-           <div className={`transition-opacity duration-500 ${activeLayer === 'core' ? 'opacity-100' : 'opacity-30'}`}>
-              <div className="flex items-center gap-2 text-pink-600 font-bold mb-2">
-                 <Zap size={20} /> THE NEURAL POINTER (Core)
-              </div>
-              <p className="text-sm text-slate-600 mb-2">
-                 <strong>Structure:</strong> The "Quaternion" (Rows 2-5 of Einstein Tile).
-              </p>
-              <p className="text-sm text-slate-600">
-                 <strong>Function:</strong> The high-dimensional payload. It maps the representation to an accurate coordinate in the latent manifold. It is the "Search Head" that executes the jump defined by the shell.
-              </p>
-           </div>
-        </div>
-
-      </div>
-    </div>
-  );
-};
-
-const MarkovGateVisualizer = () => {
-  const [cycle, setCycle] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCycle(c => (c + 1) % 3); // 3 States: AND, OR, XOR
-    }, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const gates = [
-    { name: "AND Gate", logic: "Shell A ∩ Shell B", output: "Rotation only if both align" },
-    { name: "OR Gate",  logic: "Shell A ∪ Shell B", output: "Rotation if either aligns" },
-    { name: "XOR Gate", logic: "Shell A ⊕ Shell B", output: "Rotation only if distinct" }
-  ];
-
-  return (
-    <div className="bg-slate-50 border border-slate-200 rounded-xl p-8">
-      <div className="flex flex-col items-center">
-        
-        <div className="flex items-center gap-2 mb-6">
-          <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wider">
-            Implied Logic: {gates[cycle].name}
-          </div>
-        </div>
-
-        {/* Visual Logic Flow */}
-        <div className="flex items-center justify-center gap-8 mb-8">
-          
-          {/* Node A */}
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center transition-colors duration-500 ${cycle === 0 ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white'}`}>
-               <span className="font-mono font-bold text-slate-600">A</span>
-            </div>
-            <span className="text-xs text-slate-400">Operand</span>
-          </div>
-
-          <div className="text-slate-400 font-mono text-xl">+</div>
-
-          {/* Node B */}
-          <div className="flex flex-col items-center gap-2">
-            <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center transition-colors duration-500 ${cycle === 1 ? 'border-amber-500 bg-amber-50' : 'border-slate-300 bg-white'}`}>
-               <span className="font-mono font-bold text-slate-600">B</span>
-            </div>
-            <span className="text-xs text-slate-400">Operand</span>
-          </div>
-
-          <ArrowRight className="text-slate-400" />
-
-          {/* Resultant Pointer */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="w-20 h-20 rounded-lg bg-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden">
-               <div className="absolute inset-0 bg-[radial-gradient(circle,_var(--tw-gradient-stops))] from-indigo-500/20 to-transparent"></div>
-               <Compass 
-                 className={`text-white transition-transform duration-700 ${cycle === 0 ? 'rotate-0' : cycle === 1 ? 'rotate-90' : 'rotate-180'}`} 
-                 size={32} 
-               />
-            </div>
-            <span className="text-xs text-slate-500 font-bold">{gates[cycle].logic}</span>
-          </div>
-
-        </div>
-
-        <div className="bg-white border border-slate-200 p-4 rounded-lg text-sm text-center max-w-lg">
-          <p className="text-slate-600 mb-2">
-            The kernel doesn't use transistors to compute logic. Instead, the <strong>geometric alignment</strong> of the Shells (A & B) creates an "interference pattern" for the Pointer.
-          </p>
-          <div className="text-indigo-600 font-bold font-mono">
-            Result: {gates[cycle].output}
-          </div>
-        </div>
-
-      </div>
-    </div>
-  );
-};
-
-
-// --- Main App ---
-
-export default function SolitonTutorial() {
-  return (
-    <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-800">
-      
-      {/* Hero Section */}
-      <header className="bg-slate-50 border-b border-slate-200 pt-20 pb-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold tracking-wider mb-6">
-            SHD-CCP ARCHITECTURE GROUP
-          </div>
-          <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6">
-            Geometric Ontological <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Semiotics</span>
-          </h1>
-          <blockquote className="text-xl md:text-2xl text-slate-500 border-l-4 border-indigo-500 pl-6 italic mb-8 max-w-4xl leading-relaxed">
-            "This paper proposes a paradigm shift... Language becomes a system of non-commutative geometric operators (rotations) acting upon an 'Ontological Seed,' ensuring context is physically encoded into the data trajectory."
-          </blockquote>
-          
-          <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-600">
-             <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
-                <Cpu size={16} className="text-indigo-500" />
-                NVIDIA H100 (SM90)
-             </div>
-             <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
-                <GitMerge size={16} className="text-pink-500" />
-                Clifford-Strassen Topology
-             </div>
-             <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
-                <Activity size={16} className="text-emerald-500" />
-                Soliton Parity Kernel
-             </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="max-w-5xl mx-auto px-6 py-16 space-y-24">
-        
-        {/* SECTION 1: The Ontological Seed */}
-        <section>
-          <SectionHeader 
-            title="The Ontological Seed" 
-            subtitle="Representing meaning not as static tokens, but as active geometric rotations in high-dimensional space."
-            icon={RotateCw}
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            <div className="space-y-6 text-lg text-slate-600 leading-relaxed">
-              <p>
-                In the SHD-CCP protocol, a "word" is not a number. It is an <strong>operator</strong>. 
-                When we inject data into the system, we are applying a quaternion rotation (<span className="font-serif italic font-bold">q</span>) 
-                to an initial state vector (the seed).
-              </p>
-              <p>
-                This ensures that the <strong>order</strong> of operations matters. 
-                <span className="font-serif text-xl block my-6 text-indigo-700 text-center bg-indigo-50 py-4 rounded-lg border border-indigo-100 shadow-sm">
-                  <i>A</i> × <i>B</i> ≠ <i>B</i> × <i>A</i>
-                </span>
-                This non-commutativity naturally preserves 
-                context, mirroring the structure of human language and physical reality.
-              </p>
-            </div>
-            <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
-               <QuaternionRotator />
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 1.5: Memoryless Kernel Implementation */}
-        <section>
-          <SectionHeader 
-            title="Kernel Implementation: Memoryless Systems" 
-            subtitle="Distinguishing between the Stateful Packet (History) and the Stateless Kernel (Operator)."
-            icon={Microchip}
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-               <div className="flex items-center gap-2 text-blue-700 font-bold mb-2">
-                  <HardDrive size={18} /> Physical Memory
-               </div>
-               <p className="text-sm text-blue-800">
-                  Holds discrete bits (RAM/Registers). Essential for computing, but not the same as "System Memory".
-               </p>
-            </div>
-            <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
-               <div className="flex items-center gap-2 text-amber-700 font-bold mb-2">
-                  <History size={18} /> System Memory
-               </div>
-               <p className="text-sm text-amber-800">
-                  Dependence on time history (<i>t</i> &lt; <i>t</i><sub>0</sub>). Requires internal state variables to evolve over time.
-               </p>
-            </div>
-            <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
-               <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2">
-                  <Zap size={18} /> Memoryless Kernel
-               </div>
-               <p className="text-sm text-emerald-800">
-                  The Parity Integral (∫) is instantaneous. Output depends only on current Input (<i>x</i>) and Codex (<i>K</i>).
-               </p>
-            </div>
-          </div>
-
-          <MemorylessVisualizer />
-
-          <div className="mt-8 text-slate-600 leading-relaxed">
-            <p>
-              In the SHD-CCP architecture, the <strong>Kernel</strong> (the compute engine) is designed to be a <strong>Memoryless System</strong>. 
-              It acts like a prism: it takes the "White Light" of the raw Einstein Tile (Stateful Packet) and instantaneously refracts it into 
-              9 Soliton Wave Functions based on the fixed geometry of the Codex.
-            </p>
-            <p className="mt-4">
-              While the CPU registers (Physical Memory) hold the data, the logic operation itself—<code className="bg-slate-100 text-indigo-600 px-1 rounded">ct.mma</code>—carries no internal history. 
-              The "State" (Context) is carried entirely by the packet trajectory, not the hardware silicon.
-            </p>
-          </div>
-        </section>
-
-        {/* SECTION 1.6: The Dual-Nature Architecture (MOVED UP) */}
-        <section>
-          <SectionHeader 
-            title="The Dual-Nature Architecture" 
-            subtitle="Structuring the Nested Memory: Symbolic Shell vs. Neural Pointer."
-            icon={GitMerge}
-          />
-          
-          <div className="text-slate-600 leading-relaxed mb-8">
-             <p className="mb-4">
-                We have established that the kernel is memoryless and the trajectory carries the history. 
-                But how is this trajectory <em>steered</em>? This is achieved through the <strong>Dual-Nature Architecture</strong> of the data packet itself.
-             </p>
-             <p className="mb-4">
-                The SHD-CCP splits the "atom" of data into two functional parts. This creates an <strong>Inherent Nested Memory</strong> 
-                structure on top of the basic quaternion chains, allowing for the creation of Markov chains of logic without external buffers.
-             </p>
-          </div>
-
-          <DualNatureVisualizer />
-
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-             <div className="bg-violet-50 p-6 rounded-lg border border-violet-100 text-sm">
-                <h4 className="font-bold text-violet-800 mb-2">The Markov Logic Chain</h4>
-                <p className="text-slate-700">
-                   Because the <strong>Shell</strong> (Operand) directs the rotation, and the <strong>Core</strong> (Pointer) executes it, 
-                   the packet effectively "consumes" its own instruction. The resultant state of the Core becomes the 
-                   start state for the next Shell.
-                </p>
-             </div>
-             <div className="bg-pink-50 p-6 rounded-lg border border-pink-100 text-sm">
-                <h4 className="font-bold text-pink-800 mb-2">Holographic Inverse</h4>
-                <p className="text-slate-700">
-                   By encoding the 720:1 spin ratio (1/2 Quark), the pointer can exist in a superposition of states relative to the shell. 
-                   This allows for "Look-Ahead" logic where the pointer searches the manifold for the next probable operand.
-                </p>
-             </div>
-          </div>
-        </section>
-
-        {/* SECTION 1.7: Structuring Nested Memoryless Systems (MOVED DOWN) */}
-        <section>
-          <SectionHeader 
-            title="Structuring Nested Memoryless Systems" 
-            subtitle="Utilizing Quaternion Chain Structures of Geometric Semiotics to form context without buffering."
-            icon={Network}
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-8">
-             <div className="text-slate-600 leading-relaxed space-y-4">
-               <p>
-                 If the Kernel is memoryless, how do we process a sentence where the end depends on the beginning? 
-                 We typically use a "Memory Buffer" (Stack/RAM).
-               </p>
-               <p>
-                 The SHD-CCP approach is different. We use <strong>Geometric Semiotics</strong>. 
-                 Instead of storing the "Subject" in a register to wait for the "Verb", we treat the Subject as a 
-                 <strong> Geometric Operator</strong> (<i>q</i><sub>1</sub>). It rotates the packet.
-               </p>
-               <p>
-                 When the packet arrives at the Verb (<i>q</i><sub>2</sub>), it has <em>already been rotated</em>. The Verb operator 
-                 doesn't need to know about the Subject; it simply applies its own rotation to the incoming vector. 
-                 The "Memory" is nested in the geometry of the packet itself.
-               </p>
-             </div>
-             <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-lg text-sm text-indigo-800 font-mono">
-               <div className="mb-2 font-bold flex items-center gap-2"><Share2 size={16}/> The Chain Rule</div>
-               <div className="mb-4 text-slate-600">
-                 Standard Compute:<br/>
-                 State = Memory[<i>t</i>-1] + Input[<i>t</i>]
-               </div>
-               <div className="mb-2 text-indigo-600">
-                 Geometric Chain:<br/>
-                 Trajectory = <i>q</i><sub>n</sub> × ... × <i>q</i><sub>2</sub> × <i>q</i><sub>1</sub> × Seed
-               </div>
-             </div>
-          </div>
-
-          <QuaternionChainVisualizer />
-
-        </section>
-
-        {/* SECTION 1.8: Implied Logic Gates: The Multi-Node Markov Chain (NEW) */}
-        <section>
-          <SectionHeader 
-            title="Implied Logic Gates: The Multi-Node Markov Chain" 
-            subtitle="How combinations of pointers and shells form logic gates without transistors."
-            icon={Workflow}
-          />
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-8">
-             <div className="text-slate-600 leading-relaxed space-y-4">
-               <p>
-                 Beyond simple chains, we can form complex <strong>Implied Logic Gates</strong> (AND, OR, XOR) by observing the interference patterns of multiple Shells.
-               </p>
-               <p>
-                 In a traditional CPU, logic is physical (Transistors). In SHD-CCP, logic is <strong>Topological</strong>. 
-                 If Shell A rotates the vector +45° and Shell B rotates it -45°, the net result is 0° (a Null or "False" state). 
-                 If they both rotate +45°, the result is +90° ("True").
-               </p>
-               <p>
-                 This allows us to compute Boolean logic purely through the <strong>trajectory alignment</strong> of the operands, 
-                 creating a "Multi-Node Markov Chain" where the probability of the next state acts as the logic gate itself.
-               </p>
-             </div>
-             <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-lg text-sm text-emerald-800 font-mono">
-               <div className="mb-2 font-bold flex items-center gap-2"><Activity size={16}/> Topological Boolean</div>
-               <div className="mb-4 text-slate-600">
-                 Logic = Alignment (Interference)
-               </div>
-               <div className="grid grid-cols-2 gap-2 text-xs">
-                 <div className="bg-white p-2 rounded border border-emerald-200">AND: A + B = Target</div>
-                 <div className="bg-white p-2 rounded border border-emerald-200">XOR: A ≠ B</div>
-                 <div className="bg-white p-2 rounded border border-emerald-200">NOT: Inverse(A)</div>
-                 <div className="bg-white p-2 rounded border border-emerald-200">OR: Any Valid Path</div>
-               </div>
-             </div>
-          </div>
-
-          <MarkovGateVisualizer />
-
-        </section>
-
-        {/* SECTION 2: The Einstein Tile */}
-        <section>
-          <SectionHeader 
-            title="The Einstein Tile" 
-            subtitle="The physical instantiation of the protocol on silicon. A 64-bit 'genetic codon' optimized for the H100 memory hierarchy."
-            icon={Cpu}
-          />
-          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 flex items-start gap-3">
-             <Terminal size={18} className="mt-1 flex-shrink-0" />
-             <div>
-                <strong>Architecture Note:</strong> This layout leverages the "Sandwich Protocol". 
-                The Halo regions (Row 0 & 7) utilize <strong>DSMEM</strong> for O(1) neighbor checking, 
-                while the Core (Row 2-5) is loaded asynchronously via <strong>TMA</strong>.
-             </div>
-          </div>
-          <EinsteinTileVisualizer />
-        </section>
-
-        {/* SECTION 3: The Manifold Kernel */}
-        <section>
-          <SectionHeader 
-            title="The Clifford-Strassen Toroid" 
-            subtitle="Collapsing high-dimensional noise into stable topological invariants."
-            icon={Wind}
-          />
-          
-          <div className="bg-slate-900 rounded-2xl p-8 mb-8 text-white overflow-hidden relative min-h-[400px] flex items-center justify-center">
-             {/* Background Grid */}
-             <div className="absolute inset-0 opacity-10" 
-                  style={{backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px'}}>
-             </div>
-
-             {/* Conceptual Visualization of the Toroid Collapse */}
-             <div className="relative z-10 w-full max-w-lg">
-                <div className="flex justify-between items-center mb-12 text-center">
-                   <div className="text-pink-400">
-                      <div className="text-3xl font-bold mb-1">24</div>
-                      <div className="text-xs uppercase tracking-widest opacity-70">Streams</div>
-                   </div>
-                   <div className="h-px bg-slate-700 flex-1 mx-4 relative">
-                      <ArrowRight size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-500" />
-                   </div>
-                   <div className="text-violet-400">
-                      <div className="text-3xl font-bold mb-1">12</div>
-                      <div className="text-xs uppercase tracking-widest opacity-70">Braids</div>
-                   </div>
-                   <div className="h-px bg-slate-700 flex-1 mx-4 relative">
-                      <ArrowRight size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-500" />
-                   </div>
-                   <div className="text-emerald-400">
-                      <div className="text-3xl font-bold mb-1">9</div>
-                      <div className="text-xs uppercase tracking-widest opacity-70">Solitons</div>
-                   </div>
+                        <p className="mt-6 text-slate-600 text-center max-w-2xl text-sm">
+                            <strong>The Trajectory is the Memory.</strong> Each node (q1, q2, q3) is a memoryless geometric operator. 
+                            It receives a vector, rotates it, and passes it on. The complex meaning is formed by the <em>nesting</em> of these simple, stateless operations.
+                        </p>
+                    </div>
                 </div>
+            );
+        };
 
-                {/* The Manifold Graphic */}
-                <div className="relative h-64 w-full">
-                   <svg viewBox="0 0 400 200" className="w-full h-full drop-shadow-2xl">
-                      {/* Abstract Torus Loops */}
-                      <path d="M 50 100 Q 150 0 200 100 T 350 100" fill="none" stroke="#6366f1" strokeWidth="2" strokeOpacity="0.5" />
-                      <path d="M 50 100 Q 150 200 200 100 T 350 100" fill="none" stroke="#ec4899" strokeWidth="2" strokeOpacity="0.5" />
-                      
-                      {/* Interference Nodes */}
-                      <circle cx="200" cy="100" r="40" fill="url(#grad1)" className="animate-pulse" />
-                      <defs>
-                        <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
-                          <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
-                          <stop offset="100%" stopColor="rgba(99,102,241,0)" />
-                        </radialGradient>
-                      </defs>
-                      
-                      {/* Output Waves */}
-                      <g transform="translate(350, 80)">
-                         <path d="M 0 20 Q 10 0 20 20 T 40 20" fill="none" stroke="#10b981" strokeWidth="3" />
-                      </g>
-                   </svg>
-                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 backdrop-blur-sm text-xs font-mono">
-                         Boundary: π/6 Stability
-                      </div>
-                   </div>
+        const DualNatureVisualizer = () => {
+            const [activeLayer, setActiveLayer] = React.useState('shell');
+            
+            React.useEffect(() => {
+                const interval = setInterval(() => {
+                    setActiveLayer(l => l === 'shell' ? 'core' : 'shell');
+                }, 2500);
+                return () => clearInterval(interval);
+            }, []);
+
+            return (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-lg">
+                    <div className="flex flex-col md:flex-row h-[400px]">
+                        
+                        <div className="flex-1 bg-slate-900 relative flex items-center justify-center p-8">
+                            <div className="absolute inset-0 opacity-20" style={{backgroundImage: 'radial-gradient(#6366f1 1px, transparent 1px)', backgroundSize: '30px 30px'}}></div>
+
+                            <div className={`absolute w-64 h-64 border-2 rounded-full flex items-center justify-center transition-all duration-700
+                                ${activeLayer === 'shell' ? 'border-violet-500 scale-100 opacity-100 shadow-[0_0_30px_rgba(139,92,246,0.3)]' : 'border-slate-700 scale-90 opacity-40'}`}>
+                                <div className="absolute -top-8 text-violet-400 text-xs font-mono tracking-widest">SYMBOLIC SHELL</div>
+                                <Disc size={200} className="text-violet-500/20 animate-spin-slow" />
+                            </div>
+
+                            <div className={`absolute w-32 h-32 flex items-center justify-center transition-all duration-700
+                                ${activeLayer === 'core' ? 'scale-125 opacity-100' : 'scale-75 opacity-60'}`}>
+                                <div className="absolute -bottom-10 text-pink-400 text-xs font-mono tracking-widest w-full text-center">NEURAL POINTER</div>
+                                <div className="relative w-full h-full">
+                                    <div className="absolute inset-0 border-2 border-pink-500 rotate-45 transform origin-center"></div>
+                                    <div className="absolute inset-0 border-2 border-pink-500 -rotate-45 transform origin-center"></div>
+                                    <Compass size={48} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 p-8 flex flex-col justify-center bg-slate-50">
+                            <div className={`transition-opacity duration-500 ${activeLayer === 'shell' ? 'opacity-100' : 'opacity-30'}`}>
+                                <div className="flex items-center gap-2 text-violet-600 font-bold mb-2">
+                                    <Box size={20} /> THE SYMBOLIC SHELL (Operand)
+                                </div>
+                                <p className="text-sm text-slate-600 mb-2">
+                                    <strong>Structure:</strong> The "Structural Form ID" (Row 0 of Einstein Tile).
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                    <strong>Function:</strong> Acts as the geometric operand. It defines the "categorical metadata" or the <em>direction</em> the pointer must rotate towards. It contains no neural weights, only topological coordinates.
+                                </p>
+                            </div>
+                            
+                            <div className="h-px bg-slate-200 my-6"></div>
+
+                            <div className={`transition-opacity duration-500 ${activeLayer === 'core' ? 'opacity-100' : 'opacity-30'}`}>
+                                <div className="flex items-center gap-2 text-pink-600 font-bold mb-2">
+                                    <Zap size={20} /> THE NEURAL POINTER (Core)
+                                </div>
+                                <p className="text-sm text-slate-600 mb-2">
+                                    <strong>Structure:</strong> The "Quaternion" (Rows 2-5 of Einstein Tile).
+                                </p>
+                                <p className="text-sm text-slate-600">
+                                    <strong>Function:</strong> The high-dimensional payload. It maps the representation to an accurate coordinate in the latent manifold. It is the "Search Head" that executes the jump defined by the shell.
+                                </p>
+                            </div>
+                        </div>
+
+                    </div>
                 </div>
-             </div>
-          </div>
-        </section>
+            );
+        };
 
-        {/* SECTION 4: The Code Pipeline */}
-        <section>
-          <SectionHeader 
-            title="The Kernel Pipeline" 
-            subtitle="From Python definition to silicon execution. How `clifford_strassen_parity` processes the data."
-            icon={Terminal}
-          />
-          <PipelineVisualizer />
-        </section>
+        const MarkovGateVisualizer = () => {
+            const [cycle, setCycle] = React.useState(0);
 
-      </main>
+            React.useEffect(() => {
+                const interval = setInterval(() => {
+                    setCycle(c => (c + 1) % 3);
+                }, 3000);
+                return () => clearInterval(interval);
+            }, []);
 
-      {/* Footer */}
-      <footer className="bg-slate-50 border-t border-slate-200 py-12 text-center">
-        <div className="max-w-2xl mx-auto px-6">
-          <p className="text-slate-500 mb-4">
-            SHD-CCP Architecture Group • January 2026
-          </p>
-          <div className="flex justify-center gap-4 text-sm font-medium text-indigo-600">
-            <button className="hover:underline">Download Research Paper</button>
-            <span>•</span>
-            <button className="hover:underline">View Source Code</button>
-            <span>•</span>
-            <button className="hover:underline">H100 Spec Sheet</button>
-          </div>
-        </div>
-      </footer>
+            const gates = [
+                { name: "AND Gate", logic: "Shell A ∩ Shell B", output: "Rotation only if both align" },
+                { name: "OR Gate",  logic: "Shell A ∪ Shell B", output: "Rotation if either aligns" },
+                { name: "XOR Gate", logic: "Shell A ⊕ Shell B", output: "Rotation only if distinct" }
+            ];
 
-    </div>
-  );
-}
+            return (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-8">
+                    <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-6">
+                            <div className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold uppercase tracking-wider">
+                                Implied Logic: {gates[cycle].name}
+                            </div>
+                        </div>
+
+                        <div className="flex items-center justify-center gap-8 mb-8">
+                            
+                            {/* Node A */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center transition-colors duration-500 ${cycle === 0 ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 bg-white'}`}>
+                                    <span className="font-mono font-bold text-slate-600">A</span>
+                                </div>
+                                <span className="text-xs text-slate-400">Operand</span>
+                            </div>
+
+                            <div className="text-slate-400 font-mono text-xl">+</div>
+
+                            {/* Node B */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center transition-colors duration-500 ${cycle === 1 ? 'border-amber-500 bg-amber-50' : 'border-slate-300 bg-white'}`}>
+                                    <span className="font-mono font-bold text-slate-600">B</span>
+                                </div>
+                                <span className="text-xs text-slate-400">Operand</span>
+                            </div>
+
+                            <ArrowRight className="text-slate-400" />
+
+                            {/* Resultant Pointer */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-20 h-20 rounded-lg bg-slate-900 flex items-center justify-center shadow-lg relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-[radial-gradient(circle,_var(--tw-gradient-stops))] from-indigo-500/20 to-transparent"></div>
+                                    <Compass 
+                                        className={`text-white transition-transform duration-700 ${cycle === 0 ? 'rotate-0' : cycle === 1 ? 'rotate-90' : 'rotate-180'}`} 
+                                        size={32} 
+                                    />
+                                </div>
+                                <span className="text-xs text-slate-500 font-bold">{gates[cycle].logic}</span>
+                            </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200 p-4 rounded-lg text-sm text-center max-w-lg">
+                            <p className="text-slate-600 mb-2">
+                                The kernel doesn't use transistors to compute logic. Instead, the <strong>geometric alignment</strong> of the Shells (A & B) creates an "interference pattern" for the Pointer.
+                            </p>
+                            <div className="text-indigo-600 font-bold font-mono">
+                                Result: {gates[cycle].output}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- Main App ---
+
+        const App = () => {
+            return (
+                <div className="min-h-screen bg-white font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-800">
+                    
+                    {/* Hero Section */}
+                    <header className="bg-slate-50 border-b border-slate-200 pt-20 pb-16 px-6">
+                        <div className="max-w-5xl mx-auto">
+                            <div className="inline-block px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-bold tracking-wider mb-6">
+                                SHD-CCP ARCHITECTURE GROUP
+                            </div>
+                            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight text-slate-900 mb-6">
+                                Geometric Ontological <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-violet-600">Semiotics</span>
+                            </h1>
+                            <blockquote className="text-xl md:text-2xl text-slate-500 border-l-4 border-indigo-500 pl-6 italic mb-8 max-w-4xl leading-relaxed">
+                                "This paper proposes a paradigm shift... Language becomes a system of non-commutative geometric operators (rotations) acting upon an 'Ontological Seed,' ensuring context is physically encoded into the data trajectory."
+                            </blockquote>
+                            
+                            <div className="flex flex-wrap gap-4 text-sm font-medium text-slate-600">
+                                <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                                    <Cpu size={16} className="text-indigo-500" />
+                                    NVIDIA H100 (SM90)
+                                </div>
+                                <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                                    <GitMerge size={16} className="text-pink-500" />
+                                    Clifford-Strassen Topology
+                                </div>
+                                <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-slate-200 shadow-sm">
+                                    <Activity size={16} className="text-emerald-500" />
+                                    Soliton Parity Kernel
+                                </div>
+                            </div>
+                        </div>
+                    </header>
+
+                    <main className="max-w-5xl mx-auto px-6 py-16 space-y-24">
+                        
+                        {/* SECTION 1: The Ontological Seed */}
+                        <section>
+                            <SectionHeader 
+                                title="The Ontological Seed" 
+                                subtitle="Representing meaning not as static tokens, but as active geometric rotations in high-dimensional space."
+                                icon={RotateCw}
+                            />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                                <div className="space-y-6 text-lg text-slate-600 leading-relaxed">
+                                    <p>
+                                        In the SHD-CCP protocol, a "word" is not a number. It is an <strong>operator</strong>. 
+                                        When we inject data into the system, we are applying a quaternion rotation (<span className="font-serif italic font-bold">q</span>) 
+                                        to an initial state vector (the seed).
+                                    </p>
+                                    <p>
+                                        This ensures that the <strong>order</strong> of operations matters. 
+                                        <span className="font-serif text-xl block my-6 text-indigo-700 text-center bg-indigo-50 py-4 rounded-lg border border-indigo-100 shadow-sm">
+                                            <i>A</i> × <i>B</i> ≠ <i>B</i> × <i>A</i>
+                                        </span>
+                                        This non-commutativity naturally preserves 
+                                        context, mirroring the structure of human language and physical reality.
+                                    </p>
+                                </div>
+                                <div className="bg-slate-900 p-8 rounded-2xl shadow-xl">
+                                    <QuaternionRotator />
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* SECTION 1.5: Memoryless Kernel Implementation */}
+                        <section>
+                            <SectionHeader 
+                                title="Kernel Implementation: Memoryless Systems" 
+                                subtitle="Distinguishing between the Stateful Packet (History) and the Stateless Kernel (Operator)."
+                                icon={Microchip}
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+                                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                                    <div className="flex items-center gap-2 text-blue-700 font-bold mb-2">
+                                        <HardDrive size={18} /> Physical Memory
+                                    </div>
+                                    <p className="text-sm text-blue-800">
+                                        Holds discrete bits (RAM/Registers). Essential for computing, but not the same as "System Memory".
+                                    </p>
+                                </div>
+                                <div className="bg-amber-50 p-4 rounded-lg border border-amber-100">
+                                    <div className="flex items-center gap-2 text-amber-700 font-bold mb-2">
+                                        <History size={18} /> System Memory
+                                    </div>
+                                    <p className="text-sm text-amber-800">
+                                        Dependence on time history (<i>t</i> &lt; <i>t</i><sub>0</sub>). Requires internal state variables to evolve over time.
+                                    </p>
+                                </div>
+                                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-100">
+                                    <div className="flex items-center gap-2 text-emerald-700 font-bold mb-2">
+                                        <Zap size={18} /> Memoryless Kernel
+                                    </div>
+                                    <p className="text-sm text-emerald-800">
+                                        The Parity Integral (∫) is instantaneous. Output depends only on current Input (<i>x</i>) and Codex (<i>K</i>).
+                                    </p>
+                                </div>
+                            </div>
+
+                            <MemorylessVisualizer />
+
+                            <div className="mt-8 text-slate-600 leading-relaxed">
+                                <p>
+                                    In the SHD-CCP architecture, the <strong>Kernel</strong> (the compute engine) is designed to be a <strong>Memoryless System</strong>. 
+                                    It acts like a prism: it takes the "White Light" of the raw Einstein Tile (Stateful Packet) and instantaneously refracts it into 
+                                    9 Soliton Wave Functions based on the fixed geometry of the Codex.
+                                </p>
+                                <p className="mt-4">
+                                    While the CPU registers (Physical Memory) hold the data, the logic operation itself—<code className="bg-slate-100 text-indigo-600 px-1 rounded">ct.mma</code>—carries no internal history. 
+                                    The "State" (Context) is carried entirely by the packet trajectory, not the hardware silicon.
+                                </p>
+                            </div>
+                        </section>
+
+                        {/* SECTION 1.6: The Dual-Nature Architecture */}
+                        <section>
+                            <SectionHeader 
+                                title="The Dual-Nature Architecture" 
+                                subtitle="Structuring the Nested Memory: Symbolic Shell vs. Neural Pointer."
+                                icon={GitMerge}
+                            />
+                            
+                            <div className="text-slate-600 leading-relaxed mb-8">
+                                <p className="mb-4">
+                                    We have established that the kernel is memoryless and the trajectory carries the history. 
+                                    But how is this trajectory <em>steered</em>? This is achieved through the <strong>Dual-Nature Architecture</strong> of the data packet itself.
+                                </p>
+                                <p className="mb-4">
+                                    The SHD-CCP splits the "atom" of data into two functional parts. This creates an <strong>Inherent Nested Memory</strong> 
+                                    structure on top of the basic quaternion chains, allowing for the creation of Markov chains of logic without external buffers.
+                                </p>
+                            </div>
+
+                            <DualNatureVisualizer />
+
+                            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="bg-violet-50 p-6 rounded-lg border border-violet-100 text-sm">
+                                    <h4 className="font-bold text-violet-800 mb-2">The Markov Logic Chain</h4>
+                                    <p className="text-slate-700">
+                                        Because the <strong>Shell</strong> (Operand) directs the rotation, and the <strong>Core</strong> (Pointer) executes it, 
+                                        the packet effectively "consumes" its own instruction. The resultant state of the Core becomes the 
+                                        start state for the next Shell.
+                                    </p>
+                                </div>
+                                <div className="bg-pink-50 p-6 rounded-lg border border-pink-100 text-sm">
+                                    <h4 className="font-bold text-pink-800 mb-2">Holographic Inverse</h4>
+                                    <p className="text-slate-700">
+                                        By encoding the 720:1 spin ratio (1/2 Quark), the pointer can exist in a superposition of states relative to the shell. 
+                                        This allows for "Look-Ahead" logic where the pointer searches the manifold for the next probable operand.
+                                    </p>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* SECTION 1.7: Structuring Nested Memoryless Systems */}
+                        <section>
+                            <SectionHeader 
+                                title="Structuring Nested Memoryless Systems" 
+                                subtitle="Utilizing Quaternion Chain Structures of Geometric Semiotics to form context without buffering."
+                                icon={Network}
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-8">
+                                <div className="text-slate-600 leading-relaxed space-y-4">
+                                    <p>
+                                        If the Kernel is memoryless, how do we process a sentence where the end depends on the beginning? 
+                                        We typically use a "Memory Buffer" (Stack/RAM).
+                                    </p>
+                                    <p>
+                                        The SHD-CCP approach is different. We use <strong>Geometric Semiotics</strong>. 
+                                        Instead of storing the "Subject" in a register to wait for the "Verb", we treat the Subject as a 
+                                        <strong> Geometric Operator</strong> (<i>q</i><sub>1</sub>). It rotates the packet.
+                                    </p>
+                                    <p>
+                                        When the packet arrives at the Verb (<i>q</i><sub>2</sub>), it has <em>already been rotated</em>. The Verb operator 
+                                        doesn't need to know about the Subject; it simply applies its own rotation to the incoming vector. 
+                                        The "Memory" is nested in the geometry of the packet itself.
+                                    </p>
+                                </div>
+                                <div className="bg-indigo-50 border border-indigo-100 p-6 rounded-lg text-sm text-indigo-800 font-mono">
+                                    <div className="mb-2 font-bold flex items-center gap-2"><Share2 size={16}/> The Chain Rule</div>
+                                    <div className="mb-4 text-slate-600">
+                                        Standard Compute:<br/>
+                                        State = Memory[<i>t</i>-1] + Input[<i>t</i>]
+                                    </div>
+                                    <div className="mb-2 text-indigo-600">
+                                        Geometric Chain:<br/>
+                                        Trajectory = <i>q</i><sub>n</sub> × ... × <i>q</i><sub>2</sub> × <i>q</i><sub>1</sub> × Seed
+                                    </div>
+                                </div>
+                            </div>
+
+                            <QuaternionChainVisualizer />
+
+                        </section>
+
+                        {/* SECTION 1.8: Implied Logic Gates: The Multi-Node Markov Chain */}
+                        <section>
+                            <SectionHeader 
+                                title="Implied Logic Gates: The Multi-Node Markov Chain" 
+                                subtitle="How combinations of pointers and shells form logic gates without transistors."
+                                icon={Workflow}
+                            />
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center mb-8">
+                                <div className="text-slate-600 leading-relaxed space-y-4">
+                                    <p>
+                                        Beyond simple chains, we can form complex <strong>Implied Logic Gates</strong> (AND, OR, XOR) by observing the interference patterns of multiple Shells.
+                                    </p>
+                                    <p>
+                                        In a traditional CPU, logic is physical (Transistors). In SHD-CCP, logic is <strong>Topological</strong>. 
+                                        If Shell A rotates the vector +45° and Shell B rotates it -45°, the net result is 0° (a Null or "False" state). 
+                                        If they both rotate +45°, the result is +90° ("True").
+                                    </p>
+                                    <p>
+                                        This allows us to compute Boolean logic purely through the <strong>trajectory alignment</strong> of the operands, 
+                                        creating a "Multi-Node Markov Chain" where the probability of the next state acts as the logic gate itself.
+                                    </p>
+                                </div>
+                                <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-lg text-sm text-emerald-800 font-mono">
+                                    <div className="mb-2 font-bold flex items-center gap-2"><Activity size={16}/> Topological Boolean</div>
+                                    <div className="mb-4 text-slate-600">
+                                        Logic = Alignment (Interference)
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div className="bg-white p-2 rounded border border-emerald-200">AND: A + B = Target</div>
+                                        <div className="bg-white p-2 rounded border border-emerald-200">XOR: A ≠ B</div>
+                                        <div className="bg-white p-2 rounded border border-emerald-200">NOT: Inverse(A)</div>
+                                        <div className="bg-white p-2 rounded border border-emerald-200">OR: Any Valid Path</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <MarkovGateVisualizer />
+
+                        </section>
+
+                        {/* SECTION 2: The Einstein Tile */}
+                        <section>
+                            <SectionHeader 
+                                title="The Einstein Tile" 
+                                subtitle="The physical instantiation of the protocol on silicon. A 64-bit 'genetic codon' optimized for the H100 memory hierarchy."
+                                icon={Cpu}
+                            />
+                            <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-800 flex items-start gap-3">
+                                <Terminal size={18} className="mt-1 flex-shrink-0" />
+                                <div>
+                                    <strong>Architecture Note:</strong> This layout leverages the "Sandwich Protocol". 
+                                    The Halo regions (Row 0 & 7) utilize <strong>DSMEM</strong> for O(1) neighbor checking, 
+                                    while the Core (Row 2-5) is loaded asynchronously via <strong>TMA</strong>.
+                                </div>
+                            </div>
+                            <EinsteinTileVisualizer />
+                        </section>
+
+                        {/* SECTION 3: The Manifold Kernel */}
+                        <section>
+                            <SectionHeader 
+                                title="The Clifford-Strassen Toroid" 
+                                subtitle="Collapsing high-dimensional noise into stable topological invariants."
+                                icon={Wind}
+                            />
+                            
+                            <div className="bg-slate-900 rounded-2xl p-8 mb-8 text-white overflow-hidden relative min-h-[400px] flex items-center justify-center">
+                                {/* Background Grid */}
+                                <div className="absolute inset-0 opacity-10" 
+                                    style={{backgroundImage: 'radial-gradient(circle, #fff 1px, transparent 1px)', backgroundSize: '20px 20px'}}>
+                                </div>
+
+                                {/* Conceptual Visualization of the Toroid Collapse */}
+                                <div className="relative z-10 w-full max-w-lg">
+                                    <div className="flex justify-between items-center mb-12 text-center">
+                                        <div className="text-pink-400">
+                                            <div className="text-3xl font-bold mb-1">24</div>
+                                            <div className="text-xs uppercase tracking-widest opacity-70">Streams</div>
+                                        </div>
+                                        <div className="h-px bg-slate-700 flex-1 mx-4 relative">
+                                            <ArrowRight size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-500" />
+                                        </div>
+                                        <div className="text-violet-400">
+                                            <div className="text-3xl font-bold mb-1">12</div>
+                                            <div className="text-xs uppercase tracking-widest opacity-70">Braids</div>
+                                        </div>
+                                        <div className="h-px bg-slate-700 flex-1 mx-4 relative">
+                                            <ArrowRight size={16} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-slate-500" />
+                                        </div>
+                                        <div className="text-emerald-400">
+                                            <div className="text-3xl font-bold mb-1">9</div>
+                                            <div className="text-xs uppercase tracking-widest opacity-70">Solitons</div>
+                                        </div>
+                                    </div>
+
+                                    {/* The Manifold Graphic */}
+                                    <div className="relative h-64 w-full">
+                                        <svg viewBox="0 0 400 200" className="w-full h-full drop-shadow-2xl">
+                                            {/* Abstract Torus Loops */}
+                                            <path d="M 50 100 Q 150 0 200 100 T 350 100" fill="none" stroke="#6366f1" strokeWidth="2" strokeOpacity="0.5" />
+                                            <path d="M 50 100 Q 150 200 200 100 T 350 100" fill="none" stroke="#ec4899" strokeWidth="2" strokeOpacity="0.5" />
+                                            
+                                            {/* Interference Nodes */}
+                                            <circle cx="200" cy="100" r="40" fill="url(#grad1)" className="animate-pulse" />
+                                            <defs>
+                                                <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                                                    <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
+                                                    <stop offset="100%" stopColor="rgba(99,102,241,0)" />
+                                                </radialGradient>
+                                            </defs>
+                                            
+                                            {/* Output Waves */}
+                                            <g transform="translate(350, 80)">
+                                                <path d="M 0 20 Q 10 0 20 20 T 40 20" fill="none" stroke="#10b981" strokeWidth="3" />
+                                            </g>
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                            <div className="bg-slate-900/80 px-4 py-2 rounded border border-slate-700 backdrop-blur-sm text-xs font-mono">
+                                                Boundary: π/6 Stability
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* SECTION 4: The Code Pipeline */}
+                        <section>
+                            <SectionHeader 
+                                title="The Kernel Pipeline" 
+                                subtitle="From Python definition to silicon execution. How `clifford_strassen_parity` processes the data."
+                                icon={Terminal}
+                            />
+                            <PipelineVisualizer />
+                        </section>
+
+                    </main>
+
+                    {/* Footer */}
+                    <footer className="bg-slate-50 border-t border-slate-200 py-12 text-center">
+                        <div className="max-w-2xl mx-auto px-6">
+                            <p className="text-slate-500 mb-4">
+                                SHD-CCP Architecture Group • January 2026
+                            </p>
+                            <div className="flex justify-center gap-4 text-sm font-medium text-indigo-600">
+                                <button className="hover:underline">Download Research Paper</button>
+                                <span>•</span>
+                                <button className="hover:underline">View Source Code</button>
+                                <span>•</span>
+                                <button className="hover:underline">H100 Spec Sheet</button>
+                            </div>
+                        </div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
