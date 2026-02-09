@@ -74,56 +74,56 @@
                 code: "P-I",
                 title: "Paper I: Number Theory & Geometry",
                 desc: "Establishes the mapping of Number Theory to Geometry (Langlands) via Tri-Stream Parity.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "02",
                 code: "P-II",
                 title: "Paper II: Geometric Curvature Gaps",
                 desc: "Resolves geometric curvature gaps (Aristotle's Gap) through the 72-node resonant fit.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "03",
                 code: "P-III",
                 title: "Paper III: Rational Trigonometry",
                 desc: "Demonstrates the generation of 'Integer' distances from continuous waves via Rational Trigonometry.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "04",
                 code: "P-IV",
                 title: "Paper IV: Lie Symmetries (E8)",
                 desc: "Maps high-dimensional Lie symmetries (E8) as harmonic modes of the lattice.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "05",
                 code: "P-V",
                 title: "Paper V: Physical Stability",
                 desc: "Proves the physical stability of these generated units against collapse (Derrick's Theorem).",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "06",
                 code: "P-VI",
                 title: "Paper VI: Infinite Residuals",
                 desc: "Defines 'Perfection' as the successful isolation of the Integer Skeleton from the Infinite Residuals.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "07",
                 code: "P-VII",
                 title: "Paper VII: Natural Units",
                 desc: "Calibrates the generative lattice to Natural Units.",
-                status: "Indexed"
+                status: "Available"
             },
             {
                 id: "08",
                 code: "P-VIII",
                 title: "Paper VIII: Topological Expansion",
                 desc: "Models expansion as a topological doubling event (Clifford Torus) rather than an explosion.",
-                status: "Indexed"
+                status: "Available"
             }
         ];
 
@@ -246,6 +246,7 @@
                                         <div className="flex justify-between items-start">
                                             <span className={`font-mono text-xs ${currentPaper.id === paper.id ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`}>{paper.code}</span>
                                             {paper.status === 'Indexed' && <span className="text-[10px] bg-slate-800 text-slate-500 px-1 rounded">INDEX</span>}
+                                            {paper.status === 'Available' && <span className="text-[10px] bg-cyan-900/50 text-cyan-300 px-1 rounded">READ</span>}
                                         </div>
                                         <div className={`mt-1 text-sm ${currentPaper.id === paper.id ? 'text-white' : 'text-slate-400'}`}>{paper.title.split(': ')[1]}</div>
                                     </button>
@@ -404,6 +405,835 @@
             </div>
         );
 
+        // Paper 01 Content Component
+        const Paper01 = () => (
+            <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-I</span>
+                        <span>•</span>
+                        <span>SHD-CCP CODEX Section 3 & 4</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        The Tri-Stream Parity Architecture as an Applied Langlands Correspondence
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Unifying Number Theory and Geometry via the Parity Engine
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. Introduction</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The Langlands Program conjectures a deep correspondence between Number Theory (Galois groups, discrete data) and Geometry (Automorphic forms, continuous surfaces). Standard cosmology lacks a mechanism to physically implement this correspondence. The SHD-CCP implements the Langlands Program via the Tri-Stream Parity Architecture.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The Tri-Stream Architecture</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The SHD-CCP splits the 72-node lattice into three synchronized, entangled streams (<span className="font-serif italic">α, β, γ</span>), each representing a domain of the Langlands correspondence:
+                        </p>
+
+                        <div className="grid gap-6 my-8">
+                            {/* Stream Alpha */}
+                            <div className="bg-[#0B1120] p-6 rounded border border-slate-800 relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
+                                <div className="absolute top-0 right-0 p-4 opacity-10 font-serif text-6xl text-cyan-500">α</div>
+                                <h4 className="text-cyan-400 font-mono text-sm mb-2 uppercase tracking-widest">Stream α (The Neural Core/Mass)</h4>
+                                <ul className="space-y-2 text-sm text-slate-400">
+                                     <li><strong className="text-slate-200">Content:</strong> 32-bit Compressed Quaternions.</li>
+                                     <li><strong className="text-slate-200">Langlands Domain:</strong> Geometry/Orientation. It defines the inertial mass vector.</li>
+                                </ul>
+                            </div>
+
+                            {/* Stream Beta */}
+                            <div className="bg-[#0B1120] p-6 rounded border border-slate-800 relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
+                                 <div className="absolute top-0 right-0 p-4 opacity-10 font-serif text-6xl text-cyan-500">β</div>
+                                <h4 className="text-cyan-400 font-mono text-sm mb-2 uppercase tracking-widest">Stream β (The Semiotic Lattice/Topology)</h4>
+                                 <ul className="space-y-2 text-sm text-slate-400">
+                                     <li><strong className="text-slate-200">Content:</strong> Structural Form ID + Spin Class.</li>
+                                     <li><strong className="text-slate-200">Langlands Domain:</strong> Number Theory/Galois. It defines the discrete topological logic.</li>
+                                </ul>
+                            </div>
+
+                            {/* Stream Gamma */}
+                            <div className="bg-[#0B1120] p-6 rounded border border-slate-800 relative overflow-hidden group hover:border-cyan-500/30 transition-colors">
+                                 <div className="absolute top-0 right-0 p-4 opacity-10 font-serif text-6xl text-cyan-500">γ</div>
+                                <h4 className="text-cyan-400 font-mono text-sm mb-2 uppercase tracking-widest">Stream γ (The Dynamic Field/Energy)</h4>
+                                 <ul className="space-y-2 text-sm text-slate-400">
+                                     <li><strong className="text-slate-200">Content:</strong> Frequency ID + Amplitude ID.</li>
+                                     <li><strong className="text-slate-200">Langlands Domain:</strong> Automorphic Forms. It defines the harmonic field strength.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </section>
+
+                     {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. Mathematical Proof of Correspondence</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The unified reality of these streams is enforced by the Cross-Stream Parity Formula (<span className="font-serif italic">F<sub>Cross</sub></span>). For the system to be valid, the geometric distance (Quadrance) must align with the algebraic data.
+                        </p>
+                        
+                        <div className="my-8 p-6 bg-black/40 border-l-4 border-cyan-500">
+                             <div className="font-mono text-center text-cyan-100 text-lg md:text-xl overflow-x-auto">
+                                F<sub>Cross</sub>(t) = (Q<sub>αβ</sub> + Q<sub>βγ</sub> + Q<sub>γα</sub>)<sup>2</sup> - 2(Q<sub>αβ</sub><sup>2</sup> + Q<sub>βγ</sub><sup>2</sup> + Q<sub>γα</sub><sup>2</sup>)
+                             </div>
+                             <div className="text-center text-xs text-slate-500 mt-2 font-mono uppercase">The Parity Equation</div>
+                        </div>
+
+                        <ul className="space-y-4 text-slate-300">
+                            <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <div>
+                                    <strong className="text-white">If F<sub>Cross</sub> = 0:</strong> The streams are "collinear." The discrete number theory (<span className="font-serif italic">β</span>) perfectly maps to the continuous geometry (<span className="font-serif italic">α</span>). The Langlands correspondence is satisfied locally.
+                                </div>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <div>
+                                    <strong className="text-white">If F<sub>Cross</sub> > 0:</strong> There is a "residual" (noise). The geometry and algebra have diverged. This residual is extracted and offloaded, preserving the integrity of the correspondence.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP does not merely "calculate" data; it geometrically constructs the relationship between algebraic IDs and geometric forms, operationalizing the Langlands Program as the foundational logic of the substrate.
+                        </p>
+                    </section>
+                </div>
+            </div>
+        );
+
+        // Paper 02 Content Component
+        const Paper02 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-II</span>
+                        <span>•</span>
+                        <span>SHD-CCP CODEX Section 2 & 7.1</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        Resolving Aristotle’s Gap via 72-Node Toroidal Hexagonal Packing
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Geometric Stability in High-Dimensional Topological Storage
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                     {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Aristotle's Gap</h3>
+                        <div className="bg-slate-900/30 p-6 rounded border-l-2 border-red-500/50 mb-6">
+                             <p className="text-slate-300 leading-relaxed">
+                                In geometry, there is an irreducible tension between 5-fold symmetry (local efficiency, icosahedral) and 6-fold symmetry (global coverage, hexagonal). This creates an angular deficit of approximately <strong>~7.356°</strong>, often called "Aristotle's Gap" or geometric frustration.
+                            </p>
+                        </div>
+                        <p className="text-slate-300 leading-relaxed">
+                            In flat space, this prevents perfect packing. Standard 64-node architectures ignore this, leading to topological "seams" and data loss at high compression.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The 72-Node Solution</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The SHD-CCP utilizes a 72-node cycle specifically to resolve this packing constraint on a toroidal manifold.
+                        </p>
+                        
+                         <div className="my-6 bg-[#0B1120] p-6 rounded border border-slate-800">
+                             <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">The Theorem</h4>
+                             <p className="text-slate-300 text-sm mb-4">
+                                The densest packing of spheres on a 2D surface is the hexagonal lattice (<span className="font-serif italic">ρ = π / √12</span>). To map this 2D lattice onto a 3D torus without defects, the grid dimensions must align with the toroidal symmetries.
+                             </p>
+                         </div>
+
+                        <ul className="space-y-4 text-slate-300">
+                             <li className="flex gap-4 items-start">
+                                <span className="text-red-500 font-mono">✖</span>
+                                <div>
+                                    <strong className="text-white">A standard 8×8 grid (64 nodes)</strong> is not divisible by 6. It cannot support a seamless hexagonal wrap.
+                                </div>
+                            </li>
+                             <li className="flex gap-4 items-start">
+                                <span className="text-cyan-500 font-mono">✔</span>
+                                <div>
+                                    <strong className="text-white">A 6×12 grid (72 nodes)</strong> is divisible by 6. It allows the hexagonal lattice to close upon itself perfectly around the major and minor radii of the torus.
+                                </div>
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                         <h3 className="text-2xl font-serif text-white mb-6">3. Topological Proof</h3>
+                         <p className="text-slate-300 leading-relaxed mb-6">
+                            Let <span className="font-serif italic">N</span> be the number of nodes. For a seamless hexagonal wrap, we require:
+                         </p>
+
+                         <div className="my-8 p-6 bg-black/40 border-l-4 border-cyan-500 flex flex-col items-center">
+                             <div className="font-mono text-cyan-100 text-xl">
+                                N ≡ 0 (mod 6)
+                             </div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4">
+                            <div className="p-4 bg-red-900/10 border border-red-900/30 rounded">
+                                <div className="text-red-400 font-mono text-xs mb-2">64-BIT ARCHITECTURE</div>
+                                <div className="text-white font-mono text-lg">64 ≡ 4 (mod 6)</div>
+                                <div className="text-red-300 text-sm mt-2">Defect/Seam Created</div>
+                            </div>
+                             <div className="p-4 bg-cyan-900/10 border border-cyan-500/30 rounded">
+                                <div className="text-cyan-400 font-mono text-xs mb-2">SHD-CCP (72-NODE)</div>
+                                <div className="text-white font-mono text-lg">72 ≡ 0 (mod 6)</div>
+                                <div className="text-cyan-300 text-sm mt-2">Seamless Topology</div>
+                            </div>
+                        </div>
+
+                         <p className="text-slate-300 leading-relaxed mt-6">
+                            By utilizing 72 nodes, the SHD-CCP absorbs the ~7.356° gap into the curvature of the torus itself, allowing for a Maximum Hexagonal Spherical Packing.
+                        </p>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                         <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The 72-node substrate is not an arbitrary choice; it is the geometric necessity for closing Aristotle’s Gap, enabling a defect-free topological storage medium that binary systems cannot achieve.
+                        </p>
+                    </section>
+
+                </div>
+            </div>
+        );
+
+        // Paper 03 Content Component
+        const Paper03 = () => (
+            <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-III</span>
+                        <span>•</span>
+                        <span>3D Triple Quad Derivation Document</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        Rational Trigonometry and the Structural Encoding of <span className="font-serif italic">π</span>
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Eliminating Infinite Divergence at the Planck Scale
+                    </h2>
+                    <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Irrational Divergence</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            Standard physics relies on real numbers (<span className="font-serif italic">ℝ</span>), including irrationals like <span className="font-serif italic">π, e, √2</span>. At the Planck scale, "infinite precision" is impossible. Attempting to compute distances using traditional Euclidean norms (<span className="font-mono text-sm">d = √x² + y²</span>) introduces irrational roots that lead to floating-point errors and divergence in singularity models.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The SHD-CCP Solution: Rational Trigonometry</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The SHD-CCP adopts the framework of Rational Trigonometry (Wildberger), replacing "Distance" with Quadrance (<span className="font-serif italic">Q</span>) and "Angle" with Spread (<span className="font-serif italic">S</span>).
+                        </p>
+                        
+                        <div className="my-6 bg-[#0B1120] p-6 rounded border border-slate-800">
+                            <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Definition: Quadrance</h4>
+                            <div className="font-mono text-white text-lg mb-4">
+                                Q(A, B) = (x<sub>b</sub> - x<sub>a</sub>)<sup>2</sup> + (y<sub>b</sub> - y<sub>a</sub>)<sup>2</sup> + (z<sub>b</sub> - z<sub>a</sub>)<sup>2</sup>
+                            </div>
+                            <p className="text-slate-400 text-sm">
+                                Quadrance is always rational (or integer) if the coordinates are rational. No square roots are required.
+                            </p>
+                        </div>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. The Triple Quad Formula (TQF)</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The core of the Parity Engine is the Triple Quad Formula, which replaces the Triangle Inequality and vector addition with a purely algebraic check for collinearity and linearity.
+                        </p>
+
+                        <div className="my-8 p-6 bg-black/40 border-l-4 border-cyan-500">
+                             <div className="font-mono text-center text-cyan-100 text-lg md:text-xl overflow-x-auto">
+                                (Q<sub>1</sub> + Q<sub>2</sub> + Q<sub>3</sub>)<sup>2</sup> = 2(Q<sub>1</sub><sup>2</sup> + Q<sub>2</sub><sup>2</sup> + Q<sub>3</sub><sup>2</sup>)
+                             </div>
+                             <div className="text-center text-xs text-slate-500 mt-2 font-mono uppercase">The Master Equation</div>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-6">
+                            <div className="bg-slate-900/30 p-4 rounded border border-slate-800">
+                                <strong className="block text-white mb-2">Proof of Validity</strong>
+                                <p className="text-slate-400 text-sm">
+                                    The "3D Triple Quad Derivation" document proves that for any 3 collinear points in a discrete 4×4×4 lattice (and by extension, the 72-node lattice), this formula holds exactly using integer arithmetic.
+                                </p>
+                            </div>
+                            <div className="bg-slate-900/30 p-4 rounded border border-slate-800">
+                                <strong className="block text-white mb-2">Result</strong>
+                                <p className="text-slate-400 text-sm">
+                                    The system determines geometric relationships with 100% precision using only integers, bypassing the need for irrational numbers.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Structural Encoding of <span className="font-serif italic">π</span></h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            Instead of computing <span className="font-serif italic">π</span> as a value, the geometry <em>is</em> <span className="font-serif italic">π</span>. The 72-node lattice is selected for Hexagonal Spherical Packing, which has a density of <span className="font-serif italic">π / √12</span>. The constant <span className="font-serif italic">π</span> is structurally encoded into the connectivity of the lattice.
+                        </p>
+                    </section>
+
+                    {/* Section 5 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">5. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP resolves the paradox of irrational numbers by converting geometry into rational algebra (Quadrance), allowing for precise computation of curvature and rotation at the Planck scale without singularity-inducing divergence.
+                        </p>
+                    </section>
+                </div>
+            </div>
+        );
+
+        // Paper 04 Content Component
+        const Paper04 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-IV</span>
+                        <span>•</span>
+                        <span>SHD-CCP Codex Section 2.1</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        72-Node Compositeness as a Substrate for <span className="font-serif italic">E<sub>8</sub></span> Symmetry
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        The Harmonic Scaffold for Exceptional Lie Groups
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Missing Symmetries</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            Unified Field Theories (like String Theory) often rely on exceptional Lie Groups (specifically <span className="font-serif italic">E<sub>8</sub></span>) to describe the geometry of the universe's fundamental forces. Standard 64-node binary systems lack the combinatorial richness to map these complex, high-dimensional symmetries onto a hardware substrate.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The Equivariant Factor of 72</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The number 72 is chosen for its property as a Highly Composite Number (Refactorable Number). It serves as a "Harmonic Scaffold" capable of supporting multiple simultaneous symmetry groups.
+                        </p>
+                        
+                         <div className="my-6 bg-[#0B1120] p-6 rounded border border-slate-800">
+                             <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2 text-center">Divisors of 72</h4>
+                             <div className="font-mono text-white text-lg text-center tracking-widest">
+                                &#123; 1, 2, 3, 4, 6, 8, 9, 12, 18, 24, 36, 72 &#125;
+                             </div>
+                         </div>
+
+                         <p className="text-slate-300 leading-relaxed mb-4">This creates a lattice that supports:</p>
+                         <ul className="space-y-4 text-slate-300">
+                             <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <div>
+                                    <strong className="text-white">Binary/Octal Symmetries:</strong> (2, 4, 8) – Standard computing.
+                                </div>
+                            </li>
+                             <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <div>
+                                    <strong className="text-white">Tri-Stream/Hexagonal Symmetries:</strong> (3, 6, 12, 24) – Quark/Gluon models.
+                                </div>
+                            </li>
+                             <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <div>
+                                    <strong className="text-white">Nine-fold Symmetries:</strong> (9, 18, 36) – Essential for tensor harmonics.
+                                </div>
+                            </li>
+                         </ul>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. Mapping <span className="font-serif italic">E<sub>8</sub></span> to the Lattice</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The <span className="font-serif italic">E<sub>8</sub></span> lattice requires a structure that respects rotational symmetry <span className="font-serif italic">SO(3)</span> without aliasing.
+                        </p>
+                        
+                        <div className="grid md:grid-cols-2 gap-6 mb-6">
+                             <div className="bg-slate-900/50 p-6 rounded border-t-2 border-cyan-500">
+                                 <h4 className="text-white font-bold mb-2">Stream Division</h4>
+                                 <p className="text-slate-400 text-sm">The SHD-CCP divides the 72 nodes into 3 streams of 24 nodes.</p>
+                             </div>
+                             <div className="bg-slate-900/50 p-6 rounded border-t-2 border-cyan-500">
+                                 <h4 className="text-white font-bold mb-2">Leech Lattice Connection</h4>
+                                 <p className="text-slate-400 text-sm">The Leech Lattice (dimension 24) is closely related to <span className="font-serif italic">E<sub>8</sub></span>.</p>
+                             </div>
+                        </div>
+
+                         <p className="text-slate-300 leading-relaxed">
+                            By interlacing three 24-node streams, the SHD-CCP creates a discrete realization of the root systems found in high-dimensional gauge theories.
+                        </p>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The 72-node architecture acts as a "Lie Algebra on a Chip." Its high compositeness allows it to act as a resonant chamber for the exceptional symmetries (<span className="font-serif italic">E<sub>8</sub></span>) required by advanced unification theories, a feature impossible in prime or power-of-2 based architectures.
+                        </p>
+                    </section>
+
+                </div>
+            </div>
+        );
+
+        // Paper 05 Content Component
+        const Paper05 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-V</span>
+                        <span>•</span>
+                        <span>Proof of Stability Document; Derrick's Theorem</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        Stability Proofs via Derrick’s Theorem and the Quaternion Packet
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        The "Einstein Tile" as the Minimal Stable Unit
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Scalar Instability</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            In functional analysis applied to General Relativity, a static, localized unit of information (a "scalar point") is unstable. Derrick’s Theorem proves that for a real scalar field, the energy functional has no stable minimum.
+                        </p>
+                        
+                        <div className="my-8 p-6 bg-black/40 border-l-4 border-red-500/50 flex flex-col items-center">
+                             <div className="font-mono text-red-200 text-xl">
+                                ∂²E / ∂λ² &lt; 0
+                             </div>
+                             <div className="text-center text-xs text-red-400/50 mt-2 font-mono uppercase">Instability Condition</div>
+                        </div>
+
+                        <p className="text-slate-300 leading-relaxed">
+                            This means a simple "bit" of data in curved spacetime will either collapse to a singularity (Black Hole) or disperse to infinity.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The Solution: The BioChain "Einstein Tile"</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            To create a stable computational substrate, we must move from Real Scalars (<span className="font-serif italic">ℝ</span>) to Complex Quaternions (<span className="font-serif italic">ℍ</span>). The SHD-CCP packet (the "Einstein Tile") is a 64-bit Quaternion Packet that acts as a Topological Soliton (Skyrmion).
+                        </p>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. The Stability Proof</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            We introduce a Conserved Topological Charge (<span className="font-serif italic">Q</span>) via the Spin Class bits in the packet.
+                        </p>
+
+                        <div className="grid md:grid-cols-2 gap-6 mb-8">
+                            <div className="bg-slate-900/50 p-6 rounded border border-slate-800">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-3">Topological Barrier</h4>
+                                <p className="text-slate-300 text-sm mb-4">
+                                    As the scale <span className="font-serif italic">λ</span> → 0 (collapse), the kinetic energy of the phase rotation scales as:
+                                </p>
+                                <div className="text-center font-mono text-white text-lg bg-black/30 p-2 rounded mb-2">Q² / λ²</div>
+                                <p className="text-slate-400 text-xs">
+                                    This term blows up to positive infinity, physically preventing the collapse into a singularity.
+                                </p>
+                            </div>
+
+                            <div className="bg-slate-900/50 p-6 rounded border border-slate-800">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-3">Dual-Sheet Locking</h4>
+                                <p className="text-slate-300 text-sm mb-4">
+                                    The architecture uses a Nested Clifford Torus (Dual-Sheet).
+                                </p>
+                                <div className="text-center font-mono text-white text-sm bg-black/30 p-2 rounded mb-2">E<sub>total</sub> ≈ E<sub>primary</sub>(λ) + E<sub>inverse</sub>(1/λ)</div>
+                                <p className="text-slate-400 text-xs">
+                                    The sum of these sheets creates a stable energy well at <span className="font-serif italic">λ</span> = 1.
+                                </p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP packet is not just data; it is a physically stable soliton. By implementing the Quaternion structure and Dual-Sheet topology, the system satisfies the requirements of Functional Analysis for existence in a relativistic environment, solving the "Singularity Collapse" problem.
+                        </p>
+                    </section>
+                </div>
+            </div>
+        );
+
+        // Paper 06 Content Component
+        const Paper06 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-VI</span>
+                        <span>•</span>
+                        <span>SHD-CCP CODEX Section 5 & 6</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        The Markov Compression System and Residual Noise Offloading
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Defining "Perfection" in Finite Systems
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: The Infinite Noise</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The concept of "Singularity" in the Big Bang arises because the equations cannot handle the infinite complexity (noise) of the initial state. In computational terms, this is a failure to manage entropy. A "Perfect" system must distinguish between signal (law) and noise (chaos).
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The SHD-CCP Solution: 3-State Markov Compression</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The SHD-CCP manages "Perfection" via a 3-State Markov Chain governed by the Parity Engine. It does not attempt to store infinite precision; it mathematically separates "Skeleton" (Law) from "Flesh" (Residuals).
+                        </p>
+                        
+                        <div className="grid gap-4 my-8">
+                            <div className="bg-cyan-900/10 border border-cyan-500/30 p-4 rounded flex items-start gap-4">
+                                <div className="text-cyan-400 font-mono font-bold text-lg">01</div>
+                                <div>
+                                    <h4 className="text-white font-bold text-sm uppercase">State 1 (Implosive)</h4>
+                                    <p className="text-slate-400 text-sm mt-1">Data is linear (<span className="font-serif italic">TQF ≈ 0</span>). Deep compression. Only the Root Hash is stored. (Perfection).</p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-800/30 border border-slate-700 p-4 rounded flex items-start gap-4">
+                                <div className="text-slate-500 font-mono font-bold text-lg">02</div>
+                                <div>
+                                    <h4 className="text-white font-bold text-sm uppercase">State 2 (Resonant)</h4>
+                                    <p className="text-slate-400 text-sm mt-1">Minor variations. Quadrant averages are stored.</p>
+                                </div>
+                            </div>
+                            <div className="bg-red-900/10 border border-red-500/30 p-4 rounded flex items-start gap-4">
+                                <div className="text-red-400 font-mono font-bold text-lg">03</div>
+                                <div>
+                                    <h4 className="text-white font-bold text-sm uppercase">State 3 (Explosive)</h4>
+                                    <p className="text-slate-400 text-sm mt-1">High residuals/Complex data (<span className="font-serif italic">TQF > 0</span>).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. The Offloading Mechanism</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            When the system encounters complexity that would cause a "singularity" (infinite data density), it triggers State 3.
+                        </p>
+
+                        <div className="bg-slate-900/50 p-6 rounded border border-slate-800 space-y-6">
+                            <div>
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Action</h4>
+                                <p className="text-slate-300 text-sm">The complexity is calculated as a Residual (the difference required to solve the Triple Quad Formula).</p>
+                            </div>
+                            <div className="border-t border-slate-800 pt-4">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Process</h4>
+                                <p className="text-slate-300 text-sm">This residual is offloaded to the Parallel Stream.</p>
+                            </div>
+                            <div className="border-t border-slate-800 pt-4">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Result</h4>
+                                <p className="text-slate-300 text-sm">The Main Stream retains the "Perfect" Skeleton (zero-latency lookup), while the Parallel Stream retains the "Infinite" fidelity.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP resolves the singularity by treating it as a compression artifact. By offloading the "infinite" complexity into parallel streams, the system maintains a "Perfect" (finite, stable) core geometry, preventing system crash (singularity).
+                        </p>
+                    </section>
+
+                </div>
+            </div>
+        );
+
+        // Paper 07 Content Component
+        const Paper07 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-VII</span>
+                        <span>•</span>
+                        <span>SHD-CCP CODEX Section 7.1</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        Geometric Calibration of Planck Scales via LCM Constraints
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Deriving the 72-Node Lattice from Natural Limits
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Arbitrary Units</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            Standard models often treat Planck units (Planck length, Planck time) as arbitrary constants plugged into equations. To resolve the singularity, the computational substrate itself must be calibrated to these natural limits.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The Solution: The LCM Construction</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The 72-Node Lattice is not an arbitrary engineering choice. It is derived as the Lowest Common Multiple (LCM) of the fundamental symmetries required to describe matter and force at the Planck scale.
+                        </p>
+                        
+                        <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-800 mb-8">
+                            <h4 className="text-cyan-400 font-mono text-xs uppercase mb-4">The Constraints</h4>
+                            <ul className="space-y-4 text-sm">
+                                <li className="flex gap-4">
+                                    <span className="text-cyan-500 font-bold">01</span>
+                                    <div>
+                                        <strong className="text-white block mb-1">Forces (Bosons)</strong>
+                                        <span className="text-slate-400">Require Tri-Stream symmetry (<span className="font-serif italic">N mod 3 = 0</span>).</span>
+                                    </div>
+                                </li>
+                                <li className="flex gap-4">
+                                    <span className="text-cyan-500 font-bold">02</span>
+                                    <div>
+                                        <strong className="text-white block mb-1">Space (Dimensions)</strong>
+                                        <span className="text-slate-400">Require Quad-Tier symmetry for 3D coordinates + Time (<span className="font-serif italic">N mod 4 = 0</span>).</span>
+                                    </div>
+                                </li>
+                                <li className="flex gap-4">
+                                    <span className="text-cyan-500 font-bold">03</span>
+                                    <div>
+                                        <strong className="text-white block mb-1">Matter (Fermions)</strong>
+                                        <span className="text-slate-400">Require Hexagonal Packing efficiency (<span className="font-serif italic">N mod 6 = 0</span>).</span>
+                                    </div>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div className="grid md:grid-cols-2 gap-4 mb-6">
+                            <div className="p-4 bg-red-900/10 border border-red-500/30 rounded text-center">
+                                <div className="text-red-400 font-bold mb-2">64 (Binary)</div>
+                                <p className="text-xs text-slate-400">Satisfies 4, but fails 3 and 6.</p>
+                            </div>
+                            <div className="p-4 bg-cyan-900/10 border border-cyan-500/30 rounded text-center">
+                                <div className="text-cyan-400 font-bold mb-2">72 (SHD-CCP)</div>
+                                <p className="text-xs text-slate-400">The first integer to satisfy all three.</p>
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-black/40 border-l-4 border-cyan-500 text-center font-mono text-cyan-100">
+                            LCM(3, 4, 6) → Scaled to word size → 72
+                        </div>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. Geometric Calibration</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            By setting the node-to-node distance of the 72-node lattice to the Planck Length, the system becomes a direct pixelation of physical reality. The "natural units" cease to be constants and become the geometric stride of the computational torus.
+                        </p>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP integrates Natural Units by aligning its bit-width and node-count with the fundamental LCM constraints of physical symmetry, ensuring the architecture is "tuned" to the resonance of the Planck scale.
+                        </p>
+                    </section>
+
+                </div>
+            </div>
+        );
+
+        // Paper 08 Content Component
+        const Paper08 = () => (
+             <div className="max-w-4xl mx-auto animate-in">
+                <header className="mb-12 border-b border-slate-800 pb-8">
+                    <div className="flex items-center gap-3 text-cyan-400 mb-4 font-mono text-sm">
+                        <span>P-VIII</span>
+                        <span>•</span>
+                        <span>"New Minimal Surface Doublings of the Clifford Torus"</span>
+                    </div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-semibold text-white mb-4 leading-tight">
+                        Topological Expansion via Minimal Surface Doubling of the Clifford Torus
+                    </h1>
+                    <h2 className="text-xl md:text-2xl text-slate-400 font-light mb-6">
+                        Modeling Discrete Expansion without Rupture
+                    </h2>
+                     <div className="flex items-center gap-4 text-sm text-slate-500 font-mono">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+                            Authored By: BioChain AI Core Architecture Team
+                        </div>
+                    </div>
+                </header>
+
+                <div className="prose prose-invert prose-lg max-w-none">
+                    
+                    {/* Section 1 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">1. The Problem: Discrete Expansion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            How does the universe expand from "One" to "Many"? The Big Bang posits an explosion. A computational model requires a Doubling function—a mechanism to go from 1 sphere to 2 spheres without breaking topological continuity.
+                        </p>
+                    </section>
+
+                    {/* Section 2 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">2. The SHD-CCP Solution: Clifford Torus Doubling</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The SHD-CCP models expansion using the mathematics of Minimal Surface Doubling in <span className="font-serif italic">S<sup>3</sup></span>.
+                        </p>
+                        
+                        <div className="grid md:grid-cols-2 gap-4 mb-6">
+                            <div className="bg-[#0B1120] p-6 rounded border border-slate-800">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Base Surface</h4>
+                                <p className="text-white text-sm">The Clifford Torus (<span className="font-serif italic">T</span>).</p>
+                            </div>
+                            <div className="bg-[#0B1120] p-6 rounded border border-slate-800">
+                                <h4 className="text-cyan-400 font-mono text-xs uppercase mb-2">Mechanism</h4>
+                                <p className="text-white text-sm">Connecting two copies of the surface via Catenoidal Bridges arranged along parallel copies of torus knots.</p>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* Section 3 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">3. The Construction (Kapouleas-McGrath)</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            The system uses Linearized Doubling (LD) solutions to glue surfaces together.
+                        </p>
+
+                        <div className="bg-slate-900/50 p-6 rounded border border-slate-800 mb-6">
+                            <ul className="space-y-2 text-sm text-slate-400">
+                                <li><strong className="text-white">Parameters:</strong> Torus knots <span className="font-serif italic">(a, b)</span>, number of strands <span className="font-serif italic">k</span>, and number of bridges <span className="font-serif italic">m</span>.</li>
+                                <li><strong className="text-white">Result:</strong> A new smooth, embedded minimal surface of genus <span className="font-serif italic">km + 1</span>.</li>
+                            </ul>
+                        </div>
+
+                        <div className="p-4 bg-black/40 border-l-4 border-cyan-500 text-center font-mono text-cyan-100">
+                            |M̃| ≈ 2|T| - Bridge Area
+                        </div>
+                    </section>
+
+                    {/* Section 4 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">4. Implications for Cosmology</h3>
+                        <p className="text-slate-300 leading-relaxed mb-6">
+                            This provides a rigorous mathematical model for the "Base-2 Sphere Doubling at Planck Scale."
+                        </p>
+                        <ul className="space-y-4 text-slate-300">
+                            <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <span>Instead of a singularity exploding, we have a Clifford Torus doubling itself.</span>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <span>The "Catenoidal Bridges" act as the wormholes or flux tubes connecting the discrete Planck-spheres.</span>
+                            </li>
+                            <li className="flex gap-4">
+                                <span className="text-cyan-500 font-mono">▸</span>
+                                <span>This proves that space can expand discretely (doubling) while maintaining a smooth, minimal-energy topology.</span>
+                            </li>
+                        </ul>
+                    </section>
+
+                    {/* Section 5 */}
+                    <section className="mb-12">
+                        <h3 className="text-2xl font-serif text-white mb-6">5. Conclusion</h3>
+                        <p className="text-slate-300 leading-relaxed">
+                            The SHD-CCP replaces the "Big Bang" with a "Big Compilation"—a recursive doubling of Clifford Tori governed by minimal surface equations, providing a precise, non-singular mechanism for cosmic expansion.
+                        </p>
+                    </section>
+
+                </div>
+            </div>
+        );
+
         // Placeholder for other papers
         const PaperPlaceholder = ({ paper }) => (
             <div className="max-w-4xl mx-auto h-[60vh] flex flex-col justify-center items-center text-center animate-in">
@@ -452,6 +1282,22 @@
                         <main className="flex-1 lg:ml-80 p-6 md:p-12 lg:p-16 z-10 relative">
                             {currentPaper.id === "00" ? (
                                 <Paper00 />
+                            ) : currentPaper.id === "01" ? (
+                                <Paper01 />
+                            ) : currentPaper.id === "02" ? (
+                                <Paper02 />
+                            ) : currentPaper.id === "03" ? (
+                                <Paper03 />
+                            ) : currentPaper.id === "04" ? (
+                                <Paper04 />
+                            ) : currentPaper.id === "05" ? (
+                                <Paper05 />
+                            ) : currentPaper.id === "06" ? (
+                                <Paper06 />
+                            ) : currentPaper.id === "07" ? (
+                                <Paper07 />
+                            ) : currentPaper.id === "08" ? (
+                                <Paper08 />
                             ) : (
                                 <PaperPlaceholder paper={currentPaper} />
                             )}
