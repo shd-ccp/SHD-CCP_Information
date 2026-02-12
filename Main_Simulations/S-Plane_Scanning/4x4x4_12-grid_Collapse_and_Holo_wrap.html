@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHD-CCP Zeta Protocol: Neural Lattice</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #020617; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; }
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
+        
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between; padding: 1.5rem;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            pointer-events: auto;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            transition: height 0.3s ease;
+            overflow: hidden;
+        }
+        
+        .glass-panel.minimized .panel-content { display: none; }
+        .glass-panel.minimized { padding-bottom: 0; }
+
+        h1 { color: #38bdf8; font-weight: 800; font-size: 1.1rem; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 1px; }
+        h2 { color: #facc15; font-size: 0.9rem; font-weight: 700; margin-bottom: 10px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+        p { color: #94a3b8; font-size: 0.8rem; margin-bottom: 8px; }
+
+        .control-group { margin-bottom: 12px; }
+        label { display: block; font-size: 10px; color: #64748b; text-transform: uppercase; margin-bottom: 4px; font-weight: bold; }
+        select, input[type=range], input[type=number] { width: 100%; accent-color: #38bdf8; background: #0f172a; border: 1px solid #334155; color: #cbd5e1; border-radius: 4px; padding: 4px; font-size: 0.8rem; }
+        
+        button {
+            background: linear-gradient(135deg, #0ea5e9, #2563eb);
+            border: 1px solid #60a5fa; color: white;
+            padding: 6px 12px; border-radius: 4px;
+            font-weight: 600; cursor: pointer;
+            transition: all 0.2s; text-transform: uppercase; font-size: 0.75rem; width: 100%;
+            margin-top: 5px;
+        }
+        button:hover { box-shadow: 0 0 10px rgba(14, 165, 233, 0.4); }
+        button.toggle { background: #0f172a; border-color: #334155; color: #cbd5e1; display: flex; justify-content: space-between; align-items: center; }
+        button.toggle.active { background: rgba(16, 185, 129, 0.2); border-color: #10b981; color: #10b981; }
+
+        .toggle-box { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; cursor: pointer; color: #94a3b8; }
+        .toggle-box input { width: auto; accent-color: #facc15; }
+
+        /* Analyzers */
+        #analyzer-panel, #history-panel {
+            position: absolute; right: 20px;
+            width: 320px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #38bdf8;
+            border-radius: 8px;
+            padding: 10px;
+            pointer-events: auto;
+            display: none; 
+            flex-direction: column; gap: 10px;
+        }
+        #analyzer-panel { top: 20px; }
+        #history-panel { top: 320px; } 
+        
+        /* 3D Heatmap Window */
+        #heatmap-window {
+            position: absolute; bottom: 100px; right: 20px;
+            width: 250px; height: 250px;
+            background: #000;
+            border: 1px solid #facc15;
+            border-radius: 8px;
+            pointer-events: auto;
+            display: none;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        
+        .heatmap-overlay-text {
+            position: absolute; top: 5px; left: 5px;
+            font-size: 10px; color: #facc15; font-weight: bold; pointer-events: none;
+        }
+
+        canvas.graph { display: block; width: 100%; height: 60px; border-radius: 4px; background: #000; border: 1px solid #334155; }
+        .graph-label { font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
+        .stat-value { color: #facc15; font-family: monospace; float: right; }
+
+        /* Sequencer Bar */
+        #sequencer-bar {
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 10px;
+            pointer-events: auto;
+            display: flex; gap: 10px; align-items: center;
+            width: 100%; max-width: 600px; margin: 0 auto;
+        }
+        .seq-btn { width: 30px; height: 30px; border-radius: 50%; padding: 0; display: grid; place-items: center; margin: 0; }
+        
+        .min-btn {
+            position: absolute; top: 10px; right: 10px;
+            width: 20px; height: 20px;
+            background: transparent; border: 1px solid #475569;
+            color: #94a3b8; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; padding: 0; margin: 0;
+            font-size: 12px; line-height: 1;
+        }
+        .min-btn:hover { border-color: #38bdf8; color: #38bdf8; }
+    </style>
+
+    <!-- SHADER: SHD-CCP Neural Node -->
+    <script type="x-shader/x-vertex" id="vShaderNode">
+        attribute float aEnergy;
+        attribute float aWeight; 
+        attribute float aPulse;
+        attribute float aLocked; 
+        
+        varying float vPulse;
+        varying vec3 vNormal;
+        varying float vEnergy;
+        varying float vWeight;
+        varying float vLocked;
+
+        void main() {
+            vNormal = normal;
+            vEnergy = aEnergy;
+            vPulse = aPulse;
+            vWeight = aWeight;
+            vLocked = aLocked;
+            
+            // Scaling Logic:
+            float scale = 0.25 + (aEnergy * 0.4); 
+            
+            // Locked nodes: Fixed size
+            if(vLocked > 0.5) scale = 0.28; 
+            
+            if(aPulse > 0.0) scale *= (1.0 + aPulse * 0.3);
+
+            vec3 pos = position * scale;
+            vec4 worldPosition = instanceMatrix * vec4(pos, 1.0);
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fShaderNode">
+        varying float vPulse;
+        varying vec3 vNormal;
+        varying float vEnergy;
+        varying float vWeight;
+        varying float vLocked;
+
+        void main() {
+            vec3 finalColor;
+            
+            if (vLocked > 0.5) {
+                // Locked Core: Solid Purple
+                finalColor = vec3(0.55, 0.2, 0.95);
+                finalColor += vec3(0.3, 0.0, 0.5) * vPulse * 0.5;
+            } else {
+                // Mutable Nodes
+                vec3 cCold = vec3(0.1, 0.2, 0.4);
+                vec3 cHot = vec3(1.0, 0.8, 0.0);
+                
+                vec3 baseColor = mix(cCold, cHot, vWeight);
+                baseColor += vec3(0.2, 0.6, 1.0) * vEnergy * 2.0;
+                
+                vec3 cPulse = vec3(1.0, 0.0, 0.2); 
+                finalColor = mix(baseColor, cPulse, vPulse);
+            }
+            
+            vec3 viewDir = vec3(0.0, 0.0, 1.0); 
+            float fresnel = pow(1.0 - dot(vNormal, viewDir), 2.0);
+            finalColor += vec3(0.4) * fresnel;
+
+            gl_FragColor = vec4(finalColor, 1.0);
+        }
+    </script>
+    
+    <!-- SHADER: Core Cube -->
+    <script type="x-shader/x-vertex" id="vShaderCore">
+        varying vec3 vNormal;
+        varying vec3 vPos;
+        void main() {
+            vNormal = normal;
+            vPos = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+    </script>
+    <script type="x-shader/x-fragment" id="fShaderCore">
+        uniform float uTime;
+        uniform float uOpacity;
+        varying vec3 vNormal;
+        varying vec3 vPos;
+        
+        void main() {
+            float pulse = 0.5 + 0.5 * sin(uTime * 2.0);
+            vec3 color = vec3(0.4, 0.0, 0.8);
+            
+            float grid = max(
+                step(0.95, abs(sin(vPos.x * 0.5))),
+                max(step(0.95, abs(sin(vPos.y * 0.5))), step(0.95, abs(sin(vPos.z * 0.5))))
+            );
+            
+            color += vec3(0.2) * grid;
+            gl_FragColor = vec4(color, uOpacity * (0.3 + 0.1*pulse));
+        }
+    </script>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+
+<div id="ui-layer">
+    <div class="glass-panel" id="main-panel">
+        <button class="min-btn" onclick="toggleMainPanel()">_</button>
+        <h1>SHD-CCP Protocol: 64-Bit</h1>
+        <div class="panel-content">
+            <p>4x4x4 Voxel Packet | Neural Lattice</p>
+            
+            <div class="control-group mt-2">
+                <button id="btn-global-reset" onclick="globalReset()" style="background: linear-gradient(135deg, #ef4444, #b91c1c); border-color: #f87171;">GLOBAL RESET</button>
+            </div>
+
+            <div class="control-group">
+                <div class="flex gap-2">
+                    <button id="btn-spectrum" class="toggle" onclick="togglePanel('analyzer-panel', this)">
+                        <span>Wave Func</span> <span>OFF</span>
+                    </button>
+                    <button id="btn-heatmap" class="toggle" onclick="togglePanel('heatmap-window', this)">
+                        <span>Heatmap</span> <span>OFF</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Auto-Targeting Mode</label>
+                <select id="targetMode">
+                    <option value="none">Manual Only</option>
+                    <option value="etching">Topological Node Etching</option>
+                    <option value="core">Focus: Quaternion Core</option>
+                    <option value="edges">Focus: Outer Edges</option>
+                    <option value="faces">Focus: Face Centers</option>
+                    <option value="quadrants">Focus: Alternating Quadrants</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label class="toggle-box">
+                    <input type="checkbox" id="chk-wrap" onchange="toggleWrap()">
+                    Holographic Wrap (Gravity)
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label class="toggle-box">
+                    <input type="checkbox" id="chk-quaternion" checked>
+                    Quaternion TMA (Lock Core)
+                </label>
+            </div>
+
+            <div class="control-group">
+                <label>Inject Energy (Stream 0-63)</label>
+                <div class="flex gap-2">
+                    <input type="number" id="streamId" min="0" max="63" value="0">
+                    <button onclick="injectPulse()">FIRE</button>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>Codex Entry Log (Total Scalar)</label>
+                <div id="cap-monitor" class="w-full bg-slate-800 h-2 rounded overflow-hidden">
+                    <div id="cap-bar" class="h-full bg-purple-500 w-0 transition-all duration-100"></div>
+                </div>
+                <div class="text-right text-xs mt-1 text-purple-300">
+                    Hash: <span id="total-cap">0.00</span>
+                </div>
+            </div>
+            
+            <div id="etch-status" class="hidden text-xs text-red-400 font-mono mt-2 border border-red-900 bg-red-900/20 p-2 rounded">
+                SCANNING: <span id="etch-phase">INIT</span>
+            </div>
+
+            <div class="mt-4 border-t border-slate-700 pt-2">
+                <h2 class="text-xs text-yellow-500">Node Status (ID: <span id="monitor-id">0</span>)</h2>
+                <div class="text-xs space-y-1">
+                    <div>Energy: <span id="p-energy" class="stat-value">0.00</span></div>
+                    <div>Weight: <span id="p-weight" class="stat-value">0.10</span></div>
+                    <div>Cycle: <span id="p-cycle" class="stat-value">0/4</span></div>
+                </div>
+                <button id="btn-history" class="toggle mt-2" onclick="togglePanel('history-panel', this)">View Energy History</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cycle Sequencer -->
+    <div id="sequencer-bar" class="mt-auto">
+        <button class="seq-btn" onclick="controlsState.playPrev()">‹</button>
+        <button class="seq-btn" id="btn-play" onclick="controlsState.togglePlay()">►</button>
+        <button class="seq-btn" onclick="controlsState.playNext()">›</button>
+        <div class="flex-1">
+            <label class="text-[9px] text-gray-500">Cycle (0-720°)</label>
+            <input type="range" id="seq-slider" min="0" max="720" value="0" step="1">
+        </div>
+        <div class="text-right w-12 font-mono text-sm text-blue-400" id="seq-val">0</div>
+    </div>
+</div>
+
+<!-- Panels -->
+<div id="analyzer-panel">
+    <div class="spectrum-row">
+        <div class="graph-label"><span>TARGET WAVE (Zeta Ideal)</span></div>
+        <canvas id="graph-target" class="graph"></canvas>
+    </div>
+    <div class="spectrum-row">
+        <div class="graph-label"><span>LATTICE OUTPUT (Shaped)</span></div>
+        <canvas id="graph-output" class="graph"></canvas>
+    </div>
+</div>
+
+<div id="history-panel">
+    <div class="spectrum-row">
+        <div class="graph-label">
+            <span id="hist-label">NODE ENERGY HISTORY</span>
+            <button class="text-[9px] px-1 py-0 w-auto bg-slate-700" onclick="toggleHistoryMode()">SWITCH TO GLOBAL</button>
+        </div>
+        <canvas id="graph-history" class="graph" style="height: 100px;"></canvas>
+    </div>
+</div>
+
+<div id="heatmap-window">
+    <div class="heatmap-overlay-text">LATTICE ENERGY DENSITY</div>
+    <!-- Canvas inserted by THREE -->
+</div>
+
+<script>
+    // --- 1. CONFIG & STATE ---
+    const GRID_DIM = 4; // 4x4x4 = 64 Nodes
+    const SPACING = 10;
+    const TOTAL_PACKETS = 64;
+    const clock = new THREE.Clock(); 
+    
+    // Core Data
+    const neuralData = {
+        energy: new Float32Array(TOTAL_PACKETS),
+        weight: new Float32Array(TOTAL_PACKETS).fill(0.1),
+        pulse: new Float32Array(TOTAL_PACKETS),
+        cycle: new Uint8Array(TOTAL_PACKETS),
+        history: Array.from({length: TOTAL_PACKETS}, () => new Float32Array(100)),
+        globalHistory: new Float32Array(100)
+    };
+
+    const sys = {
+        cycle: 0,
+        isPlaying: false,
+        capacitor: 0.0,
+        markovPulse: 0.0,
+        selectedId: 0,
+        quaternionTMA: true,
+        histMode: 'node',
+        holographicWrap: false
+    };
+    
+    const etchState = {
+        active: false,
+        stepIndex: 0, 
+        lastTrigger: -1
+    };
+    
+    const WAVE_RES = 100;
+    const waveTarget = new Float32Array(WAVE_RES);
+    const waveOutput = new Float32Array(WAVE_RES);
+
+    // --- 2. MAIN SCENE ---
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x020617, 0.015);
+    const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(60, 50, 80);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColor(0x020617);
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+
+    // --- 3. HEATMAP SCENE ---
+    const heatScene = new THREE.Scene();
+    const heatCamera = new THREE.OrthographicCamera(-40, 40, 40, -40, 1, 1000);
+    heatCamera.position.set(0, 100, 0); 
+    heatCamera.lookAt(0,0,0);
+    const heatRenderer = new THREE.WebGLRenderer({ alpha: false });
+    heatRenderer.setSize(250, 250);
+    document.getElementById('heatmap-window').appendChild(heatRenderer.domElement);
+
+    // --- 4. GEOMETRY ---
+    
+    const voxGroup = new THREE.Group();
+    const voxGeo = new THREE.BoxGeometry(SPACING, SPACING, SPACING);
+    const voxEdges = new THREE.EdgesGeometry(voxGeo);
+    const voxMat = new THREE.LineBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.2 });
+    
+    const sphereGeo = new THREE.SphereGeometry(1, 16, 16);
+    const sphereMat = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vShaderNode').textContent,
+        fragmentShader: document.getElementById('fShaderNode').textContent,
+        transparent: true
+    });
+    const packetMesh = new THREE.InstancedMesh(sphereGeo, sphereMat, TOTAL_PACKETS);
+    
+    const heatGeo = new THREE.BoxGeometry(SPACING*0.9, SPACING*0.9, SPACING*0.9);
+    const heatMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const heatMesh = new THREE.InstancedMesh(heatGeo, heatMat, TOTAL_PACKETS);
+    
+    const coreBoxGeo = new THREE.BoxGeometry(SPACING*2, SPACING*2, SPACING*2);
+    const coreBoxMat = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vShaderCore').textContent,
+        fragmentShader: document.getElementById('fShaderCore').textContent,
+        uniforms: { uTime: { value: 0 }, uOpacity: { value: 0.4 } },
+        transparent: true, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    const coreBox = new THREE.Mesh(coreBoxGeo, coreBoxMat);
+    scene.add(coreBox); 
+    
+    const dummy = new THREE.Object3D();
+    const attrEnergy = new Float32Array(TOTAL_PACKETS);
+    const attrWeight = new Float32Array(TOTAL_PACKETS);
+    const attrPulse = new Float32Array(TOTAL_PACKETS);
+    const attrLocked = new Float32Array(TOTAL_PACKETS); 
+    
+    const nodePositions = [];
+    const offset = (GRID_DIM - 1) * SPACING * 0.5;
+    let ii = 0;
+    
+    for(let x=0; x<GRID_DIM; x++) {
+        for(let y=0; y<GRID_DIM; y++) {
+            for(let z=0; z<GRID_DIM; z++) {
+                const cx = x * SPACING - offset;
+                const cy = y * SPACING - offset;
+                const cz = z * SPACING - offset;
+                
+                const v = new THREE.LineSegments(voxEdges, voxMat);
+                v.position.set(cx, cy, cz);
+                voxGroup.add(v);
+                
+                dummy.position.set(cx, cy, cz);
+                dummy.updateMatrix();
+                packetMesh.setMatrixAt(ii, dummy.matrix);
+                heatMesh.setMatrixAt(ii, dummy.matrix);
+                
+                nodePositions.push({x:cx, y:cy, z:cz, gx:x, gy:y, gz:z});
+                ii++;
+            }
+        }
+    }
+    
+    scene.add(voxGroup);
+    packetMesh.geometry.setAttribute('aEnergy', new THREE.InstancedBufferAttribute(attrEnergy, 1));
+    packetMesh.geometry.setAttribute('aWeight', new THREE.InstancedBufferAttribute(attrWeight, 1));
+    packetMesh.geometry.setAttribute('aPulse', new THREE.InstancedBufferAttribute(attrPulse, 1));
+    packetMesh.geometry.setAttribute('aLocked', new THREE.InstancedBufferAttribute(attrLocked, 1));
+    scene.add(packetMesh);
+    heatScene.add(heatMesh);
+
+    // --- 5. ETCHER NODES ---
+    const etcherGroup = new THREE.Group();
+    const etcherGeo = new THREE.ConeGeometry(2, 4, 4);
+    const etcherMat = new THREE.MeshBasicMaterial({ color: 0xff4444, wireframe: true });
+    const ADJ_DIST = SPACING * 4; 
+    
+    const etcherPos = [
+        {pos: [ADJ_DIST, 0, 0], rot: [0, 0, -Math.PI/2], axis: 'x', dir: 1}, 
+        {pos: [-ADJ_DIST, 0, 0], rot: [0, 0, Math.PI/2], axis: 'x', dir: -1},
+        {pos: [0, ADJ_DIST, 0], rot: [0, 0, Math.PI], axis: 'y', dir: 1}, 
+        {pos: [0, -ADJ_DIST, 0], rot: [0, 0, 0], axis: 'y', dir: -1}, 
+        {pos: [0, 0, ADJ_DIST], rot: [Math.PI/2, 0, 0], axis: 'z', dir: 1}, 
+        {pos: [0, 0, -ADJ_DIST], rot: [-Math.PI/2, 0, 0], axis: 'z', dir: -1} 
+    ];
+    
+    const etcherMeshes = [];
+    etcherPos.forEach((e, idx) => {
+        const mesh = new THREE.Mesh(etcherGeo, etcherMat);
+        mesh.position.set(...e.pos);
+        mesh.rotation.set(...e.rot);
+        mesh.userData = { axis: e.axis, dir: e.dir };
+        etcherGroup.add(mesh);
+        etcherMeshes.push(mesh);
+    });
+    scene.add(etcherGroup);
+
+    const wireGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 50, 0), new THREE.Vector3(0, offset+5, 0)]);
+    scene.add(new THREE.Line(wireGeo, new THREE.LineBasicMaterial({color: 0xffffff})));
+    
+    const laserCount = 8; 
+    const laserGeo = new THREE.BufferGeometry();
+    const laserPos = new Float32Array(laserCount * 6); 
+    laserGeo.setAttribute('position', new THREE.BufferAttribute(laserPos, 3));
+    const laserMat = new THREE.LineBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending });
+    const lasers = new THREE.LineSegments(laserGeo, laserMat);
+    lasers.frustumCulled = false;
+    scene.add(lasers);
+
+
+    // --- 6. LOGIC ENGINE ---
+
+    function isQuaternionCore(id) {
+        const p = nodePositions[id];
+        return (p.gx >= 1 && p.gx <= 2 && p.gy >= 1 && p.gy <= 2 && p.gz >= 1 && p.gz <= 2);
+    }
+
+    function injectPulse() {
+        const inputEl = document.getElementById('streamId');
+        if(!inputEl) return;
+        const id = parseInt(inputEl.value);
+        if(id >= 0 && id < TOTAL_PACKETS) {
+            sys.capacitor += 0.5;
+            if(sys.quaternionTMA && isQuaternionCore(id)) return; 
+            
+            neuralData.energy[id] += 0.5;
+            neuralData.pulse[id] = 1.0;
+            neuralData.cycle[id] = (neuralData.cycle[id] + 1) % 5;
+            updateMonitor();
+        }
+    }
+    
+    function globalReset() {
+        neuralData.energy.fill(0);
+        neuralData.weight.fill(0.1);
+        neuralData.pulse.fill(0);
+        neuralData.cycle.fill(0);
+        neuralData.history.forEach(h => h.fill(0));
+        sys.cycle = 0;
+        sys.capacitor = 0;
+        sys.isPlaying = false;
+        
+        etchState.stepIndex = 0;
+        etchState.lastTrigger = -1;
+        
+        const slider = document.getElementById('seq-slider');
+        if(slider) slider.value = 0;
+        updateUI();
+    }
+
+    function processEtching(cycle) {
+        const statusEl = document.getElementById('etch-status');
+        const phaseEl = document.getElementById('etch-phase');
+        const modeEl = document.getElementById('targetMode');
+        const mode = modeEl ? modeEl.value : 'none';
+        const tmaActive = document.getElementById('chk-quaternion').checked;
+        
+        if(mode !== 'etching') {
+            if(statusEl) statusEl.classList.add('hidden');
+            lasers.visible = false;
+            return;
+        }
+
+        if(statusEl) statusEl.classList.remove('hidden');
+        lasers.visible = true;
+
+        const seqStep = cycle % 18;
+        const faceIdx = Math.floor(seqStep / 3); 
+        const depth = seqStep % 3;
+        
+        const etcher = etcherMeshes[faceIdx];
+        const sourcePos = etcher.position;
+        const axis = etcher.userData.axis; 
+        const dir = etcher.userData.dir; 
+        
+        let sliceGridIdx;
+        if (dir === 1) sliceGridIdx = 3 - depth; 
+        else sliceGridIdx = depth;
+        
+        const sliceNodes = [];
+        let centroid = new THREE.Vector3();
+        
+        for(let i=0; i<TOTAL_PACKETS; i++) {
+            const p = nodePositions[i];
+            let match = false;
+            if(axis === 'x' && p.gx === sliceGridIdx) match = true;
+            if(axis === 'y' && p.gy === sliceGridIdx) match = true;
+            if(axis === 'z' && p.gz === sliceGridIdx) match = true;
+            
+            if(match) {
+                sliceNodes.push(i);
+                centroid.add(new THREE.Vector3(p.x, p.y, p.z));
+            }
+        }
+        
+        if(sliceNodes.length > 0) {
+            centroid.divideScalar(sliceNodes.length);
+            
+            sliceNodes.sort((a, b) => {
+                const da = centroid.distanceToSquared(new THREE.Vector3(nodePositions[a].x, nodePositions[a].y, nodePositions[a].z));
+                const db = centroid.distanceToSquared(new THREE.Vector3(nodePositions[b].x, nodePositions[b].y, nodePositions[b].z));
+                return da - db;
+            });
+            
+            const targets = sliceNodes.slice(0, 8);
+            const lPos = laserGeo.attributes.position.array;
+            lPos.fill(0);
+            let lIdx = 0;
+            
+            targets.forEach(tid => {
+                const tp = nodePositions[tid];
+                lPos[lIdx++] = sourcePos.x; lPos[lIdx++] = sourcePos.y; lPos[lIdx++] = sourcePos.z;
+                // Use dynamic position for laser endpoint if wrapping
+                let endPos = new THREE.Vector3(tp.x, tp.y, tp.z);
+                // Simple static target for laser visual
+                lPos[lIdx++] = endPos.x; lPos[lIdx++] = endPos.y; lPos[lIdx++] = endPos.z;
+                
+                if(!(tmaActive && isQuaternionCore(tid))) {
+                     neuralData.energy[tid] = Math.min(1.0, neuralData.energy[tid] + 0.3); 
+                     neuralData.pulse[tid] = 1.0;
+                }
+            });
+            laserGeo.attributes.position.needsUpdate = true;
+            
+            if(phaseEl) phaseEl.innerText = `FACE ${faceIdx} | DEPTH ${depth} | TGT ${sliceGridIdx}`;
+        }
+    }
+
+    // --- 7. ANIMATION LOOP ---
+    const ctxT = document.getElementById('graph-target').getContext('2d');
+    const ctxO = document.getElementById('graph-output').getContext('2d');
+    const ctxH = document.getElementById('graph-history').getContext('2d');
+
+    function drawGraph(ctx, data, color) {
+        const w = ctx.canvas.width;
+        const h = ctx.canvas.height;
+        ctx.fillStyle = '#000'; ctx.fillRect(0,0,w,h);
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        const step = w / data.length;
+        for(let i=0; i<data.length; i++) {
+            const y = h - (data[i] * h);
+            if(i===0) ctx.moveTo(0, y); else ctx.lineTo(i*step, y);
+        }
+        ctx.stroke();
+    }
+
+    function updateLogic(time) {
+        if(sys.isPlaying) {
+            sys.cycle = (sys.cycle + 1) % 721;
+            const slider = document.getElementById('seq-slider');
+            const val = document.getElementById('seq-val');
+            if(slider) slider.value = sys.cycle;
+            if(val) val.innerText = sys.cycle;
+        }
+
+        sys.markovPulse = (Math.sin(time * 2.0) + 1.0) / 2.0; 
+        const syncEl = document.getElementById('sync-pulse');
+        if(syncEl) syncEl.innerText = sys.markovPulse.toFixed(2);
+
+        processEtching(sys.cycle);
+
+        const chk = document.getElementById('chk-quaternion');
+        sys.quaternionTMA = chk ? chk.checked : true;
+        
+        if(coreBox) {
+            coreBox.visible = sys.quaternionTMA;
+            coreBox.material.uniforms.uTime.value = time;
+            coreBox.material.uniforms.uOpacity.value = sys.quaternionTMA ? 0.3 : 0.05;
+        }
+        
+        const wrapChk = document.getElementById('chk-wrap');
+        sys.holographicWrap = wrapChk ? wrapChk.checked : false;
+
+        const targetModeEl = document.getElementById('targetMode');
+        const targetMode = targetModeEl ? targetModeEl.value : 'none';
+
+        let currentFrameEnergy = 0;
+
+        for(let i=0; i<TOTAL_PACKETS; i++) {
+            neuralData.pulse[i] *= 0.85; 
+            currentFrameEnergy += neuralData.energy[i];
+            
+            if(sys.cycle % 5 === 0) { 
+                for(let k=0; k<99; k++) neuralData.history[i][k] = neuralData.history[i][k+1];
+                neuralData.history[i][99] = neuralData.energy[i];
+            }
+            
+            if(targetMode !== 'etching') {
+                let boost = 0;
+                const p = nodePositions[i];
+                if(targetMode === 'core' && isQuaternionCore(i)) boost = 0.02;
+                if(targetMode === 'quadrants') {
+                     if(p.gx < 2 && p.gy < 2) boost = 0.01;
+                }
+                if(boost > 0 && !(sys.quaternionTMA && isQuaternionCore(i))) {
+                    neuralData.energy[i] += boost;
+                }
+            }
+
+            let drift = 0.96; 
+            neuralData.energy[i] *= drift;
+            
+            if(sys.quaternionTMA && isQuaternionCore(i)) {
+                attrLocked[i] = 1.0; 
+                neuralData.energy[i] = 0.0; 
+            } else {
+                attrLocked[i] = 0.0;
+            }
+
+            const c = new THREE.Color();
+            c.setHSL(0.6 - (Math.min(1, neuralData.energy[i])*0.6), 1.0, 0.5);
+            heatMesh.setColorAt(i, c);
+            
+            attrEnergy[i] = neuralData.energy[i];
+            attrWeight[i] = neuralData.weight[i];
+            attrPulse[i] = neuralData.pulse[i];
+            
+            // --- HOLOGRAPHIC WRAP POSITION UPDATE ---
+            const home = nodePositions[i];
+            dummy.position.set(home.x, home.y, home.z);
+            
+            if(sys.holographicWrap && !isQuaternionCore(i)) {
+                // "Gravity": Move closer to center based on Weight (Simulated by Energy here for visual)
+                const gravPull = neuralData.energy[i] * 0.8;
+                dummy.position.lerp(new THREE.Vector3(0,0,0), gravPull * 0.5);
+                
+                // "Wrap": Rotate Y based on distance and energy
+                // 1/2 Inverse Double Cover: Theta = PI * Energy
+                const theta = neuralData.energy[i] * Math.PI;
+                dummy.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), theta);
+                
+                // Scale down slightly as it compresses
+                const s = 1.0 - (gravPull * 0.5);
+                dummy.scale.setScalar(s);
+            } else {
+                dummy.scale.setScalar(1.0);
+            }
+            
+            dummy.updateMatrix();
+            packetMesh.setMatrixAt(i, dummy.matrix);
+        }
+        
+        if(sys.cycle % 5 === 0) {
+            for(let k=0; k<99; k++) neuralData.globalHistory[k] = neuralData.globalHistory[k+1];
+            neuralData.globalHistory[99] = currentFrameEnergy / TOTAL_PACKETS; 
+        }
+        
+        packetMesh.geometry.attributes.aEnergy.needsUpdate = true;
+        packetMesh.geometry.attributes.aWeight.needsUpdate = true;
+        packetMesh.geometry.attributes.aPulse.needsUpdate = true;
+        packetMesh.geometry.attributes.aLocked.needsUpdate = true;
+        packetMesh.instanceMatrix.needsUpdate = true; // IMPORTANT for movement
+        heatMesh.instanceColor.needsUpdate = true;
+
+        if(sys.cycle % 10 === 0) updateMonitor();
+        sys.capacitor *= 0.995; 
+        sys.capacitor += currentFrameEnergy * 0.01; // Accumulate logic
+        
+        const capEl = document.getElementById('total-cap');
+        if(capEl) capEl.innerText = sys.capacitor.toFixed(2);
+        
+        const histPanel = document.getElementById('history-panel');
+        if(histPanel && histPanel.style.display === 'flex') {
+             const data = sys.histMode === 'global' ? neuralData.globalHistory : neuralData.history[sys.selectedId];
+             drawGraph(ctxH, data, sys.histMode === 'global' ? '#38bdf8' : '#facc15');
+        }
+        
+        const anaPanel = document.getElementById('analyzer-panel');
+        if(anaPanel && anaPanel.style.display === 'flex') {
+            for(let i=0; i<WAVE_RES; i++) {
+                 waveTarget[i] = (Math.sin(i*0.1 + sys.cycle*0.05)+1)/2;
+                 waveOutput[i] = waveTarget[i] * (0.8 + Math.random()*0.2); 
+            }
+            drawGraph(ctxT, waveTarget, '#38bdf8');
+            drawGraph(ctxO, waveOutput, '#34d399');
+        }
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = clock.getElapsedTime();
+        updateLogic(time);
+        controls.update();
+        renderer.render(scene, camera);
+        
+        const heatWin = document.getElementById('heatmap-window');
+        if(heatWin && heatWin.style.display === 'block') {
+            heatRenderer.render(heatScene, heatCamera);
+        }
+    }
+
+    // --- CONTROLS NAMESPACE ---
+    window.togglePanel = function(id, btn) {
+        const el = document.getElementById(id);
+        if(!el) return;
+        const isFlex = id === 'analyzer-panel' || id === 'history-panel';
+        const isOn = el.style.display === (isFlex ? 'flex' : 'block');
+        el.style.display = isOn ? 'none' : (isFlex ? 'flex' : 'block');
+        if(btn) {
+            const span = btn.querySelector('span:last-child');
+            if(span) span.innerText = !isOn ? 'ON' : 'OFF';
+            btn.classList.toggle('active', !isOn);
+        }
+    };
+    
+    window.toggleMainPanel = function() {
+        const p = document.getElementById('main-panel');
+        p.classList.toggle('minimized');
+        const btn = p.querySelector('.min-btn');
+        btn.innerText = p.classList.contains('minimized') ? '+' : '_';
+    };
+    
+    window.toggleHistoryMode = function() {
+        sys.histMode = sys.histMode === 'node' ? 'global' : 'node';
+        document.getElementById('hist-label').innerText = sys.histMode === 'node' ? 'NODE ENERGY HISTORY' : 'GLOBAL ENERGY HISTORY';
+        const btn = document.querySelector('#history-panel button');
+        if(btn) btn.innerText = sys.histMode === 'node' ? 'SWITCH TO GLOBAL' : 'SWITCH TO NODE';
+    };
+    
+    window.toggleWrap = function() {
+        // Handled in update loop via checkbox
+    };
+    
+    window.globalReset = globalReset;
+    window.injectPulse = injectPulse;
+    
+    window.controlsState = {
+        togglePlay: () => { 
+            sys.isPlaying = !sys.isPlaying; 
+            const btn = document.getElementById('btn-play');
+            if(btn) btn.innerText = sys.isPlaying ? '❚❚' : '►';
+        },
+        playPrev: () => { sys.cycle = Math.max(0, sys.cycle-1); updateUI(); },
+        playNext: () => { sys.cycle = (sys.cycle+1)%721; updateUI(); }
+    };
+    
+    function updateMonitor() {
+        const elId = document.getElementById('monitor-id');
+        if(elId) elId.innerText = sys.selectedId;
+        const elEn = document.getElementById('p-energy');
+        if(elEn) elEn.innerText = neuralData.energy[sys.selectedId].toFixed(2);
+        const elWe = document.getElementById('p-weight');
+        if(elWe) elWe.innerText = neuralData.weight[sys.selectedId].toFixed(2);
+        const elCy = document.getElementById('p-cycle');
+        if(elCy) elCy.innerText = neuralData.cycle[sys.selectedId] + "/4";
+    }
+    
+    function updateUI() {
+        const slider = document.getElementById('seq-slider');
+        if(slider) slider.value = sys.cycle;
+        const val = document.getElementById('seq-val');
+        if(val) val.innerText = sys.cycle;
+    }
+
+    const seqSlider = document.getElementById('seq-slider');
+    if(seqSlider) {
+        seqSlider.addEventListener('input', (e) => {
+            sys.cycle = parseInt(e.target.value);
+            sys.isPlaying = false;
+            updateUI();
+        });
+    }
+    
+    const streamInput = document.getElementById('streamId');
+    if(streamInput) {
+        streamInput.addEventListener('input', (e) => {
+            sys.selectedId = Math.max(0, Math.min(63, parseInt(e.target.value)));
+            updateMonitor();
+        });
+    }
+    
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+    window.addEventListener('click', (event) => {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(packetMesh);
+        if(intersects.length > 0) {
+            sys.selectedId = intersects[0].instanceId;
+            const sInput = document.getElementById('streamId');
+            if(sInput) sInput.value = sys.selectedId;
+            updateMonitor();
+        }
+    });
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+</script>
+</body>
+</html>
