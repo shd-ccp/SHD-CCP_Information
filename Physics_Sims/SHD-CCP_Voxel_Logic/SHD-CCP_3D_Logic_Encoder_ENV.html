@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SHD-CCP 3D Logic Encoder</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #020205; font-family: 'Courier New', Courier, monospace; color: #0f0; user-select: none; }
+        
+        /* UI Layers */
+        #crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 50%;
+            transform: translate(-50%, -50%); pointer-events: none; mix-blend-mode: exclusion; z-index: 10;
+        }
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;
+        }
+        
+        /* Top Status Bar */
+        #top-bar {
+            position: absolute; top: 0; left: 0; width: 100%; height: 45px;
+            background: rgba(0, 5, 0, 0.95); border-bottom: 1px solid #0f0;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 20px; pointer-events: auto; box-sizing: border-box; z-index: 5;
+        }
+        .header-title { font-weight: bold; letter-spacing: 2px; color: #fff; text-shadow: 0 0 5px #0f0; }
+        
+        /* Inject Controls */
+        .injector-panel { display: flex; align-items: center; gap: 15px; }
+        .pulse-btn {
+            background: #000; color: #0f0; border: 1px solid #0f0; padding: 6px 15px;
+            font-family: inherit; font-weight: bold; cursor: pointer; transition: 0.2s;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); display: flex; align-items: center; gap: 5px;
+        }
+        .pulse-btn:hover { background: #0f0; color: #000; box-shadow: 0 0 20px #0f0; }
+        .pulse-btn:active { transform: scale(0.98); }
+        .pulse-indicator { width: 8px; height: 8px; background: #000; border: 1px solid #0f0; border-radius: 50%; }
+        .pulse-indicator.active { background: #0f0; box-shadow: 0 0 10px #0f0; }
+
+        /* Floating Codex (3D Overlay) */
+        #floating-codex {
+            position: absolute; pointer-events: none; display: none;
+            width: 220px; padding: 10px;
+            background: rgba(0, 10, 0, 0.85); border: 1px solid #0f0;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.2);
+            color: #fff; font-size: 11px; z-index: 2;
+            transform: translate(-50%, -100%); margin-top: -25px;
+            backdrop-filter: blur(2px);
+        }
+        #floating-codex .header { border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; font-weight: bold; color: #0f0; display: flex; justify-content: space-between;}
+        #floating-codex .content { color: #ccc; font-style: italic; word-wrap: break-word; }
+        #floating-codex .meta { margin-top: 5px; font-size: 9px; color: #888; text-align: right; }
+        
+        /* Inspector & Editor */
+        #packet-editor {
+            position: absolute; top: 60px; right: 10px; width: 300px;
+            background: rgba(0, 15, 0, 0.9); border: 1px solid #0f0; padding: 10px;
+            pointer-events: auto; font-size: 11px;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+        #packet-editor h3 { margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #0f0; padding-bottom: 5px; color: #fff; }
+        .control-group { margin-bottom: 6px; border-left: 2px solid #0f0; padding-left: 5px; }
+        .control-group label { display: block; color: #8f8; margin-bottom: 2px;}
+        .control-group input[type=range] { width: 100%; accent-color: #0f0; height: 5px; cursor: pointer; }
+        .value-display { float: right; color: #fff; }
+        
+        #hud-inspector {
+            position: absolute; bottom: 10px; left: 10px;
+            background: rgba(0, 0, 0, 0.8); border: 1px solid #0f0; padding: 10px;
+            font-size: 12px; max-width: 400px; pointer-events: none;
+        }
+        #hex-readout { font-size: 18px; font-weight: bold; color: #fff; letter-spacing: 1px; font-family: monospace; }
+        
+        #physics-log {
+            position: absolute; bottom: 10px; right: 10px; width: 300px; height: 150px;
+            background: rgba(0,0,0,0.8); border: 1px solid #444; color: #aaa;
+            font-size: 10px; padding: 5px; overflow-y: auto; pointer-events: none;
+            font-family: monospace;
+        }
+        .log-entry { margin-bottom: 2px; border-bottom: 1px solid #222; }
+        .log-res { color: #ff0; }
+        .log-tun { color: #0ff; }
+        .log-rej { color: #f00; }
+        .log-op  { color: #f0f; font-weight:bold; }
+
+        /* Modal */
+        #confirm-modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: #000; border: 2px solid #0f0; padding: 2px;
+            width: 450px; z-index: 50; display: none; pointer-events: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+        .modal-header { background: #0f0; color: #000; padding: 5px 10px; font-weight: bold; display:flex; justify-content:space-between; }
+        .modal-body { padding: 15px; color: #fff; font-size: 12px; line-height: 1.4; display: flex; flex-direction: column; gap: 10px; }
+        .modal-footer { padding: 10px; display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid #333; }
+        .modal-btn { 
+            background: transparent; border: 1px solid #0f0; color: #0f0; 
+            padding: 8px 10px; cursor: pointer; font-family: inherit; font-weight: bold; font-size: 11px;
+            transition: all 0.2s; flex: 1; display: none;
+        }
+        .modal-btn:hover { background: #0f0; color: #000; }
+        .modal-btn.visible { display: block; }
+        .modal-btn.cancel { border-color: #f00; color: #f00; }
+        .modal-btn.cancel:hover { background: #f00; color: #fff; }
+        .modal-btn.neutral { border-color: #888; color: #888; display: block; }
+        .modal-btn.neutral:hover { background: #888; color: #000; }
+        .codex-input { width: 100%; background: #111; border: 1px solid #0f0; color: #0f0; padding: 5px; box-sizing: border-box; resize: vertical; }
+        .logic-select { width: 100%; background: #002200; color: #0f0; border: 1px solid #0f0; padding: 5px; font-family: inherit; cursor: pointer; }
+        
+        /* Tutorial Overlay */
+        #tutorial-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+            pointer-events: auto; overflow-y: auto;
+        }
+        .tutorial-content {
+            width: 600px; max-width: 90%; background: #051005; border: 2px solid #0f0;
+            padding: 30px; box-shadow: 0 0 50px rgba(0, 255, 0, 0.2);
+            color: #ddd; font-family: 'Courier New', Courier, monospace;
+        }
+        .tutorial-content h2 { color: #0f0; border-bottom: 1px solid #0f0; padding-bottom: 10px; margin-top: 0; }
+        .tutorial-content h3 { color: #8f8; margin-top: 20px; margin-bottom: 5px; }
+        .tutorial-content p { font-size: 12px; line-height: 1.5; margin-bottom: 10px; }
+        .tutorial-content ul { padding-left: 20px; font-size: 12px; color: #ccc; }
+        .tutorial-content li { margin-bottom: 5px; }
+        .key { color: #fff; background: #333; padding: 1px 4px; border-radius: 3px; font-weight: bold; }
+        
+        .hidden { display: none !important; }
+    </style>
+    <!-- Import Map to handle module resolution -->
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+<div id="crosshair"></div>
+
+<!-- Physics Log -->
+<div id="physics-log">
+    <div style="color:#fff; border-bottom:1px solid #fff;">SEMANTIC INTERFEROMETER LOG</div>
+</div>
+
+<!-- Floating Codex Label -->
+<div id="floating-codex">
+    <div class="header">
+        <span id="fc-coords">0,0,0</span>
+        <span id="fc-branch" style="color:#ff0; font-size:9px;"></span>
+    </div>
+    <div id="fc-content" class="content">Genesis Block</div>
+    <div class="meta">LATTICE NODE</div>
+</div>
+
+<!-- Tutorial Overlay -->
+<div id="tutorial-overlay" class="hidden">
+    <div class="tutorial-content">
+        <h2>SHD-CCP SYSTEM MANUAL</h2>
+        <h3>1. NAVIGATION & CONSTRUCTION</h3>
+        <ul>
+            <li><span class="key">Left Click</span>: Focus Node / Open Menu</li>
+            <li><span class="key">Hold Right Click</span>: Modify Mode (Edit existing nodes)</li>
+            <li><span class="key">Arrow Keys</span>: Traverse the lattice chain.</li>
+        </ul>
+        <h3>2. LOGIC GATES (NEW)</h3>
+        <p>Logic is now assigned separately from shape via the Interaction Menu:</p>
+        <ul>
+            <li><strong>BUFFER:</strong> Passes signal (Default).</li>
+            <li><strong>COMPARATOR:</strong> Passes if Signal Amp >= Node Amp.</li>
+            <li><strong>OMNI-SENDER:</strong> Broadcasts to all neighbors.</li>
+            <li><strong>PHASE MOD:</strong> Shifts signal Phase +1.</li>
+            <li><strong>AMPLIFIER:</strong> Boosts signal scaler.</li>
+            <li><strong>SPIN MOD:</strong> Changes signal routing spin.</li>
+        </ul>
+        <button class="pulse-btn" style="width:100%; margin-top:20px;" onclick="toggleTutorial()">CLOSE MANUAL</button>
+    </div>
+</div>
+
+<!-- Interaction Modal -->
+<div id="confirm-modal">
+    <div class="modal-header">
+        <span>NODE INTERACTION PROTOCOL</span>
+        <span id="modal-mode">[MODE]</span>
+    </div>
+    <div class="modal-body">
+        <div>
+            <div style="display:flex; justify-content:space-between; color:#888;">
+                <span>TARGET NODE:</span> <span id="modal-coords" style="color:#0ff">0, 0, 0</span>
+            </div>
+        </div>
+        
+        <!-- Logic Selector -->
+        <div>
+            <div style="color:#888; font-weight:bold; margin-bottom:5px;">LOGIC GATE CONFIGURATION</div>
+            <select id="modal-logic-select" class="logic-select">
+                <option value="BUFFER">BUFFER (Pass-Through)</option>
+                <option value="COMPARATOR">COMPARATOR (Amp Check)</option>
+                <option value="OMNI">OMNI-SENDER (Broadcast)</option>
+                <option value="PHASE_MOD">PHASE MOD (+1 Shift)</option>
+                <option value="AMPLIFIER">AMPLIFIER (Boost)</option>
+                <option value="SPIN_A">SPIN MOD A (Left)</option>
+                <option value="SPIN_B">SPIN MOD B (Right)</option>
+                <option value="PROB">PROBABILISTIC (50%)</option>
+                <option value="BLOCK">BLOCKER (Stop)</option>
+            </select>
+        </div>
+
+        <!-- Codex Entry -->
+        <div>
+            <div style="color:#888; font-weight:bold; margin-bottom:5px;">PARALLEL CODEX ENTRY</div>
+            <textarea id="modal-codex-input" class="codex-input" placeholder="Enter symbolic string data..."></textarea>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button id="btn-deconstruct" class="modal-btn cancel" onclick="confirmDestruction()">DECONSTRUCT</button>
+        <button class="modal-btn neutral" onclick="closeModalAction()">CANCEL</button>
+        <button id="btn-rewrite" class="modal-btn" onclick="confirmRewrite()">REWRITE DATA</button>
+        <button id="btn-link" class="modal-btn" onclick="confirmPlacement()">ESTABLISH LINK</button>
+    </div>
+</div>
+
+<div id="ui-layer">
+    <!-- TOP STATUS BAR -->
+    <div id="top-bar">
+        <div style="display:flex; align-items:center; gap:15px;">
+            <button class="pulse-btn" onclick="toggleTutorial()">TUTORIAL</button>
+            <div class="header-title">SHD-CCP 3D LOGIC ENCODER</div>
+        </div>
+        
+        <div class="injector-panel">
+            <span style="font-size:10px; color:#888;">INJECT PHOTON:</span>
+            <button class="pulse-btn" onclick="initiateSignalPulse()">
+                <div id="pulse-indicator" class="pulse-indicator"></div>
+                INJECT PACKET
+            </button>
+        </div>
+    </div>
+
+    <!-- EDITOR PANEL -->
+    <div id="packet-editor">
+        <h3>PACKET COMPOSER (PHOTON)</h3>
+        
+        <!-- 63-48 Payload Scaler -->
+        <div class="control-group">
+            <label>Confidence (Scaler) <span id="val-scaler" class="value-display">15360</span></label>
+            <input type="range" id="in-scaler" min="0" max="65535" step="1" value="15360">
+        </div>
+
+        <!-- 47-40 Dynamics -->
+        <div class="control-group">
+            <label>Phase (Freq ID) <span id="val-freq" class="value-display">0</span></label>
+            <input type="range" id="in-freq" min="0" max="31" step="1" value="0">
+        </div>
+        <div class="control-group">
+            <label>Spin Routing (Spin ID) <span id="val-spin" class="value-display">0</span></label>
+            <input type="range" id="in-spin" min="0" max="7" step="1" value="0">
+        </div>
+
+        <!-- 39-32 State & ID -->
+        <div class="control-group">
+            <label>Symbolic Form (Form ID) <span id="val-form" class="value-display">0</span></label>
+            <input type="range" id="in-form" min="0" max="15" step="1" value="0">
+        </div>
+        <div class="control-group">
+            <label>Attention (Amp ID) <span id="val-amp" class="value-display">7</span></label>
+            <input type="range" id="in-amp" min="0" max="7" step="1" value="7">
+        </div>
+
+        <!-- 31-0 Quaternion -->
+        <div class="control-group">
+            <label>Meaning (Quaternion) <span class="value-display" style="font-size:9px;">[W,X,Y,Z]</span></label>
+            <input type="range" id="in-qw" min="0" max="255" step="1" value="255">
+            <input type="range" id="in-qx" min="0" max="255" step="1" value="127">
+            <input type="range" id="in-qy" min="0" max="255" step="1" value="127">
+            <input type="range" id="in-qz" min="0" max="255" step="1" value="127">
+        </div>
+    </div>
+
+    <!-- HUD INSPECTOR -->
+    <div id="hud-inspector">
+        <div style="color:#888; font-size:10px; margin-bottom:5px;">LATTICE NODE DATA</div>
+        <div id="hex-readout">0x0000000000000000</div>
+        <div id="bin-readout" style="font-family:monospace; font-size:10px; word-break:break-all; color:#0f0;"></div>
+        <hr style="border-color:#333;">
+        <div id="target-details">
+            Waiting for target...
+        </div>
+    </div>
+</div>
+
+<!-- Three.js Library & Modules -->
+<script type="module">
+    import * as THREE from 'three';
+    import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+    // SHD-CCP PROTOCOL
+    class SHDPacket {
+        constructor() { this.data = 0n; }
+        setScaler(val) { this.data = (this.data & ~(0xFFFFn << 48n)) | (BigInt(val & 0xFFFF) << 48n); }
+        setDynamics(freq, spin) { const dyn = ((freq & 0x1F) << 3) | (spin & 0x7); this.data = (this.data & ~(0xFFn << 40n)) | (BigInt(dyn) << 40n); }
+        setState(form, amp) { const state = ((form & 0xF) << 4) | ((amp & 0x7) << 1); this.data = (this.data & ~(0xFFn << 32n)) | (BigInt(state) << 32n); }
+        setQuaternion(w, x, y, z) {
+            let q = (BigInt(w & 0xFF) << 24n) | (BigInt(x & 0xFF) << 16n) | (BigInt(y & 0xFF) << 8n) | BigInt(z & 0xFF);
+            this.data = (this.data & 0xFFFFFFFF00000000n) | q;
+        }
+        setFromBigInt(val) { this.data = val; }
+        getScaler() { return Number((this.data >> 48n) & 0xFFFFn); }
+        getFreq() { return Number((this.data >> 43n) & 0x1Fn); }
+        getSpin() { return Number((this.data >> 40n) & 0x07n); }
+        getForm() { return Number((this.data >> 36n) & 0x0Fn); }
+        getAmp() { return Number((this.data >> 33n) & 0x07n); }
+        getQW() { return Number((this.data >> 24n) & 0xFFn); }
+        getQX() { return Number((this.data >> 16n) & 0xFFn); }
+        getQY() { return Number((this.data >> 8n) & 0xFFn); }
+        getQZ() { return Number(this.data & 0xFFn); }
+        toHex() { return "0x" + this.data.toString(16).padStart(16, '0').toUpperCase(); }
+        toBin() { return this.data.toString(2).padStart(64, '0'); }
+        
+        clone() {
+            const p = new SHDPacket();
+            p.data = this.data;
+            return p;
+        }
+    }
+
+    // --- SETUP ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050505);
+    scene.fog = new THREE.FogExp2(0x050505, 0.03);
+
+    const gridHelper = new THREE.GridHelper(100, 100, 0x112211, 0x050510);
+    scene.add(gridHelper);
+
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const ambientLight = new THREE.AmbientLight(0x404040);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(20, 50, 20);
+    scene.add(dirLight);
+
+    const selectionGeo = new THREE.BoxGeometry(1.05, 1.05, 1.05);
+    const selectionMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, wireframe: true, transparent: true, opacity: 0.6 });
+    const selectionMesh = new THREE.Mesh(selectionGeo, selectionMat);
+    scene.add(selectionMesh);
+    selectionMesh.visible = false;
+
+    // GAME STATE
+    const voxelMap = new Map();
+    const voxelMeta = new Map(); // { text: "", parent: "x,y,z", children: [], logic: "BUFFER" }
+    const objects = []; 
+    const geometryMap = new Map();
+    const edgesMap = new Map();
+
+    // TRAVERSAL STATE
+    let focusedNodeKey = null;
+    let focusedNodeObj = null;
+    let branchIndex = 0;
+
+    // --- HELPERS ---
+    function mapFP8ToFloat(bits) { return ((bits / 255) * 2.0) - 1.0; }
+    function getPhaseColor(id) {
+        return new THREE.Color().setHSL(id / 31.0, 1.0, 0.5);
+    }
+
+    // Form Names (Purely Symbolic now)
+    const formNames = [
+        "Tetrahedron (Axiom)", "Cube (Data)", "Octahedron (Net)", "Icosahedron (Poly)", 
+        "Dodecahedron (Hier)", "Trunc. Tet (Cond)", "Cuboctahedron (Dyn)", "Buckyball (Pkt)",
+        "Rhombicub. (Sci)", "Icosidodec. (Nar)", "Trunc. Cuboct. (Max)", "Snub Cube (Bias)", "Snub Dodec. (Para)",
+        "Cosmoed (Wave)", "Null", "Null"
+    ];
+
+    function getGeometry(formId) {
+        if (!geometryMap.has(formId)) {
+            let geo;
+            const s = 0.5; 
+            switch(formId) {
+                case 0: geo = new THREE.TetrahedronGeometry(s); break; 
+                case 1: geo = new THREE.BoxGeometry(0.8, 0.8, 0.8); break; 
+                case 2: geo = new THREE.OctahedronGeometry(s); break; 
+                case 3: geo = new THREE.IcosahedronGeometry(s, 0); break; 
+                case 4: geo = new THREE.DodecahedronGeometry(s, 0); break; 
+                case 5: geo = new THREE.TetrahedronGeometry(s, 1); break; 
+                case 6: geo = new THREE.OctahedronGeometry(s, 1); break; 
+                case 7: geo = new THREE.IcosahedronGeometry(s, 1); break; 
+                case 8: geo = new THREE.DodecahedronGeometry(s, 1); break; 
+                case 9: geo = new THREE.IcosahedronGeometry(s, 2); break; 
+                case 10: geo = new THREE.SphereGeometry(s, 12, 12); break; 
+                case 11: geo = new THREE.TorusKnotGeometry(0.25, 0.05, 64, 8, 2, 3); break; 
+                case 12: geo = new THREE.TorusKnotGeometry(0.25, 0.1, 40, 10, 3, 5); break; 
+                case 13: geo = new THREE.TorusKnotGeometry(0.25, 0.1, 100, 16, 5, 7); break; 
+                case 14: case 15: geo = null; break;
+                default: geo = new THREE.BoxGeometry(0.5, 0.5, 0.5); break;
+            }
+            geometryMap.set(formId, geo);
+        }
+        return geometryMap.get(formId);
+    }
+
+    function getEdgesGeometry(formId) {
+        if (!edgesMap.has(formId)) {
+            const geo = getGeometry(formId);
+            if(!geo) {
+                edgesMap.set(formId, null);
+            } else {
+                const edges = new THREE.EdgesGeometry(geo);
+                edgesMap.set(formId, edges);
+            }
+        }
+        return edgesMap.get(formId);
+    }
+
+    function createVoxelMesh(packet, x, y, z) {
+        const p = new SHDPacket();
+        p.setFromBigInt(packet);
+        
+        const freq = p.getFreq(); 
+        const spin = p.getSpin();
+        const scaler = p.getScaler();
+        const form = p.getForm();
+        const amp = p.getAmp();
+
+        const group = new THREE.Group();
+        group.position.set(x, y, z);
+
+        // CORE
+        const coreColor = getPhaseColor(freq);
+        const coreGeo = new THREE.SphereGeometry(0.15, 16, 16);
+        const baseIntensity = 0.5 + (scaler/65535);
+        const coreMat = new THREE.MeshStandardMaterial({
+            color: coreColor,
+            emissive: coreColor,
+            emissiveIntensity: baseIntensity,
+            roughness: 0.1,
+            metalness: 0.9
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        // Physics State stored in mesh userData
+        coreMesh.userData = { 
+            baseIntensity: baseIntensity, 
+            baseColor: coreColor.clone(),
+            pulseMode: 'NONE', // NONE, RESONATE, TUNNEL, REJECT
+            pulseTimer: 0 
+        };
+        
+        // POINTER
+        const pointerGeo = new THREE.ConeGeometry(0.05, 0.4, 8);
+        pointerGeo.translate(0, 0.2, 0); 
+        pointerGeo.rotateX(Math.PI / 2); 
+        const pointerMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+        const pointerMesh = new THREE.Mesh(pointerGeo, pointerMat);
+        
+        const pivot = new THREE.Group();
+        pivot.add(coreMesh); 
+        pivot.add(pointerMesh); 
+        group.add(pivot);
+
+        const q = new THREE.Quaternion(
+            mapFP8ToFloat(p.getQX()),
+            mapFP8ToFloat(p.getQY()),
+            mapFP8ToFloat(p.getQZ()),
+            mapFP8ToFloat(p.getQW())
+        ).normalize();
+        pivot.setRotationFromQuaternion(q);
+
+        // SHELL
+        const shellGeo = getEdgesGeometry(form);
+        if (shellGeo) {
+            const shellMat = new THREE.LineBasicMaterial({ 
+                color: 0xffffff, 
+                transparent: true, 
+                opacity: 0.3 + (amp/14.0) 
+            });
+            const shellMesh = new THREE.LineSegments(shellGeo, shellMat);
+            group.add(shellMesh);
+        }
+
+        // GENESIS MARKER
+        if (x===0 && y===0 && z===0) {
+            const genGeo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+            const genMat = new THREE.MeshBasicMaterial({ color: 0xffd700, wireframe: true });
+            const genMesh = new THREE.Mesh(genGeo, genMat);
+            group.add(genMesh);
+        }
+
+        // Hitbox
+        const hitBox = new THREE.Mesh(new THREE.BoxGeometry(1,1,1), new THREE.MeshBasicMaterial({visible:false}));
+        hitBox.userData = { isVoxel: true, packet: packet, gridPos: {x,y,z}, parentGroup: group, coreMesh: coreMesh };
+        group.add(hitBox);
+        
+        scene.add(group);
+        objects.push(hitBox);
+        return hitBox;
+    }
+
+    // --- INITIALIZATION ---
+    function initGenesis() {
+        const p = new SHDPacket();
+        p.setScaler(65535); 
+        p.setDynamics(15, 7); 
+        p.setState(0, 7); // ID 0 = Source 
+        p.setQuaternion(255, 127, 127, 127); 
+
+        const key = `0,0,0`;
+        voxelMap.set(key, p.data);
+        voxelMeta.set(key, { 
+            text: "GENESIS BLOCK", 
+            parent: null, 
+            children: [],
+            logic: "BUFFER"
+        });
+
+        const obj = createVoxelMesh(p.data, 0, 0, 0);
+        
+        // Set Initial Focus
+        focusedNodeKey = key;
+        focusedNodeObj = obj;
+
+        const light = new THREE.PointLight(0xffffff, 1, 10);
+        light.position.set(0, 0, 0);
+        scene.add(light);
+        
+        // Initial Camera Pos
+        camera.position.set(0, 2, 5);
+    }
+
+    initGenesis();
+
+    // --- PHYSICS ENGINE ---
+    const pulseIndicator = document.getElementById('pulse-indicator');
+    const physicsLog = document.getElementById('physics-log');
+
+    function logPhysics(msg, type) {
+        const div = document.createElement('div');
+        div.className = 'log-entry';
+        if(type === 'res') div.classList.add('log-res');
+        if(type === 'tun') div.classList.add('log-tun');
+        if(type === 'rej') div.classList.add('log-rej');
+        if(type === 'op') div.classList.add('log-op');
+        div.innerText = msg;
+        physicsLog.prepend(div);
+        if(physicsLog.children.length > 20) physicsLog.lastChild.remove();
+    }
+
+    // Construct the "Photon" from UI settings
+    function getPhotonPacket() {
+        const p = new SHDPacket();
+        p.setScaler(parseInt(document.getElementById('in-scaler').value));
+        p.setDynamics(
+            parseInt(document.getElementById('in-freq').value),
+            parseInt(document.getElementById('in-spin').value)
+        );
+        p.setState(
+            parseInt(document.getElementById('in-form').value),
+            parseInt(document.getElementById('in-amp').value)
+        );
+        return p;
+    }
+
+    let pulseQueue = []; 
+
+    // Attach to window so HTML buttons can access it
+    window.initiateSignalPulse = function() {
+        const photon = getPhotonPacket();
+        pulseIndicator.classList.add('active');
+        logPhysics(`>>> SIGNAL INJECTION: Phase ${photon.getFreq()} | Spin ${photon.getSpin()}`, 'res');
+        
+        // Inject into Genesis with TTL
+        pulseQueue = [{ key: "0,0,0", photon: photon, depth: 0, ttl: 50 }];
+        processPulseStep();
+    }
+
+    function checkSpinRouting(photonSpin, currentPos, nextPos) {
+        const dx = nextPos.x - currentPos.x;
+        const dy = nextPos.y - currentPos.y;
+        const dz = nextPos.z - currentPos.z;
+
+        switch(photonSpin) {
+            case 0: return true; 
+            case 1: return dy === 0; 
+            case 2: return dy > 0; 
+            case 3: return dy < 0; 
+            case 4: return (dx !== 0 || dz !== 0); 
+            case 5: return (dx === 0 && dz === 0); 
+            case 6: return dx > 0 || dy > 0; 
+            case 7: return dx < 0 || dy > 0; 
+            default: return true;
+        }
+    }
+
+    function checkGrammar(photonForm, nodeForm) {
+        return (photonForm % 2) === (nodeForm % 2); 
+    }
+
+    function processPulseStep() {
+        const nextQueue = [];
+        
+        pulseQueue.forEach(item => {
+            const { key, photon, depth, ttl } = item;
+            
+            // Check TTL
+            if (ttl <= 0) {
+                logPhysics(`[${key}] SIGNAL DIED (TTL Expired)`, 'rej');
+                return;
+            }
+
+            const packetInt = voxelMap.get(key);
+            if(!packetInt) return;
+            const nodePacket = new SHDPacket();
+            nodePacket.setFromBigInt(packetInt);
+            
+            // Get Metadata for Logic
+            const meta = voxelMeta.get(key);
+            const logicGate = meta ? (meta.logic || "BUFFER") : "BUFFER";
+
+            const coords = key.split(',').map(Number);
+            const obj = objects.find(o => 
+                o.userData.gridPos.x === coords[0] &&
+                o.userData.gridPos.y === coords[1] &&
+                o.userData.gridPos.z === coords[2]
+            );
+            
+            if(!obj) return;
+            const core = obj.userData.coreMesh;
+
+            // --- 1. PHASE CHECK (Resonance vs Tunnel) ---
+            const isResonant = (photon.getFreq() === nodePacket.getFreq());
+            
+            let passSignal = false;
+            let outputPhoton = photon.clone(); 
+            
+            if (isResonant) {
+                // --- 2. LOGIC GATE PROCESSING (From Metadata) ---
+                
+                // Defaults
+                core.userData.pulseMode = 'RESONATE';
+                core.userData.pulseTimer = 1.0;
+                
+                // Logic based on assigned GATE, not Shape
+                switch(logicGate) {
+                    case "BLOCK":
+                        logPhysics(`[${key}] BLOCKED`, 'rej');
+                        core.userData.pulseMode = 'REJECT';
+                        passSignal = false;
+                        break;
+
+                    case "BUFFER":
+                        logPhysics(`[${key}] BUFFER: Passing`, 'res');
+                        passSignal = true;
+                        break;
+                    
+                    case "COMPARATOR": 
+                        if (photon.getAmp() >= nodePacket.getAmp()) {
+                            logPhysics(`[${key}] GATE OPEN`, 'op');
+                            passSignal = true;
+                        } else {
+                            logPhysics(`[${key}] GATE CLOSED`, 'rej');
+                            core.userData.pulseMode = 'REJECT';
+                        }
+                        break;
+                        
+                    case "OMNI": 
+                        logPhysics(`[${key}] OMNI-SPLIT`, 'op');
+                        outputPhoton.setDynamics(outputPhoton.getFreq(), 0);
+                        passSignal = true;
+                        break;
+                        
+                    case "PHASE_MOD": 
+                        const newPhase = (outputPhoton.getFreq() + 1) % 32;
+                        outputPhoton.setDynamics(newPhase, outputPhoton.getSpin());
+                        logPhysics(`[${key}] SHIFT: Phase -> ${newPhase}`, 'op');
+                        passSignal = true;
+                        break;
+                        
+                    case "AMPLIFIER": 
+                        const newScale = Math.min(65535, outputPhoton.getScaler() + 5000);
+                        outputPhoton.setScaler(newScale);
+                        logPhysics(`[${key}] AMPLIFY`, 'op');
+                        passSignal = true;
+                        break;
+                        
+                    case "SPIN_A": 
+                        outputPhoton.setDynamics(outputPhoton.getFreq(), 6);
+                        logPhysics(`[${key}] SPIN MOD: -> Type A`, 'op');
+                        passSignal = true;
+                        break;
+                        
+                    case "SPIN_B": 
+                        outputPhoton.setDynamics(outputPhoton.getFreq(), 7);
+                        logPhysics(`[${key}] SPIN MOD: -> Type B`, 'op');
+                        passSignal = true;
+                        break;
+                        
+                    case "PROB": 
+                        if (Math.random() > 0.5) {
+                            logPhysics(`[${key}] PROBABILITY: Passed`, 'op');
+                            passSignal = true;
+                        } else {
+                            logPhysics(`[${key}] PROBABILITY: Collapsed`, 'rej');
+                            core.userData.pulseMode = 'REJECT';
+                        }
+                        break;
+                        
+                    default:
+                        passSignal = true;
+                        break;
+                }
+                
+            } else {
+                // Phase Mismatch -> Tunneling
+                core.userData.pulseMode = 'TUNNEL';
+                core.userData.pulseTimer = 0.5; 
+                passSignal = true; 
+            }
+
+            // --- 3. PROPAGATION ---
+            if (passSignal) {
+                if(meta && meta.children) {
+                    meta.children.forEach(childKey => {
+                        const cCoords = childKey.split(',').map(Number);
+                        const currentPos = {x: coords[0], y: coords[1], z: coords[2]};
+                        const nextPos = {x: cCoords[0], y: cCoords[1], z: cCoords[2]};
+
+                        if (checkSpinRouting(outputPhoton.getSpin(), currentPos, nextPos)) {
+                            nextQueue.push({ key: childKey, photon: outputPhoton, depth: depth + 1, ttl: ttl - 1 });
+                        }
+                    });
+                }
+            }
+        });
+
+        if(nextQueue.length > 0) {
+            pulseQueue = nextQueue;
+            const speed = 250 - (pulseQueue[0].photon.getAmp() * 20); 
+            setTimeout(processPulseStep, Math.max(50, speed));
+        } else {
+            pulseIndicator.classList.remove('active');
+            logPhysics(">>> SIGNAL END", 'tun');
+        }
+    }
+
+    // --- TRAVERSAL & UI LOGIC ---
+    const floatingCodex = document.getElementById('floating-codex');
+    const fcCoords = document.getElementById('fc-coords');
+    const fcContent = document.getElementById('fc-content');
+    const fcBranch = document.getElementById('fc-branch');
+
+    function updateFocus(key) {
+        if(!voxelMap.has(key)) return;
+        const coords = key.split(',').map(Number);
+        const targetObj = objects.find(o => 
+            o.userData.gridPos.x === coords[0] &&
+            o.userData.gridPos.y === coords[1] &&
+            o.userData.gridPos.z === coords[2]
+        );
+        if(targetObj) {
+            focusedNodeKey = key;
+            focusedNodeObj = targetObj;
+            branchIndex = 0;
+            updateFloatingCodex();
+        }
+    }
+
+    function updateFloatingCodex() {
+        if(!focusedNodeKey) return;
+        const meta = voxelMeta.get(focusedNodeKey);
+        fcCoords.innerText = focusedNodeKey;
+        
+        // Show Logic Type in Codex
+        const logicType = meta ? (meta.logic || "BUFFER") : "BUFFER";
+        const content = meta ? (meta.text || "[No Data]") : "NULL";
+        fcContent.innerHTML = `<span style="color:#f0f">[${logicType}]</span><br>${content}`;
+        
+        if(meta && meta.children.length > 1) {
+            fcBranch.innerText = `Branch ${branchIndex+1}/${meta.children.length}`;
+            fcBranch.style.display = 'block';
+        } else { fcBranch.style.display = 'none'; }
+    }
+
+    window.toggleTutorial = function() {
+        const el = document.getElementById('tutorial-overlay');
+        if(el.classList.contains('hidden')) {
+            el.classList.remove('hidden');
+            document.exitPointerLock();
+        } else {
+            el.classList.add('hidden');
+        }
+    }
+
+    const confirmModal = document.getElementById('confirm-modal');
+    const modalCoords = document.getElementById('modal-coords');
+    const modalCodex = document.getElementById('modal-codex-input');
+    const modalLogic = document.getElementById('modal-logic-select');
+    
+    const btnDeconstruct = document.getElementById('btn-deconstruct');
+    const btnLink = document.getElementById('btn-link');
+    const btnRewrite = document.getElementById('btn-rewrite');
+    let pendingPlace = null, pendingDestroy = null, pendingRewrite = null, isModifyMode = false;
+    let playerTeamID = 0; 
+
+    function openInteractionModal(targetObj, gridX, gridY, gridZ, mode) {
+        document.exitPointerLock();
+        const newP = getPhotonPacket();
+        const sourcePos = targetObj.userData.gridPos;
+        const sourceKey = `${sourcePos.x},${sourcePos.y},${sourcePos.z}`;
+        const sourceMeta = voxelMeta.get(sourceKey) || { text: "", parent: null, children: [], logic: "BUFFER" };
+
+        btnDeconstruct.classList.remove('visible');
+        btnLink.classList.remove('visible');
+        btnRewrite.classList.remove('visible');
+        pendingDestroy = targetObj.userData.parentGroup;
+
+        if (mode === 'MODIFY') {
+            modalCoords.innerText = sourceKey;
+            btnRewrite.classList.add('visible');
+            btnDeconstruct.classList.add('visible');
+            modalCodex.value = sourceMeta.text;
+            modalLogic.value = sourceMeta.logic || "BUFFER"; // Load Logic State
+            pendingRewrite = { x: sourcePos.x, y: sourcePos.y, z: sourcePos.z, packet: newP.data, targetObj: targetObj, key: sourceKey };
+        } else {
+            const newKey = `${gridX},${gridY},${gridZ}`;
+            modalCoords.innerText = `${sourceKey} -> ${newKey}`;
+            btnLink.classList.add('visible');
+            btnDeconstruct.classList.add('visible');
+            modalCodex.value = "";
+            modalLogic.value = "BUFFER"; // Default for new
+            pendingPlace = { x: gridX, y: gridY, z: gridZ, packet: newP.data, parentKey: sourceKey };
+        }
+
+        if (sourcePos.x === 0 && sourcePos.y === 0 && sourcePos.z === 0) {
+            btnDeconstruct.disabled = true;
+            btnDeconstruct.innerText = "LOCKED";
+        } else {
+            btnDeconstruct.disabled = false;
+            btnDeconstruct.innerText = "DECONSTRUCT";
+        }
+        confirmModal.style.display = 'block';
+    }
+
+    window.confirmPlacement = function() {
+        if(pendingPlace) {
+            const key = `${pendingPlace.x},${pendingPlace.y},${pendingPlace.z}`;
+            if(!voxelMap.has(key)) {
+                voxelMap.set(key, pendingPlace.packet);
+                voxelMeta.set(key, { 
+                    text: modalCodex.value, 
+                    parent: pendingPlace.parentKey, 
+                    children: [],
+                    logic: modalLogic.value // Save Logic
+                });
+                const parentMeta = voxelMeta.get(pendingPlace.parentKey);
+                if(parentMeta) parentMeta.children.push(key);
+                createVoxelMesh(pendingPlace.packet, pendingPlace.x, pendingPlace.y, pendingPlace.z);
+            }
+        }
+        closeModalAction();
+    }
+
+    window.confirmRewrite = function() {
+        if(pendingRewrite) {
+            const meta = voxelMeta.get(pendingRewrite.key);
+            if(meta) {
+                meta.text = modalCodex.value;
+                meta.logic = modalLogic.value; // Update Logic
+            }
+            const hitBox = pendingRewrite.targetObj;
+            const group = hitBox.userData.parentGroup;
+            scene.remove(group);
+            objects.splice(objects.indexOf(hitBox), 1);
+            voxelMap.set(pendingRewrite.key, pendingRewrite.packet);
+            createVoxelMesh(pendingRewrite.packet, pendingRewrite.x, pendingRewrite.y, pendingRewrite.z);
+            
+            // Refresh Codex if focused
+            if(focusedNodeKey === pendingRewrite.key) updateFloatingCodex();
+        }
+        closeModalAction();
+    }
+
+    window.confirmDestruction = function() {
+        if(pendingDestroy) {
+            const hitBox = pendingDestroy.children.find(c => c.userData.isVoxel);
+            const gp = hitBox.userData.gridPos;
+            if(gp.x === 0 && gp.y === 0 && gp.z === 0) return;
+            scene.remove(pendingDestroy);
+            objects.splice(objects.indexOf(hitBox), 1);
+            voxelMap.delete(`${gp.x},${gp.y},${gp.z}`);
+        }
+        closeModalAction();
+    }
+
+    window.closeModalAction = function() {
+        confirmModal.style.display = 'none';
+        pendingPlace = null; pendingDestroy = null; pendingRewrite = null;
+        controls.lock();
+    }
+
+    // --- ANIMATION & INPUT ---
+    let moveForward = false, moveBackward = false, moveLeft = false, moveRight = false, moveUp = false, moveDown = false;
+    let isLocked = false;
+
+    const controls = new PointerLockControls(camera, document.body);
+    const packetEditor = document.getElementById('packet-editor');
+    const topBar = document.getElementById('top-bar');
+
+    document.addEventListener('mousedown', (e) => {
+        const path = e.composedPath();
+        if(path.includes(confirmModal) || path.includes(packetEditor) || path.includes(topBar)) return;
+        if (e.button === 2) isModifyMode = true;
+        if(isLocked) {
+            if (e.button === 0) onGameClick(e);
+        } else {
+            const tutorial = document.getElementById('tutorial-overlay');
+            if(!tutorial.classList.contains('hidden')) return; 
+            if(!path.includes(confirmModal) && e.button === 0) controls.lock();
+        }
+    });
+    document.addEventListener('mouseup', (e) => { if (e.button === 2) isModifyMode = false; });
+
+    controls.addEventListener('lock', () => {
+        if(confirmModal) confirmModal.style.display = 'none';
+        if(floatingCodex) floatingCodex.style.display = 'block';
+        if(packetEditor) { packetEditor.style.pointerEvents = 'none'; packetEditor.style.opacity = '0.5'; }
+        if(topBar) topBar.style.opacity = '0.5';
+        isLocked = true;
+    });
+    controls.addEventListener('unlock', () => {
+        if(packetEditor) { packetEditor.style.pointerEvents = 'auto'; packetEditor.style.opacity = '1'; }
+        if(topBar) topBar.style.opacity = '1';
+        if(floatingCodex) floatingCodex.style.display = 'none';
+        isLocked = false; isModifyMode = false;
+    });
+
+    document.addEventListener('keydown', (event) => {
+        switch (event.code) {
+            case 'KeyW': moveForward = true; break;
+            case 'KeyA': moveLeft = true; break;
+            case 'KeyS': moveBackward = true; break;
+            case 'KeyD': moveRight = true; break;
+            case 'Space': moveUp = true; break;
+            case 'ShiftLeft': moveDown = true; break;
+            case 'KeyE': if(isLocked) controls.unlock(); else controls.lock(); break;
+            case 'ArrowLeft': 
+                if(isLocked && focusedNodeKey) {
+                    const meta = voxelMeta.get(focusedNodeKey);
+                    if(meta && meta.parent) updateFocus(meta.parent);
+                } break;
+            case 'ArrowRight': 
+                if(isLocked && focusedNodeKey) {
+                    const meta = voxelMeta.get(focusedNodeKey);
+                    if(meta && meta.children.length > 0) updateFocus(meta.children[branchIndex % meta.children.length]);
+                } break;
+            case 'ArrowUp': 
+                if(isLocked && focusedNodeKey) {
+                    const meta = voxelMeta.get(focusedNodeKey);
+                    if(meta && meta.children.length > 1) { branchIndex = (branchIndex + 1) % meta.children.length; updateFloatingCodex(); }
+                } break;
+            case 'ArrowDown': 
+                if(isLocked && focusedNodeKey) {
+                    const meta = voxelMeta.get(focusedNodeKey);
+                    if(meta && meta.children.length > 1) { branchIndex = (branchIndex - 1 + meta.children.length) % meta.children.length; updateFloatingCodex(); }
+                } break;
+        }
+    });
+    document.addEventListener('keyup', (event) => {
+        switch (event.code) {
+            case 'KeyW': moveForward = false; break;
+            case 'KeyA': moveLeft = false; break;
+            case 'KeyS': moveBackward = false; break;
+            case 'KeyD': moveRight = false; break;
+            case 'Space': moveUp = false; break;
+            case 'ShiftLeft': moveDown = false; break;
+        }
+    });
+
+    const raycaster = new THREE.Raycaster();
+    const focusTargetVec = new THREE.Vector3();
+    let prevTime = performance.now();
+    const velocity = new THREE.Vector3();
+    const direction = new THREE.Vector3();
+
+    function onGameClick(event) {
+        raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+        const intersects = raycaster.intersectObjects(objects);
+        if (intersects.length > 0) {
+            const intersect = intersects[0];
+            const obj = intersect.object; 
+            if (event.button === 0) {
+                const gp = obj.userData.gridPos;
+                updateFocus(`${gp.x},${gp.y},${gp.z}`);
+                if (isModifyMode) openInteractionModal(obj, gp.x, gp.y, gp.z, 'MODIFY');
+                else {
+                    const n = intersect.face.normal;
+                    const p = intersect.point.clone().add(n.clone().multiplyScalar(0.5));
+                    openInteractionModal(obj, Math.round(p.x), Math.round(p.y), Math.round(p.z), 'PLACE');
+                }
+            }
+        }
+    }
+
+    function updateLabels() {
+        document.getElementById('val-scaler').innerText = document.getElementById('in-scaler').value;
+        document.getElementById('val-freq').innerText = document.getElementById('in-freq').value;
+        document.getElementById('val-spin').innerText = document.getElementById('in-spin').value;
+        const fId = parseInt(document.getElementById('in-form').value);
+        document.getElementById('val-form').innerText = `${fId} (${formNames[fId]||'?'})`;
+        document.getElementById('val-amp').innerText = document.getElementById('in-amp').value;
+    }
+    const inputs = document.querySelectorAll('input[type=range]');
+    inputs.forEach(input => input.addEventListener('input', updateLabels));
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const time = performance.now();
+        const delta = (time - prevTime) / 1000;
+        
+        objects.forEach(obj => {
+            const core = obj.userData.coreMesh;
+            if(core && core.userData.pulseTimer > 0) {
+                core.userData.pulseTimer -= delta * 3.0; 
+                
+                let targetColor = core.userData.baseColor;
+                let intensity = core.userData.baseIntensity;
+                
+                if (core.userData.pulseMode === 'RESONATE') {
+                    targetColor = new THREE.Color(0xffd700); intensity = 3.0;
+                } else if (core.userData.pulseMode === 'TUNNEL') {
+                    targetColor = new THREE.Color(0x00ffff); intensity = 1.0;
+                } else if (core.userData.pulseMode === 'REJECT') {
+                    targetColor = new THREE.Color(0xff0000); intensity = 5.0;
+                }
+                
+                const alpha = Math.max(0, core.userData.pulseTimer);
+                core.material.color.lerpColors(core.userData.baseColor, targetColor, alpha);
+                core.material.emissive.lerpColors(core.userData.baseColor, targetColor, alpha);
+                core.material.emissiveIntensity = intensity * alpha + core.userData.baseIntensity * (1-alpha);
+                
+                if(core.userData.pulseTimer <= 0) {
+                    core.userData.pulseMode = 'NONE';
+                    core.material.color.copy(core.userData.baseColor);
+                }
+            }
+        });
+
+        if (focusedNodeObj && floatingCodex.style.display !== 'none') {
+            const targetPos = focusedNodeObj.userData.parentGroup.position.clone();
+            targetPos.y += 0.8; 
+            targetPos.project(camera);
+            const x = (targetPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(targetPos.y * .5) + .5) * window.innerHeight;
+            if (targetPos.z < 1) {
+                floatingCodex.style.left = `${x}px`;
+                floatingCodex.style.top = `${y}px`;
+                floatingCodex.style.opacity = 1;
+            } else floatingCodex.style.opacity = 0;
+        }
+
+        if(isLocked) {
+            velocity.x -= velocity.x * 10.0 * delta;
+            velocity.z -= velocity.z * 10.0 * delta;
+            velocity.y -= velocity.y * 10.0 * delta;
+            direction.z = Number(moveForward) - Number(moveBackward);
+            direction.x = Number(moveRight) - Number(moveLeft);
+            direction.y = Number(moveUp) - Number(moveDown);
+            direction.normalize();
+            if (moveForward || moveBackward) velocity.z -= direction.z * 80.0 * delta;
+            if (moveLeft || moveRight) velocity.x -= direction.x * 80.0 * delta;
+            if (moveUp || moveDown) velocity.y += direction.y * 80.0 * delta;
+            controls.moveRight(-velocity.x * delta);
+            controls.moveForward(-velocity.z * delta);
+            camera.position.y += velocity.y * delta;
+            
+            raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+            const intersects = raycaster.intersectObjects(objects);
+            
+            if (intersects.length > 0) {
+                const intersect = intersects[0];
+                const obj = intersect.object;
+                
+                if (isModifyMode) {
+                    const gp = obj.userData.gridPos;
+                    selectionMesh.position.set(gp.x, gp.y, gp.z);
+                    selectionMat.opacity = 0.2; 
+                    selectionMesh.visible = true;
+                } else {
+                    const n = intersect.face.normal;
+                    const p = intersect.point.clone().add(n.clone().multiplyScalar(0.5));
+                    selectionMesh.position.set(Math.round(p.x), Math.round(p.y), Math.round(p.z));
+                    selectionMat.opacity = 0.6;
+                    selectionMesh.visible = true;
+                }
+            } else {
+                selectionMesh.visible = false;
+            }
+        } else {
+            if(confirmModal.style.display !== 'block') selectionMesh.visible = false;
+        }
+
+        prevTime = time;
+        renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+    updateLabels();
+</script>
+</body>
+</html>
