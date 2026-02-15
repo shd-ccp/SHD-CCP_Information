@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schism Labs: Field Manual</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        body { 
+            background-color: #020617; 
+            color: #cbd5e1; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            scroll-behavior: smooth;
+            overflow-x: hidden;
+        }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+
+        /* Dynamic Background */
+        #bg-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            z-index: -1;
+            opacity: 0.2; /* Subtle wireframe effect */
+            pointer-events: none;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 280px;
+            background: rgba(15, 23, 42, 0.95); /* Semi-transparent */
+            backdrop-filter: blur(10px);
+            border-right: 1px solid #1e293b;
+            padding: 2rem;
+            overflow-y: auto;
+            z-index: 50;
+        }
+
+        /* Content Area */
+        .content {
+            margin-left: 280px;
+            padding: 2rem 4rem;
+            max-width: 1100px;
+            position: relative;
+            background: rgba(2, 6, 23, 0.85); /* Darker overlay for readability */
+            min-height: 100vh;
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        /* Hero Header */
+        .hero-banner {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid #334155;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+            backdrop-filter: blur(5px);
+            transition: border-color 0.3s;
+        }
+        .hero-banner:hover { border-color: #f59e0b; }
+        
+        #mini-voxel-container {
+            width: 120px;
+            height: 120px;
+            position: relative;
+        }
+
+        /* Typography */
+        h1, h2, h3 { color: #f59e0b; font-family: 'Courier New', monospace; letter-spacing: -0.5px; }
+        h1 { font-size: 2.5rem; border-bottom: 2px solid #f59e0b; padding-bottom: 1rem; margin-bottom: 2rem; }
+        h2 { font-size: 1.75rem; margin-top: 4rem; margin-bottom: 1.5rem; border-left: 4px solid #f59e0b; padding-left: 1rem; color: #fff; }
+        h3 { font-size: 1.25rem; color: #38bdf8; margin-top: 2rem; margin-bottom: 0.5rem; font-weight: bold; }
+        h4 { font-size: 1rem; color: #94a3b8; font-weight: bold; margin-top: 1rem; text-transform: uppercase; letter-spacing: 1px;}
+
+        p { margin-bottom: 1rem; line-height: 1.6; color: #cbd5e1; }
+        ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1.5rem; color: #94a3b8; }
+        li { margin-bottom: 0.5rem; }
+        strong { color: #fff; }
+
+        .nav-link {
+            display: block;
+            padding: 0.5rem 0;
+            color: #64748b;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            border-left: 2px solid transparent;
+            padding-left: 1rem;
+        }
+        .nav-link:hover, .nav-link.active {
+            color: #f59e0b;
+            border-left-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+        .nav-header {
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: #475569;
+            text-transform: uppercase;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            padding-left: 1rem;
+        }
+
+        .card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid #334155;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .tech-block {
+            background: #020617;
+            border: 1px solid #1e293b;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            color: #38bdf8;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        code {
+            background: #0f172a;
+            color: #f59e0b;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        /* Diagrams */
+        .hierarchy-tree {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+        }
+        .node {
+            background: #0f172a;
+            border: 1px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            width: 120px;
+            position: relative;
+        }
+        .node-line { height: 2px; width: 40px; background: #334155; }
+        .node-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
+        .node-val { font-weight: bold; color: #f59e0b; }
+
+        @media (max-width: 768px) {
+            .sidebar { position: relative; width: 100%; height: auto; border-right: none; border-bottom: 1px solid #334155; }
+            .content { margin-left: 0; padding: 2rem; }
+            .hero-banner { flex-direction: column; text-align: center; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    
+    <!-- DYNAMIC BACKGROUND -->
+    <canvas id="bg-canvas"></canvas>
+
+    <!-- SIDEBAR NAV -->
+    <nav class="sidebar">
+        <div class="mb-8">
+            <div class="text-xs text-slate-500 uppercase tracking-widest mb-1">Manual v2.4</div>
+            <div class="text-2xl font-bold text-amber-500 font-mono">SCHISM LABS</div>
+            <div class="text-xs text-slate-400">Ontological Source Tracer</div>
+        </div>
+        
+        <div class="nav-header">1. Architecture</div>
+        <a href="#intro" class="nav-link">Introduction</a>
+        <a href="#ontology" class="nav-link">Ontological Hierarchy</a>
+        <a href="#shd-ccp" class="nav-link">SHD-CCP Protocol</a>
+
+        <div class="nav-header">2. The Engine</div>
+        <a href="#hyperbolic" class="nav-link">Hyperbolic Space</a>
+        <a href="#ai-trans" class="nav-link">AI-to-AI Translation</a>
+        <a href="#ledger" class="nav-link">Chain Sovereignty</a>
+
+        <div class="nav-header">3. Operations</div>
+        <a href="#workflow" class="nav-link">Step-by-Step Guide</a>
+        <a href="#admin" class="nav-link">System Administration</a>
+        <a href="#resources" class="nav-link">Resources & Credits</a>
+        
+        <div class="mt-8 pt-8 border-t border-slate-800">
+            <div class="text-xs text-slate-600">
+                &copy; 2025 Schism Labs<br>
+                System Status: <span class="text-emerald-500">Active</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTENT AREA -->
+    <main class="content">
+        
+        <!-- HERO BANNER -->
+        <div class="hero-banner">
+            <div>
+                <h2 class="!mt-0 !mb-2 !border-none !p-0 !text-2xl text-white">SHD-CCP Document Chain Sim v1.4</h2>
+                <p class="text-sm text-slate-400 max-w-lg mb-4">
+                    Access the live simulation of the Ontological Documentation Chain. Visualize the 64-bit lattice structure in real-time.
+                </p>
+                <a href="https://shd-ccp.github.io/SHD-CCP_Information//Main_Simulations/Ontological-Documentation/SHD-CCP_DOCUMENT_CHAIN_SIM_V1.4.html" target="_blank" class="inline-block bg-amber-500 hover:bg-amber-600 text-slate-900 font-bold py-2 px-6 rounded transition-colors">
+                    <i class="fa-solid fa-rocket mr-2"></i> Launch Simulation
+                </a>
+            </div>
+            <div class="flex flex-col items-center">
+                <div id="mini-voxel-container"></div>
+                <div class="text-[10px] text-amber-500 font-mono mt-1 tracking-widest">SHD-CCP LATTICE</div>
+            </div>
+        </div>
+
+        <!-- INTRO -->
+        <section id="intro">
+            <h1>System Manual</h1>
+            <p class="text-lg mb-6 leading-relaxed text-white">
+                The <strong>Ontological Source Tracer</strong> is a specialized instrument for mapping knowledge topography. Unlike linear file systems that organize data by name or date, this system organizes data by <strong>genesis lineage</strong> and <strong>geometric perspective</strong>.
+            </p>
+            <div class="card bg-slate-900/50">
+                <h3 class="!mt-0 text-amber-500">Public Test Build (Forward Facing)</h3>
+                <p>
+                    This is the <strong>forward-facing public test version</strong> hosted via the SHD-CCP GitHub. In this early iteration, users maintain their own JSON data structure locally. As the system matures, cloud storage and direct AI integration features will be enabled.
+                </p>
+                <p>
+                    <strong>Research & Development:</strong> The core development is led by <strong>Schism Labs</strong>, operators of the Genesis Chain. The physics, mathematics, and geometric semiotics systems are provided by <strong>BioChain AI</strong>. 
+                </p>
+                <p>
+                    We have <strong>open-sourced the 64-bit SHD-CCP</strong> (Symbolic High-Dimensional Context Compression Protocol) to enable universal AI interoperability. This protocol is optimized for growing general intelligence through <strong>non-integer based reasoning</strong>, moving beyond the limitations of traditional linear linguistic models.
+                </p>
+            </div>
+        </section>
+
+        <!-- ONTOLOGY -->
+        <section id="ontology">
+            <h2>1. The Ontological Hierarchy</h2>
+            <p>The core philosophy of Schism Labs is that information is not static; it is derived. Every piece of data has a parent "Seed" and a specific "Angle" from which it is viewed.</p>
+
+            <div class="hierarchy-tree">
+                <div class="node">
+                    <div class="node-label">ROOT</div>
+                    <div class="node-val">GENESIS</div>
+                    <div class="text-xs text-slate-500 mt-1">The Seed</div>
+                </div>
+                <div class="node-line"></div>
+                <div class="node">
+                    <div class="node-label">VECTOR</div>
+                    <div class="node-val">BRANCH</div>
+                    <div class="text-xs text-slate-500 mt-1">Perspective</div>
+                </div>
+                <div class="node-line"></div>
+                <div class="node">
+                    <div class="node-label">MANIFEST</div>
+                    <div class="node-val">SIGIL</div>
+                    <div class="text-xs text-slate-500 mt-1">The File</div>
+                </div>
+            </div>
+
+            <h3>The Three Tiers</h3>
+            <ul class="list-none pl-0">
+                <li class="mb-4">
+                    <strong class="text-blue-400">Tier 1: The Course (Genesis)</strong><br>
+                    A folder acts as a container for a "Genesis Seed"—a random 64-bit Hexadecimal string. This seed contains the latent potential for all lessons within that module.
+                </li>
+                <li class="mb-4">
+                    <strong class="text-purple-400">Tier 2: The Branch (Perspective)</strong><br>
+                    The system defines 6 "Cubic Perspectives" (Front, Back, Right, Left, Top, Bottom). A lesson cannot exist in a vacuum; it must be "branched" from the Genesis Seed via one of these perspectives.
+                </li>
+                <li class="mb-4">
+                    <strong class="text-amber-400">Tier 3: The Lesson (Manifestation)</strong><br>
+                    The file itself. Its identity (Hex ID) is mathematically derived by rotating the Genesis Seed according to the chosen Branch. This ensures that every file is cryptographically linked to its parent.
+                </li>
+            </ul>
+        </section>
+
+        <!-- SHD-CCP PROTOCOL -->
+        <section id="shd-ccp">
+            <h2>2. The SHD-CCP Protocol</h2>
+            <p>The <strong>SHD-CCP (Slice-Harmonic-Depth Complex-Coordinate-Plane)</strong> is the underlying data structure that enables the visual and cryptographic functions of the tracer.</p>
+
+            <h3>The 64-Bit "Sandwich" Layout</h3>
+            <p>We do not store data as arbitrary strings. We pack metadata into a precise 64-bit Hex structure, optimized for both 3D rendering and AI interpretation.</p>
+
+            <div class="tech-block">
+                HEX ID STRUCTURE: [ 00 11 22 33 44 55 66 77 ] (16 Chars)<br><br>
+                ROW 0 [0-1]: STRUCTURE ID (Semiotics) -> Defines the geometric primitive (Square, Circle, etc.)<br>
+                ROW 1 [2-3]: SCALE A (Buffer)         -> Defines expansion radius<br>
+                ROWS 2-5 [4-11]: QUATERNION (Math)    -> Defines vector orientation (x,y,z,w)<br>
+                ROW 6 [12-13]: SCALE B (Buffer)       -> Defines harmonic resonance<br>
+                ROW 7 [14-15]: DYNAMICS (Physics)     -> Defines frequency/color (Temporal state)
+            </div>
+
+            <h3>Geometric Translation</h3>
+            <p>The system reads this hex string and projects it into a 4x4x4 Voxel Cube. By taking cross-sections (Slices) of this cube, we generate the 2D Sigil.</p>
+            <ul>
+                <li><strong>Outer Square:</strong> Represents the Root/Course Data.</li>
+                <li><strong>Middle Circle:</strong> Represents the Class/Branch Data.</li>
+                <li><strong>Inner Triangle:</strong> Represents the Hash/File Data.</li>
+            </ul>
+        </section>
+
+        <!-- HYPERBOLIC SPACE & AI -->
+        <section id="hyperbolic">
+            <h2>3. Hyperbolic Space & AI Translation</h2>
+            <p>This system is designed to bridge the gap between human readability and machine comprehension.</p>
+
+            <h3>AI-to-AI Translation</h3>
+            <p>Large Language Models (LLMs) struggle with raw images but excel with tokens. The SHD-CCP protocol converts complex geometric relationships into a <strong>16-character string</strong>.</p>
+            <div class="card border-l-4 border-l-emerald-500">
+                <h4 class="text-emerald-400 !mt-0">The Bridge</h4>
+                <p class="!mb-0 text-sm">When one AI passes a document to another, it doesn't need to describe the file. It passes the <strong>SHD-CCP Packet</strong> (e.g., <code>A4F9...</code>). The receiving AI decodes the "Sandwich" to instantly understand:</p>
+                <ol class="list-decimal ml-6 mt-2 text-sm text-slate-400">
+                    <li>Which Project (Genesis Seed) it belongs to.</li>
+                    <li>What perspective (Branch) is required to view it.</li>
+                    <li>What state (Dynamics) the document is in.</li>
+                </ol>
+            </div>
+
+            <h3>Advanced Reasoning Capabilities</h3>
+            <div class="card bg-indigo-900/20 border-indigo-500/30">
+                <p>
+                    The <strong>3-Nested Minimum Data Protocols</strong> do more than allow instant lookup across multiple perspectives. They enable <strong>inverse deductive reasoning</strong> and <strong>associative reasoning</strong> to occur within the machine logic.
+                </p>
+                <p class="mb-0">
+                    By structuring data geometrically rather than linearly, the system facilitates the creation of higher <strong>"context-aware" perspectives</strong>. This allows for multi-system inference across an almost infinite combination of linear parameterized training systems, effectively allowing the AI to "think" in shapes and relations rather than just sequences of words.
+                </p>
+            </div>
+
+            <h3>Hyperbolic Visualization</h3>
+            <p>The "Global Chain" viewer renders the database not as a list, but as a constellation. The connections between nodes (Files) and hubs (Folders) represent <strong>Semantic Distance</strong> rather than just alphabetical order. This allows the user (and the AI) to visualize the "weight" and "gravity" of different knowledge clusters.</p>
+        </section>
+
+        <!-- LEDGER SOVEREIGNTY -->
+        <section id="ledger">
+            <h2>4. Chain Sovereignty</h2>
+            <p>The Ontological Source Tracer is a <strong>Local-First</strong> application. It creates a verified chain of custody without relying on external servers.</p>
+
+            <h3>The Local Chain</h3>
+            <p>All data is stored in a JSON structure within the browser's <code>LocalStorage</code>. This JSON file *is* your database. It contains:</p>
+            <ul>
+                <li>The entire directory tree.</li>
+                <li>The cryptographic seeds for every folder.</li>
+                <li>The evolution logs for every file.</li>
+            </ul>
+
+            <h3>Portability</h3>
+            <p>By using the <strong>Export</strong> function, you create a portable "Snapshot" of your entire knowledge base. This file can be:</p>
+            <ul>
+                <li>Sent to another user.</li>
+                <li>Backed up to a hard drive.</li>
+                <li>Injected into a fresh instance of the Tracer to instantly restore the full environment.</li>
+            </ul>
+        </section>
+
+        <!-- WORKFLOW -->
+        <section id="workflow">
+            <h2>5. Step-by-Step Workflow</h2>
+            
+            <div class="space-y-6">
+                <div class="card">
+                    <h3>Step A: Initialization</h3>
+                    <p>1. Open the sidebar and click <strong>Module</strong> (Folder).<br>
+                    2. Name your project (e.g., "Project Alpha").<br>
+                    3. The system mints a Genesis Seed automatically.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Step B: Derivation</h3>
+                    <p>1. Enter the new Module folder.<br>
+                    2. Click <strong>Doc Source</strong> (File).<br>
+                    3. Select the <strong>Branch</strong> that matches your content's intent (e.g., "FRONT" for an intro, "RIGHT" for a draft).<br>
+                    4. The system rotates the Genesis Seed to create a unique File ID.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Step C: Evolution</h3>
+                    <p>1. Select the file to open the <strong>Inspector</strong>.<br>
+                    2. Use the <strong>Progress Log</strong> to add entries.<br>
+                    3. Selecting a different "Spin State" (e.g., rotating from Front to Back) updates the voxel visualization to reflect the document's maturity.</p>
+                </div>
+
+                <div class="card">
+                    <h3>Step D: Authentication</h3>
+                    <p>1. Click <strong>Download PNG</strong> in the inspector.<br>
+                    2. The resulting image contains the visual Sigil AND the embedded Hex ID (Steganography).<br>
+                    3. Use the <strong>Scanner Tab</strong> to re-import this image later, instantly locating the source record in your database.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ADMIN -->
+        <section id="admin">
+            <h2>6. System Administration</h2>
+            <p>The <strong>Admin Console</strong> provides low-level access to the data structure.</p>
+
+            <h3>Commands</h3>
+            <ul>
+                <li><code>stats</code>: View total node count and database size.</li>
+                <li><code>export</code>: Trigger a raw JSON dump to the clipboard.</li>
+                <li><code>nuke</code>: Emergency wipe of all local data (Reset to Factory).</li>
+            </ul>
+
+            <h3>JSON Injection</h3>
+            <p>The "Raw JSON Injection" bay allows you to manually patch the database. You can paste a previously exported JSON block here to merge or overwrite the current state. This is useful for syncing data between different team members manually.</p>
+        </section>
+
+        <!-- RESOURCES -->
+        <section id="resources">
+            <h2>7. Resources & Credits</h2>
+            
+            <div class="grid grid-cols-1 gap-4 mt-4">
+                <div class="card border-l-4 border-l-amber-500">
+                    <h3 class="!mt-0 text-white">Academic Paper Sources</h3>
+                    <a href="https://independent.academia.edu/SHDCCP64bitPacket" target="_blank" class="text-blue-400 hover:text-blue-300 break-all">https://independent.academia.edu/SHDCCP64bitPacket</a>
+                </div>
+
+                <div class="card border-l-4 border-l-purple-500">
+                    <h3 class="!mt-0 text-white">Schism Labs Research Ecosystem</h3>
+                    <a href="http://www.schismlabs.com" target="_blank" class="text-blue-400 hover:text-blue-300">www.schismlabs.com</a>
+                </div>
+
+                <div class="card border-l-4 border-l-emerald-500">
+                    <h3 class="!mt-0 text-white">Team</h3>
+                    <ul class="list-none pl-0">
+                        <li class="mb-2">
+                            <strong>Founder & Governance Chain CEO</strong><br>
+                            <a href="https://www.linkedin.com/in/tiffanypeil/" target="_blank" class="text-blue-400 hover:text-blue-300">Tiffany Peil</a>
+                        </li>
+                        <li>
+                            <strong>Architect & BioChain AI Metrology Specialist</strong><br>
+                            <a href="https://www.linkedin.com/in/ebayednoob" target="_blank" class="text-blue-400 hover:text-blue-300">Garrett Hoard</a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // --- Dynamic Background ---
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+
+        function resizeCanvas() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initParticles();
+        }
+
+        function initParticles() {
+            particles = [];
+            const count = Math.floor(width * height / 15000); // Density
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    vx: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    size: Math.random() * 2
+                });
+            }
+        }
+
+        function animateBg() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.15)'; // Light Blue
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.3)';
+
+            for(let i=0; i<particles.length; i++) {
+                let p = particles[i];
+                p.x += p.vx; p.y += p.vy;
+
+                if(p.x < 0 || p.x > width) p.vx *= -1;
+                if(p.y < 0 || p.y > height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Connections
+                for(let j=i+1; j<particles.length; j++) {
+                    let p2 = particles[j];
+                    let dist = Math.hypot(p2.x - p.x, p2.y - p.y);
+                    if(dist < 120) {
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+            requestAnimationFrame(animateBg);
+        }
+
+        // --- Mini Voxel Engine (Header) ---
+        function initMiniVoxel() {
+            const container = document.getElementById('mini-voxel-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
+            camera.position.set(8, 8, 8);
+            
+            const renderer = new THREE.WebGLRenderer({alpha: true, antialias: true});
+            renderer.setSize(120, 120);
+            container.appendChild(renderer.domElement);
+            
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableZoom = false;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 2.0;
+
+            const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+            const material = new THREE.MeshBasicMaterial({color: 0xf59e0b, wireframe: true, transparent: true, opacity: 0.6});
+            
+            const group = new THREE.Group();
+            for(let x=0; x<4; x++) {
+                for(let y=0; y<4; y++) {
+                    for(let z=0; z<4; z++) {
+                        const m = new THREE.Mesh(geometry, material);
+                        m.position.set(x-1.5, y-1.5, z-1.5);
+                        group.add(m);
+                    }
+                }
+            }
+            scene.add(group);
+
+            function animate() {
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }
+            animate();
+        }
+
+        // Init
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        animateBg();
+        initMiniVoxel();
+
+        // Smooth Scroll Logic
+        const sections = document.querySelectorAll('section');
+        const navLinks = document.querySelectorAll('.nav-link');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= (sectionTop - sectionHeight / 3)) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href').includes(current)) {
+                    link.classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
