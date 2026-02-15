@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>12-6-7-3-1 Chiral Compression Engine</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #050505; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #canvas-container { width: 100vw; height: 100vh; display: block; }
+        
+        /* Custom GUI Overlay */
+        #gui-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 350px;
+            background: rgba(20, 20, 30, 0.9);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #eee;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        h1 { margin: 0 0 15px 0; font-size: 18px; color: #fff; letter-spacing: 1px; border-bottom: 1px solid #444; padding-bottom: 10px; }
+        .control-group { margin-bottom: 15px; }
+        .control-label { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; margin-bottom: 5px; }
+        .value-display { color: #00ccff; font-weight: bold; }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #444;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #00ccff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid #fff;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        button {
+            flex: 1;
+            padding: 8px;
+            background: #333;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        button:hover { background: #444; border-color: #00ccff; }
+        button.active { background: #00ccff; color: #000; font-weight: bold; }
+
+        .legend { display: flex; gap: 10px; margin-top: 20px; font-size: 11px; flex-wrap: wrap; }
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 10px; height: 10px; border-radius: 50%; }
+
+        #info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: rgba(255,255,255,0.5);
+            font-size: 12px;
+            pointer-events: none;
+        }
+    </style>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    
+    <div id="info-panel">
+        Drag to rotate • Scroll to zoom • Right-click to pan
+    </div>
+
+    <div id="gui-container">
+        <h1>CHIRAL COMPRESSOR [12-6-7-3-1]</h1>
+        
+        <div class="control-group">
+            <div class="control-label">
+                <span>Twist Generator (Chirality)</span>
+                <span id="val-twist" class="value-display">7</span>
+            </div>
+            <input type="range" id="inp-twist" min="0" max="12" step="0.1" value="7">
+            <div style="font-size: 10px; color: #666; margin-top:4px;">The "7" in 12-6-7-3-1 (approx 210°)</div>
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Vertical Compression</span>
+                <span id="val-height" class="value-display">1.0</span>
+            </div>
+            <input type="range" id="inp-height" min="0.1" max="3.0" step="0.1" value="1.0">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Spiral Tension (Bowing)</span>
+                <span id="val-tension" class="value-display">0.5</span>
+            </div>
+            <input type="range" id="inp-tension" min="-2.0" max="2.0" step="0.1" value="0.5">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label"><span>Layer 12 Radius</span><span id="val-r12" class="value-display">10</span></div>
+            <input type="range" id="inp-r12" min="1" max="20" step="0.5" value="10">
+        </div>
+        
+        <div class="control-group">
+            <div class="control-label"><span>Layer 6 Radius</span><span id="val-r6" class="value-display">6</span></div>
+            <input type="range" id="inp-r6" min="1" max="15" step="0.5" value="6">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label"><span>Layer 3 Radius</span><span id="val-r3" class="value-display">3</span></div>
+            <input type="range" id="inp-r3" min="0.5" max="10" step="0.5" value="3">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label"><span>Connection Thickness</span><span id="val-thick" class="value-display">0.8</span></div>
+            <input type="range" id="inp-thick" min="0.1" max="3" step="0.1" value="0.8">
+        </div>
+
+        <div class="control-group">
+            <div class="control-label">
+                <span>Animation Speed</span>
+                <span id="val-speed" class="value-display">1.0</span>
+            </div>
+            <input type="range" id="inp-speed" min="0" max="5" step="0.1" value="1.0">
+        </div>
+
+        <div class="btn-row">
+            <button id="btn-reset">Reset Defaults</button>
+            <button id="btn-anim" class="active">Pause Anim</button>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item"><div class="dot" style="background:#FF0055"></div>12 Nodes</div>
+            <div class="legend-item"><div class="dot" style="background:#00CCFF"></div>6 Nodes</div>
+            <div class="legend-item"><div class="dot" style="background:#00FF66"></div>3 Nodes</div>
+            <div class="legend-item"><div class="dot" style="background:#FFFFFF"></div>1 Singularity</div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION & STATE ---
+        const config = {
+            twistIndex: 7.0,      // The "7" in the algorithm
+            layerHeight: 1.0,     // Vertical multiplier
+            radius12: 10.0,
+            radius6: 6.0,
+            radius3: 3.0,
+            tension: 0.5,         // Curve control point offset
+            lineThickness: 0.8,
+            speed: 1.0,
+            isAnimating: true
+        };
+
+        // --- SCENE SETUP ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(20, 15, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404040);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        pointLight.position.set(10, 20, 10);
+        scene.add(pointLight);
+        const pointLight2 = new THREE.PointLight(0x00ccff, 0.8, 100);
+        pointLight2.position.set(-10, -10, -10);
+        scene.add(pointLight2);
+
+        // Grid (Optional visual aid)
+        const gridHelper = new THREE.GridHelper(30, 30, 0x333333, 0x111111);
+        gridHelper.position.y = -5;
+        scene.add(gridHelper);
+
+        // --- GEOMETRY GROUPS ---
+        const systemGroup = new THREE.Group();
+        scene.add(systemGroup);
+
+        const nodesGroup = new THREE.Group();
+        const linesGroup = new THREE.Group();
+        systemGroup.add(nodesGroup);
+        systemGroup.add(linesGroup);
+
+        // Material Cache
+        const materials = {
+            layer12: new THREE.MeshBasicMaterial({ color: 0xFF0055 }),
+            layer6: new THREE.MeshBasicMaterial({ color: 0x00CCFF }),
+            layer3: new THREE.MeshBasicMaterial({ color: 0x00FF66 }),
+            layer1: new THREE.MeshBasicMaterial({ color: 0xFFFFFF }),
+            line: new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 })
+        };
+
+        const geometryCache = {
+            sphere: new THREE.SphereGeometry(1, 16, 16)
+        };
+
+        // --- CORE ALGORITHM LOGIC ---
+
+        function getLayerY(layerIndex) {
+            // Layer 12 is at Top, Layer 1 is at Bottom
+            // We center them around 0
+            // Indices: 0 (12), 1 (6), 2 (3), 3 (1)
+            const spread = 5 * config.layerHeight;
+            const step = spread / 3;
+            return (1.5 * step) - (layerIndex * step);
+        }
+
+        function getLayerRadius(layerIndex) {
+            if (layerIndex === 0) return config.radius12;
+            if (layerIndex === 1) return config.radius6;
+            if (layerIndex === 2) return config.radius3;
+            return 0; // Singularity
+        }
+
+        function getLayerCount(layerIndex) {
+            if (layerIndex === 0) return 12;
+            if (layerIndex === 1) return 6;
+            if (layerIndex === 2) return 3;
+            return 1;
+        }
+
+        function getChiralAngle(layerIndex) {
+            // The core logic: "7" step.
+            // 210 degrees = 7 * (360/12).
+            // Each layer twists relative to the previous one.
+            const radiansPerStep = (config.twistIndex * (Math.PI * 2)) / 12;
+            return layerIndex * radiansPerStep;
+        }
+
+        function generateSystem() {
+            // Clear previous
+            while(nodesGroup.children.length > 0){ 
+                nodesGroup.remove(nodesGroup.children[0]); 
+            }
+            while(linesGroup.children.length > 0){ 
+                linesGroup.remove(linesGroup.children[0]); 
+            }
+
+            const layerData = [];
+
+            // 1. Generate Nodes
+            for(let layer = 0; layer < 4; layer++) {
+                const count = getLayerCount(layer);
+                const radius = getLayerRadius(layer);
+                const y = getLayerY(layer);
+                const globalTwist = getChiralAngle(layer);
+                
+                const layerNodes = [];
+                const angleStep = (Math.PI * 2) / count;
+
+                // Material selection
+                let mat = materials.layer12;
+                let scale = 0.4;
+                if(layer === 1) { mat = materials.layer6; scale = 0.5; }
+                if(layer === 2) { mat = materials.layer3; scale = 0.6; }
+                if(layer === 3) { mat = materials.layer1; scale = 0.8; }
+
+                if (count === 1) {
+                    // Singularity
+                    const mesh = new THREE.Mesh(geometryCache.sphere, mat);
+                    mesh.position.set(0, y, 0);
+                    mesh.scale.set(scale, scale, scale);
+                    nodesGroup.add(mesh);
+                    layerNodes.push(new THREE.Vector3(0, y, 0));
+                } else {
+                    for(let i = 0; i < count; i++) {
+                        const theta = (i * angleStep) + globalTwist;
+                        const x = radius * Math.cos(theta);
+                        const z = radius * Math.sin(theta);
+                        
+                        const mesh = new THREE.Mesh(geometryCache.sphere, mat);
+                        mesh.position.set(x, y, z);
+                        mesh.scale.set(scale, scale, scale);
+                        nodesGroup.add(mesh);
+                        layerNodes.push(new THREE.Vector3(x, y, z));
+                    }
+                }
+                layerData.push(layerNodes);
+            }
+
+            // 2. Generate "Twistor" Connections (Phyllotaxis Spirals)
+            // We connect Layer 0 -> Layer 1 -> Layer 2 -> Layer 3
+            
+            // Logic: 12 input nodes.
+            // 12 -> 6 mapping: i connects to i%6
+            // 6 -> 3 mapping: i connects to i%3
+            // 3 -> 1 mapping: all connect to 0
+            
+            // We draw 12 continuous splines from top to bottom
+            for(let i = 0; i < 12; i++) {
+                const p1 = layerData[0][i];
+                const p2 = layerData[1][i % 6];
+                const p3 = layerData[2][(i % 6) % 3]; // Logic: 12->6->3
+                const p4 = layerData[3][0];
+
+                // Create a smooth curve
+                const points = [p1, p2, p3, p4];
+                
+                // Enhance curve with control points for "Tension" visualization
+                // Instead of straight CatmullRom, let's manually bias the curve to show torque
+                const curvePath = new THREE.CatmullRomCurve3(points);
+                curvePath.curveType = 'catmullrom';
+                curvePath.tension = config.tension; // Use API tension to adjust curve tightness
+
+                const geometry = new THREE.TubeGeometry(curvePath, 20, config.lineThickness * 0.1, 8, false);
+                
+                // Color gradient logic based on start index
+                const hue = i / 12;
+                const color = new THREE.Color().setHSL(hue, 1.0, 0.5);
+                const mat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.6, wireframe: false });
+
+                const mesh = new THREE.Mesh(geometry, mat);
+                linesGroup.add(mesh);
+            }
+        }
+
+
+        // --- UI BINDING ---
+        function updateDisplayValues() {
+            document.getElementById('val-twist').innerText = config.twistIndex;
+            document.getElementById('val-height').innerText = config.layerHeight;
+            document.getElementById('val-r12').innerText = config.radius12;
+            document.getElementById('val-r6').innerText = config.radius6;
+            document.getElementById('val-r3').innerText = config.radius3;
+            document.getElementById('val-tension').innerText = config.tension;
+            document.getElementById('val-thick').innerText = config.lineThickness;
+            document.getElementById('val-speed').innerText = config.speed;
+        }
+
+        const inputs = [
+            { id: 'inp-twist', key: 'twistIndex', float: true },
+            { id: 'inp-height', key: 'layerHeight', float: true },
+            { id: 'inp-r12', key: 'radius12', float: true },
+            { id: 'inp-r6', key: 'radius6', float: true },
+            { id: 'inp-r3', key: 'radius3', float: true },
+            { id: 'inp-tension', key: 'tension', float: true },
+            { id: 'inp-thick', key: 'lineThickness', float: true },
+            { id: 'inp-speed', key: 'speed', float: true },
+        ];
+
+        inputs.forEach(item => {
+            const el = document.getElementById(item.id);
+            el.addEventListener('input', (e) => {
+                config[item.key] = item.float ? parseFloat(e.target.value) : e.target.value;
+                updateDisplayValues();
+                generateSystem();
+            });
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            config.twistIndex = 7.0;
+            config.layerHeight = 1.0;
+            config.radius12 = 10.0;
+            config.radius6 = 6.0;
+            config.radius3 = 3.0;
+            config.tension = 0.5;
+            config.lineThickness = 0.8;
+            config.speed = 1.0;
+            
+            // Update Inputs
+            inputs.forEach(item => {
+                document.getElementById(item.id).value = config[item.key];
+            });
+            updateDisplayValues();
+            generateSystem();
+        });
+
+        const btnAnim = document.getElementById('btn-anim');
+        btnAnim.addEventListener('click', () => {
+            config.isAnimating = !config.isAnimating;
+            btnAnim.innerText = config.isAnimating ? "Pause Anim" : "Resume Anim";
+            btnAnim.classList.toggle('active');
+        });
+
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (config.isAnimating) {
+                // Rotate the entire system slowly
+                systemGroup.rotation.y += 0.005 * config.speed;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // --- INIT ---
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        generateSystem();
+        animate();
+
+    </script>
+</body>
+</html>
