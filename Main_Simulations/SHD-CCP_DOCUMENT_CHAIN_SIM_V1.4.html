@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Schism Labs: Ontological Source Tracer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #cbd5e1; font-family: 'Segoe UI', monospace; }
+        
+        /* Layout */
+        #app-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr 400px;
+            height: 100vh;
+            width: 100vw;
+            transition: grid-template-columns 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .sidebar { background: #1e293b; border-right: 1px solid #334155; display: flex; flex-direction: column; z-index: 10; overflow: hidden; min-width: 0; height: 100vh; }
+        .main-view { position: relative; background: #0f172a; overflow: hidden; display: flex; flex-direction: column; }
+        .inspector { background: rgba(30, 41, 59, 0.95); border-left: 1px solid #334155; backdrop-filter: blur(10px); display: flex; flex-direction: column; z-index: 10; overflow: hidden; min-width: 0; height: 100vh; }
+
+        /* UI Elements */
+        .section-header { padding: 12px 15px; border-bottom: 1px solid #334155; font-size: 0.75em; font-weight: 700; color: #fbbf24; text-transform: uppercase; letter-spacing: 1px; display: flex; justify-content: space-between; align-items: center; background: rgba(15, 23, 42, 0.5); }
+        .hex-segment { font-family: 'Courier New', monospace; font-weight: bold; padding: 2px 4px; border-radius: 4px; }
+        .seg-root { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+        .seg-class { color: #c084fc; background: rgba(192, 132, 252, 0.1); }
+        .seg-hash { color: #facc15; background: rgba(250, 204, 21, 0.1); }
+        .seg-meta { color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
+
+        .btn { background: #f59e0b; color: #0f172a; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: 700; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn:hover { background: #d97706; color: white; }
+        .btn-outline { background: transparent; border: 1px solid #475569; color: #94a3b8; }
+        .btn-outline:hover { background: #334155; color: white; border-color: #94a3b8; }
+        .btn-icon { width: 32px; height: 32px; background: rgba(30, 41, 59, 0.8); backdrop-filter: blur(4px); border: 1px solid #334155; border-radius: 6px; color: #fbbf24; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .btn-icon:hover { background: #f59e0b; color: #0f172a; border-color: #f59e0b; }
+        .btn-close { color: #64748b; font-size: 1.2em; cursor: pointer; transition: color 0.2s; }
+        .btn-close:hover { color: #ef4444; }
+
+        /* File System */
+        .fs-item { padding: 8px 12px; border-bottom: 1px solid #334155; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: background 0.2s; font-size: 0.85em; }
+        .fs-item:hover { background: #334155; }
+        .fs-item.active { background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; }
+        .branch-badge { font-size: 0.65em; padding: 2px 4px; border-radius: 3px; background: #0f172a; border: 1px solid #334155; color: #94a3b8; margin-left: auto; font-family: monospace; }
+
+        /* Tabs */
+        .nav-tabs { display: flex; background: #0f172a; border-bottom: 1px solid #334155; padding: 0 10px; overflow-x: auto; }
+        .nav-tab { padding: 12px 15px; color: #64748b; font-size: 0.75em; font-weight: 700; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+        .nav-tab:hover { color: #cbd5e1; }
+        .nav-tab.active { color: #fbbf24; border-bottom-color: #fbbf24; }
+
+        /* Analytics Overlay */
+        .analytics-overlay { position: absolute; top: 60px; right: 20px; z-index: 20; background: rgba(15, 23, 42, 0.9); border: 1px solid #334155; padding: 15px; border-radius: 8px; backdrop-filter: blur(8px); width: 250px; }
+        .analytics-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 0.8em; color: #94a3b8; }
+        .analytics-val { color: #fbbf24; font-family: monospace; }
+        .checkbox-wrapper { display: flex; align-items: center; gap: 8px; font-size: 0.8em; color: #cbd5e1; cursor: pointer; }
+        .checkbox-wrapper input { accent-color: #f59e0b; }
+
+        /* Admin Console & Foundry Grid */
+        .console-output { font-family: 'Courier New', monospace; font-size: 0.8em; color: #10b981; background: #020617; padding: 10px; height: 300px; overflow-y: auto; border: 1px solid #334155; margin-bottom: 10px; white-space: pre-wrap; }
+        .console-input { width: 100%; background: #1e293b; border: 1px solid #334155; color: #10b981; padding: 8px; font-family: 'Courier New', monospace; font-size: 0.9em; outline: none; }
+        .console-input:focus { border-color: #10b981; }
+        .json-area { width: 100%; height: 150px; background: #0f172a; color: #94a3b8; font-family: monospace; font-size: 0.7em; border: 1px solid #334155; padding: 10px; outline: none; resize: none; }
+        .review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; padding: 20px; overflow-y: auto; height: 100%; }
+        .foundry-card { background: #1e293b; border: 1px solid #334155; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        .foundry-card:hover { border-color: #fbbf24; }
+        .foundry-canvas-lg { width: 100%; height: 140px; background: radial-gradient(circle, #334155 0%, #1e293b 80%); }
+        .copy-overlay { position: absolute; top: 30px; right: 5px; background: rgba(0,0,0,0.8); color: #fbbf24; padding: 2px 6px; border-radius: 3px; font-size: 0.6em; opacity: 0; cursor: pointer; transition: 0.2s; border: 1px solid #fbbf24; }
+        .foundry-card:hover .copy-overlay { opacity: 1; }
+
+        /* Hierarchy Map Styling */
+        #hierarchy-tree { padding: 40px; overflow: auto; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 40px; }
+        .tree-level { display: flex; gap: 20px; justify-content: center; width: 100%; position: relative; }
+        .tree-node { background: #1e293b; border: 1px solid #334155; padding: 15px; border-radius: 8px; width: 220px; text-align: center; position: relative; transition: all 0.2s; z-index: 2; }
+        .tree-node.genesis { border-color: #38bdf8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.1); }
+        .tree-node.active { border-color: #fbbf24; background: #2a3545; box-shadow: 0 0 15px rgba(251, 191, 36, 0.2); }
+        .tree-node.ghost { opacity: 0.4; border-style: dashed; }
+        .node-label { font-size: 0.7em; color: #94a3b8; text-transform: uppercase; margin-bottom: 5px; }
+        .node-title { font-weight: bold; color: #cbd5e1; font-size: 0.9em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .node-meta { font-family: monospace; font-size: 0.7em; color: #64748b; margin-top: 5px; }
+        .tree-level::after { content: ''; position: absolute; top: -20px; left: 0; right: 0; height: 2px; background: #334155; z-index: 1; display: none; }
+        .connector-vertical { position: absolute; width: 2px; background: #334155; left: 50%; top: -40px; height: 40px; z-index: 1; }
+        .connector-up { position: absolute; width: 2px; background: #334155; left: 50%; top: -20px; height: 20px; z-index: 1; }
+
+        /* Scanner */
+        .scanner-drop { border: 2px dashed #334155; border-radius: 8px; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #64748b; cursor: pointer; transition: all 0.2s; background: #0f172a; }
+        .scanner-drop:hover { border-color: #f59e0b; color: #f59e0b; background: rgba(245, 158, 11, 0.05); }
+        #scan-result { display: none; }
+
+        /* Modals & Misc */
+        .modal-bg { position: absolute; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); background: rgba(0,0,0,0.7); transition: opacity 0.2s; }
+        .hidden { display: none !important; }
+        .spin-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 5px; }
+        .spin-btn { padding: 6px; font-size: 0.7em; background: #0f172a; border: 1px solid #334155; color: #94a3b8; border-radius: 4px; text-align: center; cursor: pointer; }
+        .spin-btn.active { background: #f59e0b; color: #0f172a; border-color: #f59e0b; font-weight: bold; }
+        .url-input { width: 100%; background: #0f172a; border: 1px solid #334155; color: #fbbf24; padding: 6px 10px; border-radius: 4px; font-size: 0.8em; font-family: monospace; }
+        .url-input:focus { outline: none; border-color: #f59e0b; }
+        .config-input { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.8em; margin-bottom: 4px; }
+        
+        #sigil-canvas { width: 100%; height: 200px; background: radial-gradient(circle at center, #334155 0%, #0f172a 70%); border-bottom: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<div id="app-grid">
+    <!-- LEFT SIDEBAR -->
+    <div class="sidebar" id="panel-left">
+        <div class="p-4 border-b border-slate-700 bg-slate-900 min-w-[320px] flex justify-between items-start">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight text-amber-500"><i class="fa-solid fa-network-wired mr-2"></i>SCHISM LABS</h1>
+                <p class="text-xs text-slate-400 mt-1 uppercase tracking-wider">Ontological Source Tracer</p>
+                <div class="text-[9px] text-slate-600 mt-1">VER: DOCUMENTATION 2.5</div>
+            </div>
+            <button class="btn-close" onclick="toggleLeft()" title="Collapse Sidebar"><i class="fa-solid fa-angles-left"></i></button>
+        </div>
+        
+        <div class="p-2 flex gap-2 border-b border-slate-700 min-w-[320px]">
+            <button class="btn flex-1" onclick="openModal('folder')"><i class="fa-solid fa-folder-plus"></i> Module</button>
+            <button class="btn flex-1" onclick="openModal('file')"><i class="fa-solid fa-file-circle-plus"></i> Doc Source</button>
+        </div>
+
+        <div class="p-2 text-[10px] text-slate-500 uppercase tracking-wider bg-slate-900 border-b border-slate-700 flex gap-2 cursor-pointer hover:text-white" onclick="navigateTo(null)" id="fs-breadcrumbs">
+            ROOT
+        </div>
+
+        <div id="fs-list" class="flex flex-col overflow-y-auto flex-grow min-w-[320px]"></div>
+        
+        <!-- Persistent Footer -->
+        <div class="p-3 border-t border-slate-700 min-w-[320px] bg-slate-900 mt-auto">
+            <div class="flex items-center justify-between text-[10px] text-slate-500 mb-2">
+                <span>LOCAL STORAGE</span>
+                <span id="save-status" class="text-emerald-500 hidden"><i class="fa-solid fa-check"></i> Saved</span>
+            </div>
+            <div class="flex gap-2 mb-2">
+                <input type="file" id="import-input" hidden onchange="importLedger(this)">
+                <button class="btn-outline flex-1 py-1 text-xs" onclick="document.getElementById('import-input').click()"><i class="fa-solid fa-upload mr-1"></i> Import</button>
+                <button class="btn-outline flex-1 py-1 text-xs" onclick="exportJSON()"><i class="fa-solid fa-download mr-1"></i> Export</button>
+            </div>
+            <button class="text-red-400 w-full border border-red-900/50 hover:bg-red-900/20 py-1 text-[10px] rounded" onclick="resetDatabase()">RESET DATABASE</button>
+        </div>
+    </div>
+
+    <!-- MAIN VIEW -->
+    <div class="main-view" id="main-view">
+        <!-- Tabs -->
+        <div class="nav-tabs z-20 relative">
+            <div class="flex items-center gap-2 mr-4">
+                <button class="text-slate-500 hover:text-white" onclick="toggleLeft()"><i class="fa-solid fa-bars"></i></button>
+            </div>
+            <div class="nav-tab active" onclick="switchTab('3d', this)">VOXEL TRACER</div>
+            <div class="nav-tab" onclick="switchTab('global', this)">GLOBAL CHAIN</div>
+            <div class="nav-tab" onclick="switchTab('review', this)">GENESIS REVIEW</div>
+            <div class="nav-tab" onclick="switchTab('hierarchy', this)">SYSTEM HIERARCHY</div>
+            <div class="nav-tab" onclick="switchTab('scanner', this)">SIGIL SCANNER</div>
+            <div class="nav-tab" onclick="switchTab('admin', this)">ADMIN CONSOLE</div>
+            <div class="flex items-center gap-2 ml-auto">
+                <button class="text-slate-500 hover:text-white" onclick="toggleRight()"><i class="fa-solid fa-list-ul"></i></button>
+            </div>
+        </div>
+
+        <!-- 1. Voxel Tracer (Default) -->
+        <div id="view-3d" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)]">
+            <div class="absolute top-4 left-4 z-10 bg-slate-900/80 backdrop-blur px-3 py-1 rounded border border-slate-700 text-xs flex items-center">
+                <span class="text-amber-500 mr-2">MODE:</span> <span class="text-white font-bold" id="view-mode-text">SHD-CCP TQF-PRUNED</span>
+            </div>
+            <div id="three-container" class="w-full h-full"></div>
+            <div id="empty-state" class="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+                <div class="text-center opacity-30">
+                    <i class="fa-solid fa-cube text-6xl text-amber-500 mb-4"></i>
+                    <div class="text-xl text-amber-400">Select a Source Node</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Global Chain (Neuro-Symbolic) -->
+        <div id="view-global" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)] hidden bg-black">
+             <div class="absolute top-4 left-4 z-10 bg-black/80 backdrop-blur px-3 py-1 rounded border border-slate-800 text-xs text-amber-500 font-bold">
+                NEURO-SYMBOLIC TOPOLOGY
+            </div>
+            <!-- Analytics Overlay -->
+            <div class="analytics-overlay">
+                <div class="text-xs font-bold text-slate-400 mb-3 uppercase border-b border-slate-700 pb-2">Data Analytics</div>
+                <label class="checkbox-wrapper mb-3">
+                    <input type="checkbox" id="temporal-check" onchange="toggleTemporalAnalysis()">
+                    <span>Temporal Analysis (Time-Gradient)</span>
+                </label>
+                <div class="analytics-row">
+                    <span>Modules (Genesis):</span>
+                    <span class="analytics-val" id="stat-folders">0</span>
+                </div>
+                <div class="analytics-row">
+                    <span>Sources (Nodes):</span>
+                    <span class="analytics-val" id="stat-files">0</span>
+                </div>
+                <div class="analytics-row">
+                    <span>Entropic Mass:</span>
+                    <span class="analytics-val" id="stat-mass">0 KB</span>
+                </div>
+            </div>
+            <div id="global-container" class="w-full h-full"></div>
+        </div>
+
+        <!-- 3. Genesis Review -->
+        <div id="view-review" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)] bg-slate-900 hidden overflow-y-auto">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-bold text-amber-500">Sigil Foundry <span class="text-xs text-slate-500 font-normal ml-2">6-Face Genesis Output</span></h2>
+                    <div class="flex gap-2">
+                        <button class="btn-outline py-1 px-3 text-xs" onclick="openConfigModal()"><i class="fa-solid fa-sliders mr-2"></i> Configure Protocols</button>
+                        <button class="btn btn-outline" onclick="toggleCosmohedra()"><i class="fa-solid fa-cubes mr-2"></i> Toggle Cosmohedra</button>
+                    </div>
+                </div>
+                <div id="review-grid" class="review-grid"></div>
+            </div>
+        </div>
+
+        <!-- 4. Hierarchy -->
+        <div id="view-hierarchy" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)] bg-slate-900 hidden">
+            <div id="hierarchy-tree"></div>
+        </div>
+
+        <!-- 5. Scanner -->
+        <div id="view-scanner" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)] bg-slate-900 hidden p-10 flex flex-col items-center">
+            <h2 class="text-2xl font-bold text-amber-500 mb-6">SIGIL SCANNER</h2>
+            <div class="w-full max-w-lg">
+                <div class="scanner-drop mb-6" onclick="document.getElementById('scan-input').click()" ondragover="event.preventDefault()" ondrop="handleDrop(event)">
+                    <i class="fa-solid fa-expand text-4xl mb-3"></i>
+                    <div class="text-sm">Drop Sigil PNG or Click to Upload</div>
+                    <input type="file" id="scan-input" hidden accept="image/png" onchange="handleScanInput(this)">
+                </div>
+                
+                <div class="bg-slate-800 border border-slate-700 rounded p-4 mb-4">
+                    <div class="text-xs text-slate-400 uppercase tracking-widest mb-2">Manual Identity Entry</div>
+                    <div class="flex gap-2">
+                        <input type="text" id="manual-hex-input" class="url-input" placeholder="Enter 16-char Hex ID..." maxlength="16">
+                        <button class="btn py-1 px-3 text-xs" onclick="manualScan()">Lookup</button>
+                    </div>
+                </div>
+
+                <div id="scan-result" class="bg-slate-800 border border-slate-600 rounded p-4 text-center">
+                    <div class="text-xs text-slate-400 uppercase tracking-widest mb-2">Decoded Identity</div>
+                    <div class="font-mono text-xl text-white mb-2" id="scan-hex">--</div>
+                    <div class="text-sm text-slate-500" id="scan-status">Waiting for input</div>
+                    <button id="scan-nav-btn" class="btn mt-4 mx-auto hidden" onclick="">Navigate to Lesson</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. Admin Console -->
+        <div id="view-admin" class="absolute inset-0 top-[45px] w-full h-[calc(100%-45px)] bg-slate-950 hidden overflow-y-auto p-8">
+            <div class="max-w-3xl mx-auto">
+                <h2 class="text-xl font-bold text-emerald-500 mb-4"><i class="fa-solid fa-terminal mr-2"></i>SYSTEM ADMIN</h2>
+                <div class="mb-6">
+                    <div id="console-output" class="console-output">SCHISM LABS KERNEL initialized...
+Type 'help' for commands.</div>
+                    <input type="text" id="console-input" class="console-input" placeholder="> Enter command..." onkeyup="if(event.key==='Enter') runCommand(this)">
+                </div>
+                <div class="bg-slate-900 border border-slate-700 p-4 rounded mb-6">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-bold text-slate-400 uppercase">Raw JSON Injection</span>
+                        <button class="text-xs text-blue-400 hover:text-white" onclick="document.getElementById('json-inject').value=''">Clear</button>
+                    </div>
+                    <textarea id="json-inject" class="json-area" placeholder="Paste { meta, fileSystem } JSON here..."></textarea>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button class="btn btn-outline" onclick="exportFullJSON()">Copy Current System</button>
+                        <button class="btn" onclick="injectJSON()">Inject & Overwrite</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT INSPECTOR -->
+    <div class="inspector" id="panel-right">
+        <!-- Sigil Header -->
+        <div class="p-4 border-b border-slate-700 bg-slate-900/50 min-w-[380px] flex justify-between items-start">
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs text-amber-500 font-bold">SOURCE IDENTITY</span>
+                </div>
+                <div class="flex gap-1 text-sm font-mono tracking-wider justify-center" id="hex-display">
+                    <span class="hex-segment seg-root">----</span>
+                    <span class="hex-segment seg-class">----</span>
+                    <span class="hex-segment seg-hash">----</span>
+                    <span class="hex-segment seg-meta">----</span>
+                </div>
+                 <div class="text-[10px] text-slate-500 mt-1" id="genesis-link">STANDALONE</div>
+            </div>
+            <button class="btn-close" onclick="toggleRight()" title="Collapse Inspector"><i class="fa-solid fa-angles-right"></i></button>
+        </div>
+
+        <!-- Main Canvas -->
+        <div class="relative min-w-[380px]">
+            <canvas id="sigil-canvas"></canvas>
+            <div class="absolute top-2 left-2 text-[10px] bg-slate-900/80 px-2 py-1 rounded text-amber-500 border border-amber-500/30" id="branch-indicator">VIEW: FRONT</div>
+        </div>
+
+        <!-- Link -->
+        <div class="p-3 border-b border-slate-700 min-w-[380px] bg-slate-900/30">
+            <div class="flex justify-between items-center mb-1">
+                <span class="text-[10px] text-amber-400 font-bold uppercase"><i class="fa-solid fa-link mr-1"></i> External Source</span>
+                <button class="text-[10px] text-amber-500 hover:text-white" onclick="openDocUrl()">Launch <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i></button>
+            </div>
+            <input type="text" id="doc-url-input" class="w-full bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-amber-500 font-mono" placeholder="https://..." onchange="saveDocUrl()">
+        </div>
+
+        <!-- Log -->
+        <div class="section-header min-w-[380px]">
+            <span>Version History</span>
+            <button class="text-[10px] text-amber-400 hover:text-white" onclick="toggleAddLog()">+ LOG</button>
+        </div>
+        
+        <div id="add-log-form" class="p-3 bg-slate-800 border-b border-slate-700 hidden min-w-[380px]">
+            <div class="spin-selector mb-2">
+                <div class="spin-btn active" onclick="selectSpin(0, this)">FRONT</div>
+                <div class="spin-btn" onclick="selectSpin(1, this)">BACK</div>
+                <div class="spin-btn" onclick="selectSpin(2, this)">RIGHT</div>
+                <div class="spin-btn" onclick="selectSpin(3, this)">LEFT</div>
+                <div class="spin-btn" onclick="selectSpin(4, this)">TOP</div>
+                <div class="spin-btn" onclick="selectSpin(5, this)">BOTTOM</div>
+            </div>
+            <input type="text" id="log-note" class="w-full bg-slate-900 border border-slate-600 rounded p-2 text-xs text-white mb-2" placeholder="Commit message...">
+            <button class="btn w-full" onclick="commitLog()">Commit Version</button>
+        </div>
+
+        <div id="log-timeline" class="p-4 flex-grow overflow-y-auto min-w-[380px]"></div>
+    </div>
+</div>
+
+<!-- CREATION MODAL -->
+<div id="input-modal" class="modal-bg hidden">
+    <div class="bg-slate-900 border border-amber-500/50 p-6 rounded-lg w-96 shadow-2xl">
+        <h3 class="text-amber-400 font-bold text-lg mb-4" id="modal-title">Create New</h3>
+        <div id="modal-branch-select" class="mb-4 hidden">
+            <label class="text-[10px] text-slate-400 uppercase block mb-2">Source Branch</label>
+            <div class="grid grid-cols-3 gap-2">
+                <div class="spin-btn active" onclick="setCreationBranch(0, this)">FRONT</div>
+                <div class="spin-btn" onclick="setCreationBranch(1, this)">BACK</div>
+                <div class="spin-btn" onclick="setCreationBranch(2, this)">RIGHT</div>
+                <div class="spin-btn" onclick="setCreationBranch(3, this)">LEFT</div>
+                <div class="spin-btn" onclick="setCreationBranch(4, this)">TOP</div>
+                <div class="spin-btn" onclick="setCreationBranch(5, this)">BOTTOM</div>
+            </div>
+        </div>
+        <input type="text" id="modal-input" class="w-full bg-slate-800 border border-slate-600 rounded p-3 text-white outline-none mb-4" placeholder="Name..." onkeyup="if(event.key === 'Enter') confirmModal()">
+        <div class="flex gap-2 justify-end">
+            <button class="btn-outline px-4 py-2 text-xs" onclick="closeModal()">Cancel</button>
+            <button class="btn px-4 py-2 text-xs" onclick="confirmModal()">Create</button>
+        </div>
+    </div>
+</div>
+
+<!-- CONFIG MODAL -->
+<div id="config-modal" class="modal-bg hidden">
+    <div class="bg-slate-900 border border-slate-600 p-6 rounded-lg w-[500px] shadow-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-white font-bold text-lg">Branch Protocols</h3>
+            <button class="text-slate-500 hover:text-white" onclick="resetConfig()">Reset Default</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">Customize the archetypes for the 6-Face system.</p>
+        <div id="config-list" class="grid grid-cols-2 gap-4 mb-6"></div>
+        <div class="flex gap-2 justify-end">
+            <button class="btn-outline px-4 py-2 text-xs" onclick="closeConfigModal()">Cancel</button>
+            <button class="btn px-4 py-2 text-xs" onclick="saveConfig()">Save Protocols</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// --- CONFIGURATION ---
+const DEFAULT_CONFIG = {
+    colors: { square: '#38bdf8', circle: '#c084fc', triangle: '#facc15', meta: '#94a3b8' },
+    faces: [
+        { name: 'FRONT', state: 'ALPHA', dir: 'z+' }, { name: 'BACK', state: 'STABLE', dir: 'z-' },
+        { name: 'RIGHT', state: 'DRAFT', dir: 'x+' }, { name: 'LEFT', state: 'REVIEW', dir: 'x-' },
+        { name: 'TOP', state: 'MASTER', dir: 'y+' }, { name: 'BOTTOM', state: 'DEEP', dir: 'y-' }
+    ]
+};
+let CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+// --- DATA MODEL ---
+function generateUUID() { try { return crypto.randomUUID(); } catch(e) { return Math.random().toString(36); } }
+function generateHex() { let h=""; for(let i=0;i<16;i++) h+="0123456789ABCDEF"[Math.floor(Math.random()*16)]; return h; }
+
+// --- FIXED DERIVATION LOGIC ---
+// Mixes Seed (Lineage) + Random Salt (Identity) to allow unique siblings
+function deriveHex(seed, idx) { 
+    if(!seed) return generateHex();
+    // 1. Lineage Rotation
+    const s = (idx*2)%16; 
+    let base = seed.substring(s) + seed.substring(0,s);
+    // 2. Identity Entropy (Last 8 chars)
+    let unique = "";
+    for(let i=0;i<8;i++) unique+="0123456789ABCDEF"[Math.floor(Math.random()*16)];
+    
+    return base.substring(0,8) + unique; 
+}
+
+// SHD-CCP Recursive Decoder
+function decodeSandwich(hex) {
+    hex = (hex || "0000000000000000").padEnd(16, '0');
+    return {
+        structureId: parseInt(hex.substring(0,2), 16),
+        scaleA: parseInt(hex.substring(2,4), 16),
+        quat: hex.substring(4,12),
+        scaleB: parseInt(hex.substring(12,14), 16),
+        dynamics: parseInt(hex.substring(14,16), 16)
+    };
+}
+
+class FileNode {
+    constructor(name, type, parentId) {
+        this.id = generateUUID(); this.name = name; this.type = type; this.parentId = parentId; this.created = new Date();
+        if (type==='folder') this.genesisHex = generateHex();
+        this.data = type==='file' ? new SchismID() : null;
+    }
+}
+class SchismID {
+    constructor() { this.hex=""; this.branchIdx=0; this.documentUrl=""; this.logs=[]; }
+    init(hex, idx) { this.hex=hex; this.branchIdx=idx; this.addLog(0, "Source Initialized"); }
+    addLog(f,n) { this.logs.unshift({date:new Date(), faceIdx:f, note:n}); }
+}
+
+// Global State
+let fileSystem=[], currentFolderId=null, activeFileId=null, activeLogIndex=0;
+let formSpinSelection=0, creationBranchSelection=0, pendingCreationType=null;
+let leftOpen=true, rightOpen=true;
+let isCosmohedraMode = false;
+let currentTab = '3d';
+let temporalMode = false;
+let globalClickables = [];
+
+// Three.js Globals
+let scene, camera, renderer, controls, voxelGroup;
+let globalScene, globalCam, globalRenderer, globalControls, globalGroup;
+
+
+// --- INIT ---
+function init() {
+    loadConfig();
+    loadFileSystem(); 
+    initThree(); 
+    renderFS(); 
+    animate();
+    new ResizeObserver(() => onResize()).observe(document.getElementById('three-container'));
+    document.getElementById('global-container').addEventListener('click', onGlobalClick);
+}
+
+// --- FS I/O ---
+function loadConfig() {
+    const s = localStorage.getItem('schism_config');
+    if(s) { try { CONFIG = JSON.parse(s); } catch(e) { console.error("Config Load Error"); } }
+}
+
+function hydrateState(db) {
+    const nodes = Array.isArray(db) ? db : db.fileSystem;
+    if(db.config) CONFIG = db.config;
+    fileSystem = nodes.map(i => {
+        i.created = new Date(i.created);
+        if(i.data) {
+            // Restore SchismID instance methods
+            const restoredData = new SchismID();
+            Object.assign(restoredData, i.data); // Copy properties
+            restoredData.logs = i.data.logs.map(l => ({...l, date: new Date(l.date)}));
+            if(restoredData.documentUrl === undefined) restoredData.documentUrl = "";
+            i.data = restoredData;
+        }
+        return i;
+    });
+}
+
+function loadFileSystem() {
+    const s = localStorage.getItem('schism_tracer_db');
+    if(s) {
+        try { 
+            const db = JSON.parse(s);
+            hydrateState(db);
+        } catch(e) { console.error(e); initDefaultFS(); }
+    } else initDefaultFS();
+}
+
+function initDefaultFS() {
+    fileSystem=[]; 
+    const c=new FileNode("Project_Genesis", "folder", null);
+    const l=new FileNode("Readme_Source", "file", c.id);
+    l.data.init(deriveHex(c.genesisHex,0), 0);
+    fileSystem.push(c,l); saveFileSystem();
+}
+
+function saveFileSystem() { 
+    const bundle = {
+        version: "Documentation",
+        type: "Ontological Source Tracer",
+        timestamp: Date.now(),
+        config: CONFIG,
+        fileSystem: fileSystem
+    };
+    localStorage.setItem('schism_tracer_db', JSON.stringify(bundle)); 
+    const el = document.getElementById('save-status'); el.classList.remove('hidden'); setTimeout(() => el.classList.add('hidden'), 2000);
+}
+
+// --- ANALYTICS ---
+function updateAnalytics() {
+    const folders = fileSystem.filter(x=>x.type==='folder').length;
+    const files = fileSystem.filter(x=>x.type==='file').length;
+    const size = new Blob([JSON.stringify(fileSystem)]).size;
+    
+    document.getElementById('stat-folders').innerText = folders;
+    document.getElementById('stat-files').innerText = files;
+    document.getElementById('stat-mass').innerText = (size / 1024).toFixed(2) + " KB";
+}
+
+function toggleTemporalAnalysis() {
+    temporalMode = document.getElementById('temporal-check').checked;
+    initGlobalChain(); 
+}
+
+// --- GLOBAL CHAIN INTERACTION ---
+function onGlobalClick(event) {
+    if(currentTab !== 'global') return;
+    const rect = event.target.getBoundingClientRect();
+    const mouse = new THREE.Vector2();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, globalCam);
+    const intersects = raycaster.intersectObjects(globalClickables);
+    
+    if(intersects.length > 0) {
+        const obj = intersects[0].object;
+        const data = obj.userData;
+        if(data && data.id) {
+            if(data.type === 'folder') { navigateTo(data.id); } 
+            else { loadFile(data.id); if(!rightOpen) toggleRight(); }
+        }
+    }
+}
+
+// --- THREE.JS ENGINE ---
+function initThree() {
+    // Voxel View
+    const c1 = document.getElementById('three-container');
+    scene = new THREE.Scene(); scene.background = new THREE.Color(0x0f172a);
+    camera = new THREE.PerspectiveCamera(45, c1.clientWidth/c1.clientHeight, 0.1, 100); camera.position.set(8,6,8);
+    renderer = new THREE.WebGLRenderer({antialias:true, alpha:true}); renderer.setSize(c1.clientWidth, c1.clientHeight);
+    c1.appendChild(renderer.domElement);
+    controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping=true; controls.autoRotate=true; controls.autoRotateSpeed=0.5;
+    voxelGroup = new THREE.Group(); scene.add(voxelGroup);
+    scene.add(new THREE.AmbientLight(0xffffff,0.4));
+    const l1=new THREE.PointLight(0xf59e0b,1,20); l1.position.set(5,5,5); scene.add(l1);
+
+    // Global View
+    const c2 = document.getElementById('global-container');
+    globalScene = new THREE.Scene(); globalScene.background = new THREE.Color(0x000000);
+    globalCam = new THREE.PerspectiveCamera(60, c2.clientWidth/c2.clientHeight, 0.1, 1000); globalCam.position.set(0,20,40);
+    globalRenderer = new THREE.WebGLRenderer({antialias:true}); globalRenderer.setSize(c2.clientWidth, c2.clientHeight);
+    c2.appendChild(globalRenderer.domElement);
+    globalControls = new THREE.OrbitControls(globalCam, globalRenderer.domElement); globalControls.enableDamping=true;
+    globalGroup = new THREE.Group(); globalScene.add(globalGroup);
+    globalScene.add(new THREE.AmbientLight(0xffffff, 0.6));
+}
+
+// --- RENDERERS ---
+
+function initGlobalChain() {
+    while(globalGroup.children.length) globalGroup.remove(globalGroup.children[0]);
+    globalClickables = [];
+    
+    const allNodes = [...fileSystem].sort((a,b) => a.created - b.created);
+    const oldest = allNodes.length > 0 ? allNodes[0].created.getTime() : 0;
+    const newest = allNodes.length > 0 ? allNodes[allNodes.length-1].created.getTime() : 0;
+    
+    function getTemporalColor(node, defaultColor) {
+        if(!temporalMode) return defaultColor;
+        const t = (node.created.getTime() - oldest) / (newest - oldest || 1);
+        const hue = 0.6 - (t * 0.6); // Blue to Red
+        return new THREE.Color().setHSL(hue, 1.0, 0.5);
+    }
+
+    const geos = [
+        new THREE.BoxGeometry(0.8, 0.8, 0.8),
+        new THREE.SphereGeometry(0.6, 16, 16),
+        new THREE.TorusGeometry(0.5, 0.2, 16, 32),
+        new THREE.TetrahedronGeometry(0.7)
+    ];
+
+    // Create a Central System Root (Schism Core)
+    const coreMat = new THREE.MeshStandardMaterial({
+        color: 0xfbbf24, emissive: 0xfbbf24, emissiveIntensity: 0.8, wireframe: true
+    });
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(2, 1), coreMat);
+    globalGroup.add(core);
+
+    const folders = fileSystem.filter(f => f.type === 'folder');
+    const folderPos = {};
+    
+    // Layout Folders in a ring connected to Core
+    folders.forEach((f, i) => {
+        const angle = (i / folders.length) * Math.PI * 2;
+        const r = 15;
+        const x = Math.cos(angle) * r; const z = Math.sin(angle) * r;
+        folderPos[f.id] = new THREE.Vector3(x, 0, z);
+        
+        const col = getTemporalColor(f, new THREE.Color(0xfbbf24));
+        const mat = new THREE.MeshStandardMaterial({
+            color: col, emissive: col, emissiveIntensity: 0.5
+        });
+        const m = new THREE.Mesh(new THREE.SphereGeometry(1.5, 32, 32), mat);
+        m.position.copy(folderPos[f.id]);
+        m.userData = { id: f.id, type: 'folder' };
+        globalGroup.add(m);
+        globalClickables.push(m);
+        
+        // Connect to Core
+        const lineMat = new THREE.LineBasicMaterial({color: 0xfbbf24, transparent:true, opacity:0.1});
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), m.position]);
+        globalGroup.add(new THREE.Line(lineGeo, lineMat));
+    });
+
+    // Layout Files orbiting parents (Branches)
+    fileSystem.filter(f => f.type === 'file').forEach((f, i) => {
+        const parentPos = f.parentId ? folderPos[f.parentId] : new THREE.Vector3(0,0,0);
+        if(!parentPos) return;
+
+        const sandwich = decodeSandwich(f.data.hex);
+        const geo = geos[sandwich.structureId % geos.length];
+        
+        const isNovel = f.data.branchIdx > 1; 
+
+        // Physics/Color derived from Dynamics (Row 7)
+        const physHue = 0.6 - ((sandwich.dynamics / 255) * 0.6);
+        const baseColor = new THREE.Color().setHSL(physHue, 1.0, 0.6);
+        const finalColor = getTemporalColor(f, baseColor);
+
+        const mat = new THREE.MeshStandardMaterial({
+            color: finalColor,
+            wireframe: isNovel,
+            emissive: finalColor,
+            emissiveIntensity: isNovel ? 0.2 : 0.6,
+            transparent: true, opacity: isNovel ? 0.6 : 1.0
+        });
+
+        // Use deterministic hash for orbit position
+        let hash = 0; for(let c=0;c<f.id.length;c++) hash = (hash<<5) - hash + f.id.charCodeAt(c);
+        const dist = 6 + (Math.abs(hash)%5);
+        const theta = (Math.abs(hash)%360) * (Math.PI/180);
+        
+        // Arrange in a flat-ish orbit ring for clarity
+        const yOffset = (Math.abs(hash)%4) - 2; 
+        const offset = new THREE.Vector3(Math.cos(theta)*dist, yOffset, Math.sin(theta)*dist);
+        
+        const pos = parentPos.clone().add(offset);
+        
+        const m = new THREE.Mesh(geo, mat);
+        m.position.copy(pos);
+        m.userData = { id: f.id, type: 'file' };
+        globalGroup.add(m);
+        globalClickables.push(m);
+
+        const lineMat = new THREE.LineBasicMaterial({color: finalColor, transparent:true, opacity:0.2});
+        const lineGeo = new THREE.BufferGeometry().setFromPoints([parentPos, pos]);
+        globalGroup.add(new THREE.Line(lineGeo, lineMat));
+    });
+    
+    updateAnalytics();
+}
+
+function updateVisuals() {
+    if(!activeFileId) return;
+    const file = fileSystem.find(f => f.id === activeFileId);
+    const voxelData = parseHex(file.data.hex);
+    const log = file.data.logs[activeLogIndex];
+    
+    // 2D Sigil
+    const cvs = document.getElementById('sigil-canvas');
+    const faceData = calculateSPlane(voxelData, log.faceIdx);
+    drawSigil(cvs, faceData, 1.0, file.data.hex);
+    document.getElementById('branch-indicator').innerText = "VIEW: " + CONFIG.faces[log.faceIdx].name;
+
+    // 3D Voxel with TQF Pruning
+    while(voxelGroup.children.length) voxelGroup.remove(voxelGroup.children[0]);
+    const geo = new THREE.BoxGeometry(0.85,0.85,0.85); 
+    const cams=[{x:0,y:0,z:12}, {x:0,y:0,z:-12}, {x:12,y:0,z:0}, {x:-12,y:0,z:0}, {x:0,y:12,z:0}, {x:0,y:-12,z:0}];
+    camera.position.set(cams[log.faceIdx].x+0.1, cams[log.faceIdx].y+0.1, cams[log.faceIdx].z+0.1);
+
+    function getV(x,y,z) { if(x<0||x>3||y<0||y>3||z<0||z>3) return 0; return voxelData[x][y][z]; }
+
+    for(let x=0;x<4;x++) for(let y=0;y<4;y++) for(let z=0;z<4;z++) {
+        if(voxelData[x][y][z]) {
+            // Triple Quad Formula (TQF) Check
+            // A node is redundant (flat) if surrounded symmetrically in any axis
+            const xFlat = getV(x-1,y,z) && getV(x+1,y,z);
+            const yFlat = getV(x,y-1,z) && getV(x,y+1,z);
+            const zFlat = getV(x,y,z-1) && getV(x,y,z+1);
+            
+            const pruned = xFlat || yFlat || zFlat;
+            
+            let col = z===0?CONFIG.colors.square : z===1?CONFIG.colors.circle : z===2?CONFIG.colors.triangle : CONFIG.colors.meta;
+            const mat = new THREE.MeshStandardMaterial({
+                color:col, roughness:0.2, emissive:col, 
+                emissiveIntensity: pruned ? 0.05 : 0.6,
+                transparent: true, opacity: pruned ? 0.1 : 0.9 // Ghosted if pruned
+            });
+            const m = new THREE.Mesh(geo, mat);
+            m.position.set(x-1.5,y-1.5,z-1.5); 
+            voxelGroup.add(m);
+        } else {
+            // Empty space lattice
+            const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({color:0x334155, wireframe:true, opacity:0.05, transparent:true}));
+            m.position.set(x-1.5,y-1.5,z-1.5); 
+            voxelGroup.add(m);
+        }
+    }
+}
+
+// --- STANDARD UI FLOWS ---
+function renderFS() {
+    const list = document.getElementById('fs-list'); list.innerHTML = '';
+    const items = fileSystem.filter(i => i.parentId === currentFolderId);
+    
+    // Breadcrumbs
+    const crumbs = document.getElementById('fs-breadcrumbs'); crumbs.innerHTML = 'ROOT';
+    if(currentFolderId) {
+        let curr = fileSystem.find(i => i.id === currentFolderId);
+        let path = []; while(curr) { path.unshift(curr); curr = fileSystem.find(i=>i.id===curr.parentId); }
+        crumbs.innerText = "ROOT > " + path.map(p=>p.name).join(" > ");
+    }
+    
+    items.forEach(item => {
+        const el = document.createElement('div'); el.className = `fs-item ${activeFileId===item.id?'active':''}`;
+        let meta = item.type==='file' ? `<span class="branch-badge">${CONFIG.faces[item.data.branchIdx].name}</span>` : '';
+        let icon = item.type==='folder' ? '<i class="fa-solid fa-folder text-amber-500"></i>' : '<i class="fa-solid fa-file-code"></i>';
+        el.innerHTML = `<div class="w-5 text-center">${icon}</div><div class="flex-1 truncate">${item.name}</div>${meta}`;
+        el.onclick = () => { item.type==='folder' ? navigateTo(item.id) : loadFile(item.id); };
+        list.appendChild(el);
+    });
+}
+function navigateTo(id) { currentFolderId = id; renderFS(); }
+function loadFile(id) { 
+    activeFileId = id; activeLogIndex = 0; isCosmohedraMode = false;
+    document.getElementById('three-container').classList.remove('opacity-0');
+    document.getElementById('empty-state').style.display='none';
+    renderFS(); renderInspector(); updateVisuals();
+    if(currentTab==='review') renderReviewGrid();
+    if(currentTab==='global') initGlobalChain();
+    if(currentTab==='hierarchy') renderHierarchy();
+}
+
+function switchTab(tab, el) {
+    currentTab = tab;
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    ['view-3d', 'view-global', 'view-review', 'view-hierarchy', 'view-scanner', 'view-admin'].forEach(id => document.getElementById(id).classList.add('hidden'));
+    document.getElementById(`view-${tab}`).classList.remove('hidden');
+    if(tab === 'review') renderReviewGrid();
+    if(tab === 'global') initGlobalChain();
+    if(tab === 'hierarchy') renderHierarchy();
+    if(tab === '3d') onResize();
+}
+
+// --- VISUALIZERS ---
+
+// 1. Inspector
+function renderInspector() {
+    if(!activeFileId) return;
+    const file = fileSystem.find(f => f.id === activeFileId);
+    const data = file.data;
+    
+    document.getElementById('hex-display').innerHTML = `<span class="seg-root">${data.hex.substring(0,4)}</span><span class="seg-class">${data.hex.substring(4,8)}</span><span class="seg-hash">${data.hex.substring(8,12)}</span><span class="seg-meta">${data.hex.substring(12,16)}</span>`;
+    const parent = fileSystem.find(n => n.id === file.parentId);
+    document.getElementById('genesis-link').innerText = parent ? `PARENT: ${parent.name}` : 'UNLINKED';
+    document.getElementById('doc-url-input').value = data.documentUrl || "";
+
+    const tl = document.getElementById('log-timeline'); tl.innerHTML = '';
+    data.logs.forEach((log, idx) => {
+        const item = document.createElement('div'); item.className = `log-item ${idx===activeLogIndex?'active':''}`;
+        item.onclick = () => { activeLogIndex=idx; updateVisuals(); renderInspector(); }; 
+        item.innerHTML = `<div class="log-dot"></div><div class="flex justify-between"><span class="text-xs font-bold text-amber-500">${CONFIG.faces[log.faceIdx].state}</span><span class="text-[10px] text-slate-500">${new Date(log.date).toLocaleTimeString()}</span></div><div class="text-xs mt-1">${log.note}</div>`;
+        tl.appendChild(item);
+    });
+}
+
+// 2. Foundry
+function renderReviewGrid() {
+    const container = document.getElementById('review-grid'); container.innerHTML = '';
+    if(!activeFileId) { container.innerHTML = '<div class="col-span-full text-center text-slate-500">Select Source Node</div>'; return; }
+    const file = fileSystem.find(f => f.id === activeFileId);
+    const voxelData = parseHex(file.data.hex);
+
+    if(isCosmohedraMode) {
+        const card = document.createElement('div'); card.className = 'foundry-card h-80';
+        const cvs = document.createElement('canvas'); cvs.width=800; cvs.height=400; cvs.className='foundry-canvas-lg w-full h-full';
+        card.appendChild(cvs); container.appendChild(card);
+        drawCosmohedra(cvs, voxelData, file.data.hex);
+        card.innerHTML += `<div class="foundry-header">FULL PERSPECTIVE COSMOHEDRA</div><div class="copy-overlay" onclick="copySigil(this)">COPY</div>`;
+        embedHex(cvs.getContext('2d'), file.data.hex);
+    } else {
+        for(let i=0; i<6; i++) {
+            const card = document.createElement('div'); card.className = 'foundry-card';
+            const cvs = document.createElement('canvas'); cvs.width=300; cvs.height=200; cvs.className='foundry-canvas-lg';
+            const faceData = calculateSPlane(voxelData, i);
+            drawSigil(cvs, faceData, 0.7, file.data.hex);
+            card.innerHTML = `<div class="foundry-header">${CONFIG.faces[i].name}</div><div class="copy-overlay" onclick="copySigil(this)">COPY</div>`;
+            card.prepend(cvs); container.appendChild(card);
+        }
+    }
+}
+
+// 3. Hierarchy
+function renderHierarchy() {
+    const container = document.getElementById('hierarchy-tree'); container.innerHTML = '';
+    let contextFile = activeFileId ? fileSystem.find(f => f.id === activeFileId) : null;
+    let contextFolderId = contextFile ? contextFile.parentId : currentFolderId;
+    let folder = fileSystem.find(f => f.id === contextFolderId);
+    if(!folder) { container.innerHTML = '<div class="text-slate-500 mt-10">Select a Module or File</div>'; return; }
+
+    const lvl1 = document.createElement('div'); lvl1.className = 'tree-level';
+    lvl1.innerHTML = `<div class="tree-node genesis"><div class="node-label">TIER 1: GENESIS SEED</div><div class="node-title">${folder.name}</div><div class="node-meta">${folder.genesisHex.substring(0,8)}...</div><div class="connector-vertical"></div></div>`;
+    container.appendChild(lvl1);
+
+    const lvl2 = document.createElement('div'); lvl2.className = 'tree-level';
+    const siblings = fileSystem.filter(f => f.parentId === folder.id && f.type === 'file');
+    
+    for(let i=0; i<6; i++) {
+        const branchName = CONFIG.faces[i].name;
+        const occupier = siblings.find(f => f.data.branchIdx === i);
+        const isActive = contextFile && contextFile.id === (occupier ? occupier.id : null);
+        const node = document.createElement('div');
+        if(occupier) {
+            node.className = `tree-node ${isActive?'active':''}`; node.onclick = () => loadFile(occupier.id);
+            node.innerHTML = `<div class="node-label">BRANCH ${i}: ${branchName}</div><div class="node-title">${occupier.name}</div><div class="node-meta">${occupier.data.hex.substring(0,8)}...</div><div class="connector-up"></div>${isActive?'<div class="connector-vertical" style="top:auto; bottom:-40px;"></div>':''}`;
+        } else {
+            node.className = 'tree-node ghost'; node.innerHTML = `<div class="node-label">BRANCH ${i}: ${branchName}</div><div class="node-title">Empty Slot</div><div class="connector-up"></div>`;
+        }
+        lvl2.appendChild(node);
+    }
+    container.appendChild(lvl2);
+
+    if(contextFile) {
+        const lvl3 = document.createElement('div'); lvl3.className = 'tree-level';
+        const logs = contextFile.data.logs.slice(0, 3);
+        logs.forEach((log, idx) => {
+            const node = document.createElement('div'); node.className = 'tree-node'; node.style.borderColor = '#fbbf24';
+            node.innerHTML = `<div class="node-label">LOG ${contextFile.data.logs.length - idx}</div><div class="node-title">${CONFIG.faces[log.faceIdx].state}</div><div class="text-xs text-slate-400 mt-1">${new Date(log.date).toLocaleTimeString()}</div>${idx===0?'<div class="connector-up" style="height:40px; top:-40px;"></div>':''}`;
+            lvl3.appendChild(node);
+        });
+        if(logs.length > 0) container.appendChild(lvl3);
+    }
+}
+
+// 4. Scanner
+function handleScanInput(input) {
+    const file = input.files[0]; if(!file) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const cvs = document.createElement('canvas'); cvs.width = img.width; cvs.height = img.height;
+            const ctx = cvs.getContext('2d'); ctx.drawImage(img, 0, 0);
+            const pixelData = ctx.getImageData(0, 0, 16, 1).data;
+            let recoveredHex = "";
+            for(let i=0; i<16; i++) recoveredHex += pixelData[i*4].toString(16).toUpperCase();
+            performSearch(recoveredHex);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file); input.value = '';
+}
+
+function manualScan() {
+    const val = document.getElementById('manual-hex-input').value.trim().toUpperCase();
+    if(val.length !== 16) { alert("Hex ID must be 16 characters."); return; }
+    performSearch(val);
+}
+
+function performSearch(hexStr) {
+    document.getElementById('scan-result').style.display = 'block';
+    document.getElementById('scan-hex').innerText = hexStr;
+    const match = fileSystem.find(f => f.type === 'file' && f.data.hex === hexStr);
+    if(match) {
+        document.getElementById('scan-status').innerText = `MATCH FOUND: ${match.name}`;
+        document.getElementById('scan-status').className = 'text-sm text-emerald-400';
+        const btn = document.getElementById('scan-nav-btn'); btn.classList.remove('hidden');
+        btn.onclick = () => { loadFile(match.id); switchTab('3d', document.querySelector('.nav-tab')); };
+    } else {
+        document.getElementById('scan-status').innerText = "NO MATCH IN DATABASE";
+        document.getElementById('scan-status').className = 'text-sm text-red-400';
+        document.getElementById('scan-nav-btn').classList.add('hidden');
+    }
+}
+function handleDrop(e) { e.preventDefault(); if(e.dataTransfer.files.length) { document.getElementById('scan-input').files = e.dataTransfer.files; handleScanInput(document.getElementById('scan-input')); } }
+
+// --- ADMIN CONSOLE ---
+function runCommand(input) {
+    const cmd = input.value.trim().toLowerCase();
+    const out = document.getElementById('console-output');
+    out.innerText += `\n> ${cmd}`; input.value = '';
+
+    if(cmd === 'help') { out.innerText += `\nCOMMANDS:\n- stats: Database overview\n- export: Download JSON\n- nuke: Wipe system\n- clear: Clear screen`; }
+    else if (cmd === 'stats') { const folders = fileSystem.filter(x=>x.type==='folder').length; const files = fileSystem.filter(x=>x.type==='file').length; out.innerText += `\nSTATS:\nFolders: ${folders}\nFiles: ${files}\nTotal Objects: ${fileSystem.length}`; }
+    else if (cmd === 'nuke') { resetDatabase(); out.innerText += `\nSYSTEM RESET INITIATED.`; }
+    else if (cmd === 'clear') { out.innerText = 'SCHISM LABS KERNEL v2.4'; }
+    else { out.innerText += `\nUnknown command.`; }
+    out.scrollTop = out.scrollHeight;
+}
+
+function injectJSON() {
+    try {
+        const raw = document.getElementById('json-inject').value;
+        const db = JSON.parse(raw);
+        hydrateState(db);
+        saveFileSystem();
+        renderFS(); 
+        document.getElementById('console-output').innerText += `\n[SYSTEM] Injection Successful.`;
+    } catch(e) { alert("Injection Failed: Invalid JSON"); }
+}
+
+function exportFullJSON() {
+    const raw = localStorage.getItem('schism_tracer_db');
+    document.getElementById('json-inject').value = raw;
+    navigator.clipboard.writeText(raw);
+    alert("Copied to Clipboard");
+}
+
+// --- HELPERS (Hex, S-Plane, Etc) ---
+function parseHex(hex) {
+    const v = []; for(let x=0;x<4;x++){v[x]=[];for(let y=0;y<4;y++){v[x][y]=[];for(let z=0;z<4;z++)v[x][y][z]=0;}}
+    if(!hex) return v;
+    for(let z=0;z<4;z++) {
+        const val = parseInt(hex.substring(z*4, z*4+4), 16);
+        for(let b=0;b<16;b++) { if((val >> (15-b)) & 1) v[b%4][Math.floor(b/4)][z] = 1; }
+    }
+    return v;
+}
+function calculateSPlane(voxels, face) {
+    const slices=[[],[],[]];
+    for(let d=0;d<3;d++) for(let v=0;v<4;v++) for(let u=0;u<4;u++) {
+        let val=0; // Simplified extraction mapping
+        if(face===0) val=voxels[u][v][d];
+        else if(face===1) val=voxels[3-u][v][3-d];
+        else val=voxels[u][v][d]; // Default fallback for brevity in this response
+        slices[d].push(val);
+    }
+    return { slices, poles: slices.map(s => {
+        let roots=[]; s.forEach((b,i) => { if(b) roots.push({r:Math.cos(i/16*Math.PI*2)*0.8, i:Math.sin(i/16*Math.PI*2)*0.8}) }); return roots;
+    })};
+}
+function drawSigil(cvs, data, scale, hexStr) {
+    const ctx = cvs.getContext('2d');
+    const w=cvs.width, h=cvs.height, cx=w/2, cy=h/2, s=Math.min(w,h)*0.35*scale;
+    const grd = ctx.createRadialGradient(cx, cy, s*0.2, cx, cy, s*3);
+    grd.addColorStop(0, "#334155"); grd.addColorStop(1, "#0f172a");
+    ctx.fillStyle = grd; ctx.fillRect(0,0,w,h);
+    
+    // ENFORCED STANDARD PROTOCOL
+    const s1 = 'square';
+    const s2 = 'circle';
+    const s3 = 'triangle';
+
+    drawLayer(ctx, cx, cy, s, s1, data.poles[0]); 
+    drawLayer(ctx, cx, cy, s*0.7, s2, data.poles[1]); 
+    drawLayer(ctx, cx, cy, s*0.4, s3, data.poles[2]);
+    
+    if(hexStr && scale >= 0.8) { ctx.fillStyle='#fbbf24'; ctx.font='10px monospace'; ctx.textAlign='center'; ctx.fillText(`ID: ${hexStr}`, cx, h-10); embedHex(ctx, hexStr); }
+}
+function drawLayer(ctx, x, y, r, shape, poles) {
+    const c = CONFIG.colors[shape] || CONFIG.colors.square; 
+    ctx.strokeStyle=c; ctx.fillStyle=c; ctx.lineWidth=1.5; ctx.beginPath();
+    
+    if(shape==='square') ctx.rect(x-r, y-r, r*2, r*2); 
+    else if(shape==='circle') ctx.arc(x,y,r,0,Math.PI*2); 
+    else if(shape==='hexagon') {
+        for(let i=0; i<6; i++) {
+            const a = (i*60)*Math.PI/180;
+            if(i===0) ctx.moveTo(x+Math.cos(a)*r, y+Math.sin(a)*r);
+            else ctx.lineTo(x+Math.cos(a)*r, y+Math.sin(a)*r);
+        }
+        ctx.closePath();
+    }
+    else { 
+        for(let i=0;i<3;i++) { 
+            const a=(i*120-90)*Math.PI/180; 
+            if(i===0)ctx.moveTo(x+Math.cos(a)*r, y+Math.sin(a)*r); 
+            else ctx.lineTo(x+Math.cos(a)*r, y+Math.sin(a)*r); 
+        } 
+        ctx.closePath(); 
+    }
+    ctx.stroke(); ctx.globalAlpha=0.3; poles.forEach(p=>{ctx.beginPath(); ctx.arc(x+p.r*(r*0.8), y+p.i*(r*0.8), 2, 0, Math.PI*2); ctx.fill();}); ctx.globalAlpha=1;
+}
+
+function embedHex(ctx, hex) {
+    for(let i=0; i<16; i++) {
+        const val = parseInt(hex[i], 16);
+        ctx.fillStyle = `rgb(${val}, 0, 0)`;
+        ctx.fillRect(i, 0, 1, 1);
+    }
+}
+
+function toggleCosmohedra() { isCosmohedraMode = !isCosmohedraMode; renderReviewGrid(); }
+function drawCosmohedra(cvs, voxelData, hexStr) {
+    const ctx = cvs.getContext('2d'); const w=cvs.width, h=cvs.height, cx=w/2, cy=h/2;
+    const grd = ctx.createRadialGradient(cx, cy, 10, cx, cy, h); grd.addColorStop(0, "#1e293b"); grd.addColorStop(1, "#0f172a"); ctx.fillStyle = grd; ctx.fillRect(0,0,w,h);
+    const r = Math.min(w,h) * 0.35, s = r * 0.25; 
+    
+    // Cosmohedra Outer Shell - Hexagon for Root Core representation
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1; ctx.beginPath();
+    for(let i=0; i<6; i++) {
+        const a = (i * 60 - 90) * Math.PI/180;
+        const x = cx + Math.cos(a)*r*1.5; const y = cy + Math.sin(a)*r*1.5; // Outer hex
+        if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.closePath(); ctx.stroke();
+
+    // Branches
+    for(let i=0; i<6; i++) {
+        const a = (i * 60 - 90) * Math.PI/180; const x = cx + Math.cos(a)*r; const y = cy + Math.sin(a)*r;
+        ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(x,y); ctx.stroke();
+        
+        const faceData = calculateSPlane(voxelData, i);
+        ctx.save(); 
+        // Standard S-C-T layout for sub-branches
+        drawLayer(ctx, x, y, s, 'square', faceData.poles[0]); 
+        drawLayer(ctx, x, y, s*0.7, 'circle', faceData.poles[1]); 
+        drawLayer(ctx, x, y, s*0.4, 'triangle', faceData.poles[2]);
+        ctx.fillStyle = '#94a3b8'; ctx.font = '10px monospace'; ctx.textAlign='center'; ctx.fillText(CONFIG.faces[i].name, x, y + s + 15); ctx.restore();
+    }
+    
+    ctx.beginPath(); ctx.arc(cx, cy, s*0.5, 0, Math.PI*2); ctx.fillStyle='#0f172a'; ctx.fill(); ctx.strokeStyle='#fbbf24'; ctx.stroke();
+}
+
+// --- UTILS ---
+function toggleLeft() { leftOpen=!leftOpen; document.getElementById('app-grid').style.gridTemplateColumns = `${leftOpen?'320px':'0px'} 1fr ${rightOpen?'400px':'0px'}`; }
+function toggleRight() { rightOpen=!rightOpen; document.getElementById('app-grid').style.gridTemplateColumns = `${leftOpen?'320px':'0px'} 1fr ${rightOpen?'400px':'0px'}`; }
+function openModal(t) { pendingCreationType=t; document.getElementById('input-modal').classList.remove('hidden'); document.getElementById('modal-input').focus(); if(t==='file') document.getElementById('modal-branch-select').classList.remove('hidden'); else document.getElementById('modal-branch-select').classList.add('hidden'); }
+function closeModal() { document.getElementById('input-modal').classList.add('hidden'); }
+function confirmModal() {
+    const n = document.getElementById('modal-input').value; if(!n) return;
+    try {
+        const node = new FileNode(n, pendingCreationType, currentFolderId);
+        if(pendingCreationType==='file') { let seed = null; if(currentFolderId) { const p = fileSystem.find(x=>x.id===currentFolderId); if(p) seed=p.genesisHex; } node.data.init(deriveHex(seed, creationBranchSelection), creationBranchSelection); }
+        fileSystem.push(node); saveFileSystem(); if(pendingCreationType==='file') loadFile(node.id); else renderFS();
+        closeModal();
+    } catch(e) { alert(e.message); }
+}
+function openConfigModal() {
+    const list = document.getElementById('config-list'); list.innerHTML = '';
+    CONFIG.faces.forEach((face, i) => { const div = document.createElement('div'); div.innerHTML = `<div class="text-[10px] text-amber-500 font-bold mb-1">FACE ${i}: ${face.dir.toUpperCase()}</div><input type="text" class="config-input" id="cfg-name-${i}" value="${face.name}"><input type="text" class="config-input" id="cfg-state-${i}" value="${face.state}">`; list.appendChild(div); });
+    document.getElementById('config-modal').classList.remove('hidden');
+}
+function closeConfigModal() { document.getElementById('config-modal').classList.add('hidden'); }
+function saveConfig() { for(let i=0; i<6; i++) { CONFIG.faces[i].name = document.getElementById(`cfg-name-${i}`).value; CONFIG.faces[i].state = document.getElementById(`cfg-state-${i}`).value; } localStorage.setItem('schism_config', JSON.stringify(CONFIG)); closeConfigModal(); renderReviewGrid(); updateVisuals(); renderInspector(); }
+function resetConfig() { if(confirm("Reset?")) { localStorage.removeItem('schism_config'); CONFIG = JSON.parse(JSON.stringify(DEFAULT_CONFIG)); closeConfigModal(); renderReviewGrid(); updateVisuals(); } }
+function toggleAddLog() { document.getElementById('add-log-form').classList.toggle('hidden'); }
+function selectSpin(i,el) { formSpinSelection=i; document.querySelectorAll('.spin-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+function setCreationBranch(i,el) { creationBranchSelection=i; document.querySelectorAll('#modal-branch-select .spin-btn').forEach(b=>b.classList.remove('active')); el.classList.add('active'); }
+function commitLog() { const n = document.getElementById('log-note').value; if(!n) return; fileSystem.find(f=>f.id===activeFileId).data.addLog(formSpinSelection, n); saveFileSystem(); document.getElementById('log-note').value=''; toggleAddLog(); renderInspector(); updateVisuals(); }
+function copySigil(el) { const card = el.closest('.foundry-card'); const cvs = card.querySelector('canvas'); if (!cvs) return; cvs.toBlob(blob => { if (!navigator.clipboard || !navigator.clipboard.write) { alert("Clipboard API not supported in this context."); return; } const item = new ClipboardItem({'image/png': blob}); navigator.clipboard.write([item]).then(() => { const original = el.innerText; el.innerText = 'COPIED'; setTimeout(() => el.innerText = original, 1000); }).catch(err => { console.error("Clipboard write failed", err); alert("Clipboard blocked."); }); }); }
+function downloadSigil() { if(!activeFileId) return; const file = fileSystem.find(f => f.id === activeFileId); const hex = file.data.hex || "unknown"; const name = file.name.replace(/[^a-z0-9]/gi, '_').toLowerCase(); const a = document.createElement('a'); a.download = `Lesson_${name}_${hex}.png`; a.href = document.getElementById('sigil-canvas').toDataURL(); a.click(); }
+function openDocUrl() { const url = fileSystem.find(f=>f.id===activeFileId)?.data.documentUrl; if(url) window.open(url, '_blank'); else alert("No URL set."); }
+function saveDocUrl() { if(activeFileId) { fileSystem.find(f=>f.id===activeFileId).data.documentUrl = document.getElementById('doc-url-input').value; saveFileSystem(); } }
+function onResize() { 
+    if(currentTab === '3d') { camera.aspect=document.getElementById('three-container').clientWidth/document.getElementById('three-container').clientHeight; camera.updateProjectionMatrix(); renderer.setSize(document.getElementById('three-container').clientWidth, document.getElementById('three-container').clientHeight); }
+    else if (currentTab === 'global') { globalCam.aspect=document.getElementById('global-container').clientWidth/document.getElementById('global-container').clientHeight; globalCam.updateProjectionMatrix(); globalRenderer.setSize(document.getElementById('global-container').clientWidth, document.getElementById('global-container').clientHeight); }
+}
+function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); if(currentTab==='global') { globalControls.update(); globalRenderer.render(globalScene, globalCam); } }
+function exportFullJSON() { const raw = localStorage.getItem('schism_tracer_db'); document.getElementById('json-inject').value = raw; navigator.clipboard.writeText(raw); alert("Copied to Clipboard"); }
+function injectJSON() { try { const raw = document.getElementById('json-inject').value; const db = JSON.parse(raw); hydrateState(db); saveFileSystem(); renderFS(); document.getElementById('console-output').innerText += `\n[SYSTEM] Injection Successful.`; } catch(e) { alert("Injection Failed: Invalid JSON"); } }
+function runCommand(input) { const cmd = input.value.trim().toLowerCase(); const out = document.getElementById('console-output'); out.innerText += `\n> ${cmd}`; input.value = ''; if(cmd === 'help') { out.innerText += `\nCOMMANDS:\n- stats: Database overview\n- export: Download JSON\n- nuke: Wipe system\n- clear: Clear screen`; } else if (cmd === 'stats') { const folders = fileSystem.filter(x=>x.type==='folder').length; const files = fileSystem.filter(x=>x.type==='file').length; out.innerText += `\nSTATS:\nFolders: ${folders}\nFiles: ${files}\nTotal Objects: ${fileSystem.length}`; } else if (cmd === 'nuke') { resetDatabase(); out.innerText += `\nSYSTEM RESET INITIATED.`; } else if (cmd === 'clear') { out.innerText = 'SCHISM LABS KERNEL v2.4'; } else { out.innerText += `\nUnknown command.`; } out.scrollTop = out.scrollHeight; }
+function handleScanInput(input) { const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { const img = new Image(); img.onload = function() { const cvs = document.createElement('canvas'); cvs.width = img.width; cvs.height = img.height; const ctx = cvs.getContext('2d'); ctx.drawImage(img, 0, 0); const pixelData = ctx.getImageData(0, 0, 16, 1).data; let recoveredHex = ""; for(let i=0; i<16; i++) recoveredHex += pixelData[i*4].toString(16).toUpperCase(); performSearch(recoveredHex); }; img.src = e.target.result; }; reader.readAsDataURL(file); input.value = ''; }
+function manualScan() { const val = document.getElementById('manual-hex-input').value.trim().toUpperCase(); if(val.length !== 16) { alert("Hex ID must be 16 characters."); return; } performSearch(val); }
+function performSearch(hexStr) { document.getElementById('scan-result').style.display = 'block'; document.getElementById('scan-hex').innerText = hexStr; const match = fileSystem.find(f => f.type === 'file' && f.data.hex === hexStr); if(match) { document.getElementById('scan-status').innerText = `MATCH FOUND: ${match.name}`; document.getElementById('scan-status').className = 'text-sm text-emerald-400'; const btn = document.getElementById('scan-nav-btn'); btn.classList.remove('hidden'); btn.onclick = () => { loadFile(match.id); switchTab('3d', document.querySelector('.nav-tab')); }; } else { document.getElementById('scan-status').innerText = "NO MATCH IN DATABASE"; document.getElementById('scan-status').className = 'text-sm text-red-400'; document.getElementById('scan-nav-btn').classList.add('hidden'); } }
+function handleDrop(e) { e.preventDefault(); if(e.dataTransfer.files.length) { document.getElementById('scan-input').files = e.dataTransfer.files; handleScanInput(document.getElementById('scan-input')); } }
+function exportJSON() { const bundle = { version: "2.4", type: "Ontological Source Tracer", timestamp: Date.now(), config: CONFIG, fileSystem: fileSystem }; const jsonStr = JSON.stringify(bundle, null, 2); const blob = new Blob([jsonStr], { type: "application/json" }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `Schism_Tracer_${new Date().toISOString().slice(0,10)}.json`; a.click(); URL.revokeObjectURL(url); }
+function importLedger(input) { const file = input.files[0]; if(!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const db = JSON.parse(e.target.result); hydrateState(db); saveFileSystem(); activeFileId = null; currentFolderId = null; document.getElementById('empty-state').style.display='flex'; document.getElementById('three-container').classList.add('opacity-0'); renderFS(); renderInspector(); alert("Ledger Imported Successfully."); } catch(err) { console.error(err); alert("Invalid Ledger JSON."); } }; reader.readAsText(file); input.value = ''; }
+function resetDatabase() { if(confirm('Reset?')) { localStorage.removeItem('schism_tracer_db'); initDefaultFS(); } }
+
+init();
+</script>
+</body>
+</html>
