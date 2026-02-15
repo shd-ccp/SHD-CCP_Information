@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cosmo-ID: Holographic Document Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #020617; color: white; font-family: 'Segoe UI', monospace; }
+        
+        /* Layout Grid */
+        #app-grid {
+            display: grid;
+            grid-template-columns: 320px 1fr 380px;
+            height: 100vh;
+            width: 100vw;
+            transition: grid-template-columns 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Panels */
+        .sidebar { 
+            background: #0f172a; 
+            border-right: 1px solid #1e293b; 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 10; 
+            overflow: hidden; /* Important for collapse */
+            min-width: 0;
+        }
+        .main-view { position: relative; background: #020617; overflow: hidden; }
+        .inspector { 
+            background: rgba(15, 23, 42, 0.95); 
+            border-left: 1px solid #1e293b; 
+            backdrop-filter: blur(10px); 
+            display: flex; 
+            flex-direction: column; 
+            z-index: 10; 
+            overflow: hidden; /* Important for collapse */
+            min-width: 0;
+        }
+
+        /* Typography & Components */
+        .section-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #1e293b;
+            font-size: 0.85em;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        .hex-segment { font-family: 'Courier New', monospace; font-weight: bold; padding: 2px 4px; border-radius: 4px; }
+        .seg-root { color: #38bdf8; background: rgba(56, 189, 248, 0.1); }
+        .seg-class { color: #c084fc; background: rgba(192, 132, 252, 0.1); }
+        .seg-hash { color: #facc15; background: rgba(250, 204, 21, 0.1); }
+        .seg-meta { color: #94a3b8; background: rgba(148, 163, 184, 0.1); }
+
+        .btn {
+            background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px;
+            cursor: pointer; font-size: 0.9em; font-weight: 600; transition: all 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .btn:hover { background: #2563eb; }
+        .btn-outline { background: transparent; border: 1px solid #334155; color: #cbd5e1; }
+        .btn-outline:hover { background: #1e293b; border-color: #475569; }
+
+        .btn-icon {
+            width: 32px; height: 32px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            border: 1px solid #334155;
+            border-radius: 6px;
+            color: #94a3b8;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover { background: #3b82f6; color: white; border-color: #60a5fa; }
+        .btn-icon.active { background: #334155; color: white; border-color: #475569; }
+
+        .log-item {
+            padding: 12px; border-left: 2px solid #334155; margin-left: 10px; position: relative;
+            background: rgba(255,255,255,0.02); margin-bottom: 8px; border-radius: 0 6px 6px 0;
+            transition: all 0.2s; cursor: pointer;
+        }
+        .log-item:hover { background: rgba(255,255,255,0.05); }
+        .log-item.active { border-left-color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
+        .log-dot {
+            position: absolute; left: -6px; top: 18px; width: 10px; height: 10px;
+            background: #1e293b; border: 2px solid #64748b; border-radius: 50%;
+        }
+        .log-item.active .log-dot { border-color: #3b82f6; background: #3b82f6; }
+
+        /* Canvas Overlay */
+        #sigil-canvas {
+            width: 100%; height: 300px;
+            background: radial-gradient(circle at center, #1e293b 0%, #020617 70%);
+            border-bottom: 1px solid #334155;
+        }
+        
+        .spin-selector { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+        .spin-btn {
+            padding: 6px; font-size: 0.7em; background: #0f172a; border: 1px solid #334155; 
+            color: #94a3b8; border-radius: 4px; text-align: center; cursor: pointer;
+        }
+        .spin-btn:hover { border-color: #64748b; color: white; }
+        .spin-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+
+    </style>
+</head>
+<body>
+
+<div id="app-grid">
+    <!-- LEFT SIDEBAR: REGISTRY -->
+    <div class="sidebar" id="panel-left">
+        <div class="p-4 border-b border-slate-800 bg-slate-900 min-w-[320px]">
+            <h1 class="text-xl font-bold tracking-tight"><i class="fa-solid fa-cube text-blue-500 mr-2"></i>COSMO-ID</h1>
+            <p class="text-xs text-slate-500 mt-1">Lifecycle Management System</p>
+        </div>
+        
+        <div class="p-3 min-w-[320px]">
+            <button class="btn w-full mb-4" onclick="createNewID()"><i class="fa-solid fa-plus"></i> Mint New ID</button>
+            <div class="text-xs font-bold text-slate-500 uppercase mb-2 px-2">Registry Database</div>
+            
+            <div id="registry-list" class="flex flex-col gap-1 overflow-y-auto h-[calc(100vh-180px)]">
+                <!-- Items injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN VIEW: 3D Visualization -->
+    <div class="main-view" id="main-view">
+        <!-- Top Left Controls -->
+        <div class="absolute top-4 left-4 z-20 flex gap-2">
+            <button class="btn-icon" onclick="toggleLeft()" title="Toggle Sidebar"><i class="fa-solid fa-bars"></i></button>
+            <div class="bg-slate-900/80 backdrop-blur px-3 py-1 rounded border border-slate-700 text-xs flex items-center">
+                <span class="text-slate-400 mr-2">VIEW MODE:</span> <span class="text-white font-bold" id="view-mode-text">VOLUMETRIC</span>
+            </div>
+        </div>
+        
+        <!-- Top Right Controls -->
+        <div class="absolute top-4 right-4 z-20">
+             <button class="btn-icon" onclick="toggleRight()" title="Toggle Inspector"><i class="fa-solid fa-list-ul"></i></button>
+        </div>
+
+        <div id="three-container" class="w-full h-full"></div>
+    </div>
+
+    <!-- RIGHT INSPECTOR: Details & Evolution -->
+    <div class="inspector" id="panel-right">
+        
+        <!-- Header: The ID Breakdown -->
+        <div class="p-4 border-b border-slate-800 bg-slate-900/50 min-w-[380px]">
+            <div class="text-xs text-slate-500 mb-1">COSMO-ID HASH</div>
+            <div class="flex gap-1 text-sm font-mono tracking-wider" id="hex-display">
+                <span class="hex-segment seg-root">----</span>
+                <span class="hex-segment seg-class">----</span>
+                <span class="hex-segment seg-hash">----</span>
+                <span class="hex-segment seg-meta">----</span>
+            </div>
+            <div class="flex justify-between mt-2 text-[10px] text-slate-500 px-1">
+                <span class="text-sky-400">ROOT</span>
+                <span class="text-purple-400">CLASS</span>
+                <span class="text-yellow-400">HASH</span>
+                <span class="text-slate-400">META</span>
+            </div>
+        </div>
+
+        <!-- The Sigil Preview -->
+        <div class="relative min-w-[380px]">
+            <canvas id="sigil-canvas"></canvas>
+            <button class="absolute bottom-2 right-2 btn-outline text-xs px-2 py-1 bg-slate-900/80 rounded" onclick="downloadSigil()">
+                <i class="fa-solid fa-download mr-1"></i> PNG
+            </button>
+        </div>
+
+        <!-- Lifecycle Controls -->
+        <div class="section-header min-w-[380px]">
+            <span>Traceability Log</span>
+            <button class="text-xs text-blue-400 hover:text-blue-300" onclick="toggleAddLog()"><i class="fa-solid fa-pen-to-square"></i> ADD ENTRY</button>
+        </div>
+
+        <!-- Add Log Form (Hidden by default) -->
+        <div id="add-log-form" class="p-4 bg-slate-800/50 border-b border-slate-700 hidden min-w-[380px]">
+            <div class="text-xs text-white mb-2 font-bold">New Lifecycle Event</div>
+            
+            <label class="text-[10px] text-slate-400 uppercase">Spin State (Perspective)</label>
+            <div class="spin-selector mb-3">
+                <div class="spin-btn active" onclick="selectSpin(0, this)">FRONT<br>(Draft)</div>
+                <div class="spin-btn" onclick="selectSpin(2, this)">RIGHT<br>(Review)</div>
+                <div class="spin-btn" onclick="selectSpin(1, this)">BACK<br>(Final)</div>
+                <div class="spin-btn" onclick="selectSpin(3, this)">LEFT<br>(Fork)</div>
+                <div class="spin-btn" onclick="selectSpin(4, this)">TOP<br>(Archive)</div>
+                <div class="spin-btn" onclick="selectSpin(5, this)">BTM<br>(Deep)</div>
+            </div>
+
+            <label class="text-[10px] text-slate-400 uppercase">Description</label>
+            <input type="text" id="log-note" class="w-full bg-slate-900 border border-slate-700 rounded p-2 text-xs text-white mb-3" placeholder="e.g. Initial Draft created...">
+            
+            <button class="btn w-full py-1 text-xs" onclick="commitLog()">Commit to Ledger</button>
+        </div>
+
+        <!-- Timeline -->
+        <div id="log-timeline" class="p-4 flex-grow overflow-y-auto min-w-[380px]">
+            <!-- Logs go here -->
+        </div>
+
+        <div class="p-4 border-t border-slate-800 min-w-[380px]">
+            <button class="btn-outline w-full py-2 text-xs" onclick="exportJSON()"><i class="fa-solid fa-file-code mr-2"></i> Export JSON</button>
+        </div>
+
+    </div>
+</div>
+
+<script>
+// --- CORE CONFIGURATION ---
+const CONFIG = {
+    colors: { square: '#38bdf8', circle: '#c084fc', triangle: '#facc15', meta: '#94a3b8' },
+    faces: [
+        { name: 'FRONT', state: 'DRAFT', dir: 'z+' },
+        { name: 'BACK', state: 'FINAL', dir: 'z-' },
+        { name: 'RIGHT', state: 'REVIEW', dir: 'x+' },
+        { name: 'LEFT', state: 'FORK', dir: 'x-' },
+        { name: 'TOP', state: 'ARCHIVE', dir: 'y+' },
+        { name: 'BOTTOM', state: 'DEEP', dir: 'y-' }
+    ]
+};
+
+// --- DATA STRUCTURES ---
+class CosmoID {
+    constructor() {
+        this.hex = this.generateHex();
+        this.created = new Date();
+        this.logs = []; // { date, faceIdx, note, signature }
+        
+        // Initial Log
+        this.addLog(0, "ID Minted. Initial State.");
+    }
+
+    generateHex() {
+        let h = "";
+        const c = "0123456789ABCDEF";
+        for(let i=0; i<16; i++) h += c[Math.floor(Math.random()*16)];
+        return h;
+    }
+
+    get segments() {
+        return {
+            root: this.hex.substring(0, 4),
+            class: this.hex.substring(4, 8),
+            hash: this.hex.substring(8, 12),
+            meta: this.hex.substring(12, 16)
+        };
+    }
+
+    addLog(faceIdx, note) {
+        this.logs.unshift({
+            date: new Date(),
+            faceIdx: faceIdx,
+            note: note,
+            id: this.logs.length + 1
+        });
+    }
+}
+
+// --- STATE MANAGEMENT ---
+let registry = [];
+let activeID = null;
+let activeLogIndex = 0; // Which log entry are we visualizing?
+let formSpinSelection = 0;
+let leftOpen = true;
+let rightOpen = true;
+
+// --- THREE.JS INIT ---
+const container = document.getElementById('three-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020617);
+scene.fog = new THREE.FogExp2(0x020617, 0.03);
+
+const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+camera.position.set(8, 6, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(container.clientWidth, container.clientHeight);
+container.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.5;
+
+const voxelGroup = new THREE.Group();
+scene.add(voxelGroup);
+
+// Lights
+const amb = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(amb);
+const pl1 = new THREE.PointLight(0x38bdf8, 1, 20); pl1.position.set(5, 5, 5); scene.add(pl1);
+const pl2 = new THREE.PointLight(0xc084fc, 1, 20); pl2.position.set(-5, -2, 5); scene.add(pl2);
+
+// --- APP LOGIC ---
+
+function init() {
+    // Create one ID to start
+    createNewID();
+    animate();
+    
+    // Resize Observer for smooth transition of canvas
+    const resizeObserver = new ResizeObserver(() => {
+        onResize();
+    });
+    resizeObserver.observe(container);
+}
+
+function createNewID() {
+    const newID = new CosmoID();
+    registry.unshift(newID);
+    loadID(newID);
+    renderRegistryList();
+}
+
+function loadID(idObj) {
+    activeID = idObj;
+    activeLogIndex = 0; // Show latest
+    renderInspector();
+    updateVisuals();
+}
+
+// --- PANEL TOGGLES ---
+function toggleLeft() {
+    leftOpen = !leftOpen;
+    updateGrid();
+}
+
+function toggleRight() {
+    rightOpen = !rightOpen;
+    updateGrid();
+}
+
+function updateGrid() {
+    const grid = document.getElementById('app-grid');
+    const leftW = leftOpen ? '320px' : '0px';
+    const rightW = rightOpen ? '380px' : '0px';
+    grid.style.gridTemplateColumns = `${leftW} 1fr ${rightW}`;
+}
+
+function renderRegistryList() {
+    const list = document.getElementById('registry-list');
+    list.innerHTML = '';
+    
+    registry.forEach(id => {
+        const div = document.createElement('div');
+        div.className = `p-3 rounded border border-slate-800 bg-slate-900/50 cursor-pointer hover:border-blue-500 transition-colors ${activeID === id ? 'border-blue-500 bg-blue-900/10' : ''}`;
+        div.onclick = () => { loadID(id); renderRegistryList(); }; // Refresh list to update active class
+        div.innerHTML = `
+            <div class="flex justify-between items-center mb-1">
+                <span class="font-mono font-bold text-sm text-white">#${id.segments.root}..</span>
+                <span class="text-[10px] px-1 rounded bg-slate-800 text-slate-400">${id.logs.length} VERS</span>
+            </div>
+            <div class="text-[10px] text-slate-500 truncate">${id.logs[0].note}</div>
+            <div class="text-[10px] text-slate-600 mt-1">${id.created.toLocaleDateString()}</div>
+        `;
+        list.appendChild(div);
+    });
+}
+
+function renderInspector() {
+    if(!activeID) return;
+
+    // 1. Hex Segments
+    const segs = activeID.segments;
+    const hexContainer = document.getElementById('hex-display');
+    hexContainer.innerHTML = `
+        <span class="hex-segment seg-root">${segs.root}</span>
+        <span class="hex-segment seg-class">${segs.class}</span>
+        <span class="hex-segment seg-hash">${segs.hash}</span>
+        <span class="hex-segment seg-meta">${segs.meta}</span>
+    `;
+
+    // 2. Timeline
+    const tl = document.getElementById('log-timeline');
+    tl.innerHTML = '';
+    
+    activeID.logs.forEach((log, idx) => {
+        const item = document.createElement('div');
+        item.className = `log-item ${idx === activeLogIndex ? 'active' : ''}`;
+        item.onclick = () => { activeLogIndex = idx; renderInspector(); updateVisuals(); };
+        
+        const face = CONFIG.faces[log.faceIdx];
+        
+        item.innerHTML = `
+            <div class="log-dot"></div>
+            <div class="flex justify-between">
+                <span class="text-xs font-bold text-blue-300">${face.state}</span>
+                <span class="text-[10px] text-slate-500">${log.date.toLocaleTimeString()}</span>
+            </div>
+            <div class="text-[10px] text-slate-400 mt-1 font-mono">SPIN: ${face.name}</div>
+            <div class="text-xs text-white mt-1">${log.note}</div>
+        `;
+        tl.appendChild(item);
+    });
+}
+
+function updateVisuals() {
+    if(!activeID) return;
+    const currentLog = activeID.logs[activeLogIndex];
+    
+    // Parse Hex to Voxels (Strict Layering)
+    const voxelData = parseHexToVoxelsStrict(activeID.hex);
+    
+    // Render 3D
+    renderVoxelCube(voxelData, currentLog.faceIdx);
+    
+    // Render 2D Sigil
+    const faceData = calculateSPlane(voxelData, currentLog.faceIdx);
+    drawSigil(faceData);
+}
+
+// --- LOGIC: HEX PARSING & MATH ---
+
+function parseHexToVoxelsStrict(hex) {
+    // 64 bits total. 4 layers of 16 bits.
+    // Layer 0 (Square): Chars 0-3
+    // Layer 1 (Circle): Chars 4-7
+    // Layer 2 (Triangle): Chars 8-11
+    // Layer 3 (Meta): Chars 12-15
+    
+    const voxels = []; // [x][y][z]
+    for(let x=0; x<4; x++) {
+        voxels[x] = [];
+        for(let y=0; y<4; y++) {
+            voxels[x][y] = [];
+            for(let z=0; z<4; z++) voxels[x][y][z] = 0;
+        }
+    }
+
+    // Fill Layers Z=0,1,2,3
+    for(let z=0; z<4; z++) {
+        const chunkStart = z*4;
+        const chunkHex = hex.substring(chunkStart, chunkStart+4);
+        const val = parseInt(chunkHex, 16); // 16 bits
+        
+        // Distribute 16 bits into 4x4 plane at depth z
+        for(let bit=0; bit<16; bit++) {
+            const b = (val >> (15-bit)) & 1;
+            const x = bit % 4;
+            const y = Math.floor(bit / 4);
+            voxels[x][y][z] = b;
+        }
+    }
+    return voxels;
+}
+
+function calculateSPlane(voxels, faceIdx) {
+    // Extract 3 slices based on perspective (depth 0,1,2 relative to face)
+    const slices = [[], [], []];
+    
+    // Simple extraction logic simulating the perspective rotation
+    // We map the relative u,v,d coordinates based on face normal
+    for(let d=0; d<3; d++) {
+        for(let v=0; v<4; v++) {
+            for(let u=0; u<4; u++) {
+                let val = 0;
+                switch(faceIdx) {
+                    case 0: val = voxels[u][v][d]; break; // Front (Z+)
+                    case 1: val = voxels[3-u][v][3-d]; break; // Back (Z-)
+                    case 2: val = voxels[d][v][u]; break; // Right (X+)
+                    case 3: val = voxels[3-d][v][3-u]; break; // Left (X-)
+                    case 4: val = voxels[u][d][v]; break; // Top (Y+)
+                    case 5: val = voxels[u][3-d][3-v]; break; // Bottom (Y-)
+                }
+                slices[d].push(val);
+            }
+        }
+    }
+
+    // Convert slices to poles
+    const poles = slices.map(s => solvePoly(s));
+    return { slices, poles };
+}
+
+function solvePoly(bits) {
+    // Simplified S-Plane simulation
+    let roots = [];
+    const count = bits.reduce((a,b)=>a+b, 0);
+    const radius = 0.8;
+    // Just map active bits to roots on circle for visualization stability
+    if(count === 0) return [{r:0, i:0}];
+    
+    let activeIndices = [];
+    bits.forEach((b,i) => { if(b) activeIndices.push(i); });
+    
+    activeIndices.forEach(idx => {
+        const angle = (idx / 16) * Math.PI * 2;
+        roots.push({
+            r: Math.cos(angle) * radius,
+            i: Math.sin(angle) * radius
+        });
+    });
+    return roots; // Array of complex numbers
+}
+
+// --- 3D RENDERING ---
+function renderVoxelCube(data, faceIdx) {
+    while(voxelGroup.children.length) voxelGroup.remove(voxelGroup.children[0]);
+    const geo = new THREE.BoxGeometry(0.85, 0.85, 0.85);
+    const offset = 1.5;
+
+    // Rotate camera to match spin state
+    const d = 12;
+    const cams = [
+        {x:0,y:0,z:d}, {x:0,y:0,z:-d}, {x:d,y:0,z:0}, {x:-d,y:0,z:0}, {x:0,y:d,z:0}, {x:0,y:-d,z:0}
+    ];
+    // Smooth transition
+    // gsap or simple lerp would be better, but instant is robust for this demo
+    camera.position.set(cams[faceIdx].x + 0.1, cams[faceIdx].y + 0.1, cams[faceIdx].z + 0.1); // offset to prevent gimbal lock
+    controls.update();
+
+    for(let x=0; x<4; x++) {
+        for(let y=0; y<4; y++) {
+            for(let z=0; z<4; z++) {
+                const bit = data[x][y][z];
+                // Render Wireframe for empty, Solid for full
+                if(!bit) {
+                    const wMat = new THREE.MeshBasicMaterial({color:0x1e293b, wireframe:true, transparent:true, opacity:0.05});
+                    const m = new THREE.Mesh(geo, wMat);
+                    m.position.set(x-offset, y-offset, z-offset);
+                    voxelGroup.add(m);
+                } else {
+                    // Color code by layer (Z)
+                    let col = CONFIG.colors.meta;
+                    if(z===0) col = CONFIG.colors.square;
+                    if(z===1) col = CONFIG.colors.circle;
+                    if(z===2) col = CONFIG.colors.triangle;
+
+                    const mat = new THREE.MeshStandardMaterial({
+                        color: col, roughness:0.2, emissive:col, emissiveIntensity:0.5
+                    });
+                    const m = new THREE.Mesh(geo, mat);
+                    m.position.set(x-offset, y-offset, z-offset);
+                    voxelGroup.add(m);
+                }
+            }
+        }
+    }
+}
+
+// --- 2D CANVAS RENDERING ---
+function drawSigil(data) {
+    const canvas = document.getElementById('sigil-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Retina scaling
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    
+    const w = rect.width;
+    const h = rect.height;
+    const cx = w/2;
+    const cy = h/2;
+    const size = Math.min(w,h) * 0.35;
+
+    ctx.clearRect(0,0,w,h);
+
+    // 1. Square (Layer 0 / Root)
+    drawLayer(ctx, cx, cy, size, 'square', data.slices[0], data.poles[0]);
+    
+    // 2. Circle (Layer 1 / Class)
+    drawLayer(ctx, cx, cy, size*0.7, 'circle', data.slices[1], data.poles[1]);
+    
+    // 3. Triangle (Layer 2 / Hash)
+    drawLayer(ctx, cx, cy, size*0.4, 'triangle', data.slices[2], data.poles[2]);
+
+    // Stamp Text
+    ctx.fillStyle = '#64748b';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText("COSMO-ID VERIFICATION", cx, h - 10);
+}
+
+function drawLayer(ctx, x, y, r, shape, bits, poles) {
+    const color = CONFIG.colors[shape];
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = 1.5;
+    
+    ctx.beginPath();
+    if(shape === 'square') ctx.rect(x-r, y-r, r*2, r*2);
+    else if(shape === 'circle') ctx.arc(x, y, r, 0, Math.PI*2);
+    else if(shape === 'triangle') {
+        for(let i=0; i<3; i++) {
+            const a = (i*120 - 90)*Math.PI/180;
+            const px = x + Math.cos(a)*r;
+            const py = y + Math.sin(a)*r;
+            if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+        }
+        ctx.closePath();
+    }
+    ctx.stroke();
+
+    // Data Bits (Mini visualizer inside)
+    ctx.globalAlpha = 0.2;
+    poles.forEach(p => {
+        ctx.beginPath();
+        ctx.arc(x + p.r*(r*0.8), y + p.i*(r*0.8), 2, 0, Math.PI*2);
+        ctx.fill();
+    });
+    ctx.globalAlpha = 1.0;
+}
+
+// --- UI INTERACTIONS ---
+function toggleAddLog() {
+    const form = document.getElementById('add-log-form');
+    form.classList.toggle('hidden');
+}
+
+function selectSpin(idx, el) {
+    formSpinSelection = idx;
+    document.querySelectorAll('.spin-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function commitLog() {
+    const note = document.getElementById('log-note').value;
+    if(!note) return alert("Please add a note.");
+    
+    activeID.addLog(formSpinSelection, note);
+    document.getElementById('log-note').value = '';
+    toggleAddLog();
+    
+    loadID(activeID); // Refresh view
+    renderRegistryList(); // Update sidebar counts
+}
+
+function downloadSigil() {
+    const canvas = document.getElementById('sigil-canvas');
+    const link = document.createElement('a');
+    link.download = `CosmoID-${activeID.hex}-${activeID.logs[activeLogIndex].date.toISOString()}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+}
+
+function exportJSON() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeID, null, 2));
+    const link = document.createElement('a');
+    link.href = dataStr;
+    link.download = `CosmoID-${activeID.hex}.json`;
+    link.click();
+}
+
+function onResize() {
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    updateVisuals();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+// Start App
+init();
+
+</script>
+</body>
+</html>
