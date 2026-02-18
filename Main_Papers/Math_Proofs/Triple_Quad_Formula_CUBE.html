@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Triple Quad Formula — 4×4×4 Cube Derivation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #1a1a26;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --muted: #6a6a88;
+    --accent-violet: #c084fc;
+    --accent-red: #f87171;
+    --accent-blue: #60a5fa;
+    --accent-green: #4ade80;
+    --accent-gold: #fbbf24;
+    --accent-orange: #fb923c;
+    --glow-violet: rgba(192, 132, 252, 0.15);
+    --glow-red: rgba(248, 113, 113, 0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Instrument Sans', sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(192,132,252,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(192,132,252,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .page-wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 24px 80px;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 64px 0 48px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 60px;
+    position: relative;
+  }
+
+  .meta-bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .tag-violet { color: var(--accent-violet); border-color: rgba(192,132,252,0.3); background: rgba(192,132,252,0.06); }
+  .tag-green  { color: var(--accent-green);  border-color: rgba(74,222,128,0.3);  background: rgba(74,222,128,0.06); }
+  .tag-gold   { color: var(--accent-gold);   border-color: rgba(251,191,36,0.3);  background: rgba(251,191,36,0.06); }
+
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    font-weight: 400;
+    line-height: 1.1;
+    color: #fff;
+    letter-spacing: -0.02em;
+    margin-bottom: 18px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--accent-violet);
+  }
+
+  .subtitle {
+    font-size: 15px;
+    color: var(--muted);
+    font-weight: 300;
+    max-width: 560px;
+  }
+
+  .source-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+  .source-link:hover { color: var(--accent-violet); }
+  .source-link::before { content: '↗'; font-size: 13px; }
+
+  /* ── STATEMENT BOX ── */
+  .statement-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent-violet);
+    border-radius: 8px;
+    padding: 28px 32px;
+    margin-bottom: 48px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .statement-block::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent-violet), transparent);
+  }
+
+  .statement-block h2 {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-violet);
+    margin-bottom: 12px;
+  }
+
+  .statement-block p {
+    color: #ccc;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  /* ── FORMULA DISPLAY ── */
+  .formula {
+    background: #0d0d16;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 32px;
+    margin: 24px 0;
+    text-align: center;
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(1rem, 2.5vw, 1.4rem);
+    color: #fff;
+    letter-spacing: 0.04em;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .formula::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.08), transparent 60%);
+    pointer-events: none;
+  }
+
+  .formula .eq-label {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  /* ── SECTION HEADERS ── */
+  .section {
+    margin-bottom: 56px;
+  }
+
+  .section-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.7rem;
+    font-weight: 400;
+    color: #fff;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .section-title .step-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 3px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+  }
+
+  .section-subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* ── POINTS GRID ── */
+  .points-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 28px 0;
+  }
+
+  .point-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    text-align: center;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .point-card:hover { transform: translateY(-2px); }
+  .point-card.p1 { border-top: 2px solid var(--accent-red); }
+  .point-card.p2 { border-top: 2px solid var(--accent-blue); }
+  .point-card.p3 { border-top: 2px solid var(--accent-green); }
+
+  .point-card .point-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+  .point-card.p1 .point-label { color: var(--accent-red); }
+  .point-card.p2 .point-label { color: var(--accent-blue); }
+  .point-card.p3 .point-label { color: var(--accent-green); }
+
+  .point-card .point-coords {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ── PARAMETERIZATION ── */
+  .param-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin: 20px 0;
+  }
+
+  .param-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+  }
+  .param-row:last-child { border-bottom: none; }
+
+  .param-row .pr-label { color: var(--muted); width: 60px; font-size: 11px; text-transform: uppercase; }
+  .param-row .pr-eq { color: #fff; }
+  .param-row span.red   { color: var(--accent-red); }
+  .param-row span.blue  { color: var(--accent-blue); }
+  .param-row span.green { color: var(--accent-green); }
+  .param-row span.violet{ color: var(--accent-violet); }
+  .param-row span.orange{ color: var(--accent-orange); }
+  .param-row span.gold  { color: var(--accent-gold); }
+
+  .note-text {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    margin-top: 10px;
+  }
+
+  /* ── DEFINITION CARD ── */
+  .def-card {
+    background: linear-gradient(135deg, #111120, #0d0d1a);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin: 24px 0;
+    position: relative;
+  }
+
+  .def-card .def-term {
+    font-family: 'DM Serif Display', serif;
+    font-size: 2rem;
+    color: var(--accent-violet);
+    font-style: italic;
+    margin-bottom: 12px;
+  }
+
+  .def-card p {
+    color: #bbb;
+    font-size: 15px;
+    line-height: 1.8;
+  }
+
+  .def-card .big-formula {
+    margin: 20px 0 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: #fff;
+    padding: 16px 20px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 6px;
+    border-left: 3px solid var(--accent-violet);
+  }
+  .def-card .big-formula span.r { color: var(--accent-red); }
+  .def-card .big-formula span.b { color: var(--accent-blue); }
+  .def-card .big-formula span.g { color: var(--accent-green); }
+  .def-card .big-formula span.v { color: var(--accent-violet); }
+
+  /* ── QUADRANCES TABLE ── */
+  .q-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+  }
+
+  .q-table th {
+    background: var(--surface2);
+    color: var(--muted);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .q-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(42,42,58,0.5);
+    vertical-align: middle;
+  }
+
+  .q-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .q-name { font-size: 15px; font-weight: 500; }
+  .q-name.q1 { color: #a3e635; }
+  .q-name.q2 { color: var(--accent-gold); }
+  .q-name.q3 { color: #a78bfa; }
+
+  .q-formula { color: #aaa; }
+  .q-formula span.r { color: var(--accent-red); }
+  .q-formula span.o { color: var(--accent-orange); }
+  .q-formula span.g { color: var(--accent-green); }
+
+  /* ── PROOF STEPS ── */
+  .proof-container {
+    margin: 24px 0;
+  }
+
+  .proof-step {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0;
+    margin-bottom: 2px;
+  }
+
+  .proof-step-label {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 6px 0 0 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 14px 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    text-align: center;
+    gap: 4px;
+  }
+
+  .proof-step-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0 6px 6px 0;
+    padding: 14px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: #ddd;
+  }
+
+  .proof-step-content .math { color: #fff; }
+  .proof-step-content .comment { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+  /* ── RESULT BANNER ── */
+  .result-banner {
+    background: linear-gradient(135deg, rgba(192,132,252,0.1), rgba(96,165,250,0.08));
+    border: 1px solid rgba(192,132,252,0.3);
+    border-radius: 10px;
+    padding: 28px 32px;
+    margin: 32px 0;
+    text-align: center;
+  }
+
+  .result-banner .result-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-violet);
+    margin-bottom: 12px;
+  }
+
+  .result-banner .result-text {
+    font-family: 'DM Serif Display', serif;
+    font-size: 1.4rem;
+    color: #fff;
+    line-height: 1.4;
+  }
+
+  .result-banner .result-eq {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.3rem;
+    color: var(--accent-violet);
+    margin: 16px 0 0;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── APPLICATION SECTION ── */
+  .app-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin: 24px 0;
+  }
+
+  .app-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 22px;
+  }
+
+  .app-card h4 {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .app-card p {
+    font-size: 14px;
+    color: #bbb;
+    line-height: 1.6;
+  }
+
+  .app-card .app-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    color: #fff;
+    margin: 8px 0;
+  }
+
+  /* ── REFERENCES ── */
+  .refs {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-top: 48px;
+  }
+
+  .refs h3 {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  .refs a {
+    display: block;
+    color: #aaa;
+    font-size: 13px;
+    text-decoration: none;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    transition: color 0.2s;
+  }
+  .refs a:last-child { border-bottom: none; }
+  .refs a:hover { color: var(--accent-violet); }
+  .refs a::before { content: '→ '; color: var(--muted); }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 48px 0;
+  }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  header, .statement-block, .section {
+    animation: fadeUp 0.6s ease both;
+  }
+  .section:nth-child(2) { animation-delay: 0.1s; }
+  .section:nth-child(3) { animation-delay: 0.2s; }
+  .section:nth-child(4) { animation-delay: 0.3s; }
+  .section:nth-child(5) { animation-delay: 0.4s; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 600px) {
+    .points-grid { grid-template-columns: 1fr; }
+    .app-grid    { grid-template-columns: 1fr; }
+    .proof-step  { grid-template-columns: 60px 1fr; }
+    .formula     { font-size: 0.9rem; padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrapper">
+
+  <!-- HEADER -->
+  <header>
+    <div class="meta-bar">
+      <span class="tag tag-violet">Rational Trigonometry</span>
+      <span class="tag tag-green">Open Review</span>
+      <span class="tag tag-gold">Schism Labs</span>
+    </div>
+    <h1>Triple Quad Formula<br>for a <em>4×4×4</em> Cube</h1>
+    <p class="subtitle">Derivation extending the Triple Quad Formula from 1D affine space to 3D affine space, applied to a discrete lattice grid.</p>
+    <a class="source-link" href="https://independent.academia.edu/GHoard" target="_blank">independent.academia.edu/GHoard</a>
+  </header>
+
+  <!-- STATEMENT -->
+  <div class="statement-block">
+    <h2>Statement</h2>
+    <p>The Triple Quad Formula (TQF) asserts that for three collinear points, the Archimedes function of their quadrances is zero. The goal is to extend this relation from 1D affine space into 3D affine space — specifically applied to a discrete 4×4×4 lattice grid.</p>
+  </div>
+
+  <!-- CORE FORMULA -->
+  <div class="formula">
+    <span class="eq-label">The Triple Quad Formula</span>
+    (Q₁ + Q₂ + Q₃)² = 2(Q₁² + Q₂² + Q₃²)
+  </div>
+
+  <hr class="divider">
+
+  <!-- SECTION 1: 3D DERIVATION -->
+  <div class="section">
+    <div class="section-title">
+      <span class="step-badge">Step 0</span>
+      The 3D Derivation
+    </div>
+    <div class="section-subtitle">Defining three collinear points in Euclidean space</div>
+
+    <p style="color:#bbb; margin-bottom:24px; font-size:15px;">
+      Define three points A₁, A₂, A₃ in 3D Euclidean space. If collinear, they lie on a single line that can be parameterized with a direction vector <strong style="color:var(--accent-violet)">v = (dx, dy, dz)</strong>.
+    </p>
+
+    <div class="points-grid">
+      <div class="point-card p1">
+        <div class="point-label">A₁</div>
+        <div class="point-coords">(x₁, y₁, z₁)</div>
+      </div>
+      <div class="point-card p2">
+        <div class="point-label">A₂</div>
+        <div class="point-coords">(x₂, y₂, z₂)</div>
+      </div>
+      <div class="point-card p3">
+        <div class="point-label">A₃</div>
+        <div class="point-coords">(x₃, y₃, z₃)</div>
+      </div>
+    </div>
+
+    <div class="param-block">
+      <div class="param-row">
+        <span class="pr-label">Let</span>
+        <span class="pr-eq"><span class="blue">A₂</span> = <span class="red">A₁</span> + <span class="violet">v</span></span>
+      </div>
+      <div class="param-row">
+        <span class="pr-label">And</span>
+        <span class="pr-eq"><span class="green">A₃</span> = <span class="red">A₁</span> + <span class="orange">k</span><span class="violet">v</span></span>
+      </div>
+    </div>
+    <p class="note-text">where <strong style="color:var(--accent-orange)">k</strong> is a scalar representing the distance ratio along the line.</p>
+  </div>
+
+  <!-- SECTION 2: QUADRANCE DEFINITION -->
+  <div class="section">
+    <div class="section-title">
+      <span class="step-badge">Step A</span>
+      Define "Quadrance"
+    </div>
+    <div class="section-subtitle">Rational Trigonometry's squared-distance measure</div>
+
+    <div class="def-card">
+      <div class="def-term">Quadrance (Q)</div>
+      <p>In Rational Trigonometry, we avoid square roots to keep the math rational. Instead of calculating distance — which often results in irrational numbers — we calculate <em>Quadrance</em>, which is the square of the distance. Magnitude is expressed not by how long a line is, but by the <strong>area of the square</strong> that line creates.</p>
+      <div class="big-formula">
+        <span class="v">Q</span>(A, B) = (<span class="r">x_b</span> − x_a)² + (<span class="b">y_b</span> − y_a)² + (<span class="g">z_b</span> − z_a)²
+      </div>
+    </div>
+
+    <p style="color:#bbb; font-size:15px; margin: 20px 0 16px;">First, calculate the <strong style="color:var(--accent-violet)">Base Quadrance</strong> of vector <strong style="color:var(--accent-violet)">v</strong>:</p>
+
+    <div class="formula">
+      <span style="color:var(--accent-violet)">Q<sub>v</sub></span> = <span style="color:var(--accent-red)">dx²</span> + <span style="color:var(--accent-blue)">dy²</span> + <span style="color:var(--accent-green)">dz²</span>
+    </div>
+
+    <p style="color:#bbb; font-size:15px; margin: 24px 0 16px;">Now calculate the three interaction quadrances:</p>
+
+    <table class="q-table">
+      <thead>
+        <tr>
+          <th>Quadrance</th>
+          <th>Points</th>
+          <th>Expression</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="q-name q1">Q₁</span></td>
+          <td style="font-family:'DM Mono',monospace;font-size:13px;color:#888">A₁ → A₂</td>
+          <td class="q-formula"><span class="r">1²</span> · Q<sub>v</sub> = Q<sub>v</sub></td>
+        </tr>
+        <tr>
+          <td><span class="q-name q2">Q₂</span></td>
+          <td style="font-family:'DM Mono',monospace;font-size:13px;color:#888">A₂ → A₃</td>
+          <td class="q-formula">(<span class="o">k</span> − 1)² · Q<sub>v</sub></td>
+        </tr>
+        <tr>
+          <td><span class="q-name q3">Q₃</span></td>
+          <td style="font-family:'DM Mono',monospace;font-size:13px;color:#888">A₁ → A₃</td>
+          <td class="q-formula"><span class="g">k²</span> · Q<sub>v</sub></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SECTION 3: SUBSTITUTION -->
+  <div class="section">
+    <div class="section-title">
+      <span class="step-badge">Step B</span>
+      Substitute into TQF
+    </div>
+    <div class="section-subtitle">Expanding LHS and RHS with the interaction quadrances</div>
+
+    <p style="color:#bbb; font-size:15px; margin-bottom:20px;">
+      We substitute Q₁, Q₂, Q₃ into both sides of the theorem. Note that Q<sub>v</sub> is a common factor; we simplify by setting Q<sub>v</sub> = 1 for the algebraic proof since the formula is homogeneous.
+    </p>
+
+    <div class="proof-container">
+      <div class="proof-step">
+        <div class="proof-step-label">LHS</div>
+        <div class="proof-step-content">
+          <div class="math">(Q₁ + Q₂ + Q₃)²</div>
+          <div class="comment">= (1 + (k−1)² + k²)²</div>
+        </div>
+      </div>
+      <div class="proof-step" style="margin-top:2px">
+        <div class="proof-step-label">Expand</div>
+        <div class="proof-step-content">
+          <div class="math">= (1 + k² − 2k + 1 + k²)²</div>
+          <div class="comment">= (2k² − 2k + 2)²</div>
+        </div>
+      </div>
+      <div class="proof-step" style="margin-top:2px">
+        <div class="proof-step-label">Factor</div>
+        <div class="proof-step-content">
+          <div class="math">= 4(k² − k + 1)²</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin: 12px 0; color: var(--muted); font-family:'DM Mono',monospace; font-size:13px;">— — —</div>
+
+    <div class="proof-container">
+      <div class="proof-step">
+        <div class="proof-step-label">RHS</div>
+        <div class="proof-step-content">
+          <div class="math">2(Q₁² + Q₂² + Q₃²)</div>
+          <div class="comment">= 2(1 + (k−1)⁴ + k⁴)</div>
+        </div>
+      </div>
+      <div class="proof-step" style="margin-top:2px">
+        <div class="proof-step-label">Expand</div>
+        <div class="proof-step-content">
+          <div class="math">= 2(1 + k⁴ − 4k³ + 6k² − 4k + 1 + k⁴)</div>
+        </div>
+      </div>
+      <div class="proof-step" style="margin-top:2px">
+        <div class="proof-step-label">Simplify</div>
+        <div class="proof-step-content">
+          <div class="math">= 4k⁴ − 8k³ + 12k² − 8k + 4</div>
+          <div class="comment">= 4(k⁴ − 2k³ + 3k² − 2k + 1)</div>
+        </div>
+      </div>
+      <div class="proof-step" style="margin-top:2px">
+        <div class="proof-step-label">Factor</div>
+        <div class="proof-step-content">
+          <div class="math">= 4(k² − k + 1)²</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-banner">
+      <div class="result-label">Conclusion</div>
+      <div class="result-text">Since LHS = RHS, the Triple Quad Formula holds for any 3 collinear points in 3D space.</div>
+      <div class="result-eq">LHS = 4(k² − k + 1)² = RHS ✓</div>
+    </div>
+  </div>
+
+  <!-- SECTION 4: APPLICATION -->
+  <div class="section">
+    <div class="section-title">
+      Application to the 4×4×4 Cube
+    </div>
+    <div class="section-subtitle">SHD-CCP 64-bit packet — discrete lattice grid</div>
+
+    <p style="color:#bbb; font-size:15px; margin-bottom: 24px;">
+      The 4×4×4 lattice contains <strong style="color:#fff">64 discrete nodes</strong> with integer coordinates in {0,1,2,3}³. The TQF applies to any collinear triple within this structure, enabling rational distance comparisons without irrational square roots.
+    </p>
+
+    <div class="app-grid">
+      <div class="app-card">
+        <h4>Total Nodes</h4>
+        <div class="app-value">4³ = 64</div>
+        <p>Integer coordinate points in {0,1,2,3}³</p>
+      </div>
+      <div class="app-card">
+        <h4>Max Quadrance</h4>
+        <div class="app-value">Q = 27</div>
+        <p>Space diagonal: (0,0,0) → (3,3,3), so 9+9+9 = 27</p>
+      </div>
+      <div class="app-card">
+        <h4>Branching Dynamics</h4>
+        <div class="app-value" style="font-size:14px; margin-top:6px;">Geometric Compression</div>
+        <p>Collinear triples encode lattice structure via quadrance ratios k and k−1</p>
+      </div>
+      <div class="app-card">
+        <h4>Alignment Procedure</h4>
+        <div class="app-value" style="font-size:14px; margin-top:6px;">Equilibrium States</div>
+        <p>Projected RZF as an algorithmic alignment procedure via TQF equilibrium</p>
+      </div>
+    </div>
+
+    <div class="formula" style="margin-top: 28px;">
+      <span class="eq-label">General form for any collinear triple in the 4×4×4 lattice</span>
+      Q(A₁, A₂) = 1·Q<sub>v</sub> &nbsp;|&nbsp; Q(A₂, A₃) = (k−1)²·Q<sub>v</sub> &nbsp;|&nbsp; Q(A₁, A₃) = k²·Q<sub>v</sub>
+    </div>
+  </div>
+
+  <!-- REFERENCES -->
+  <div class="refs">
+    <h3>References &amp; Sources</h3>
+    <a href="https://independent.academia.edu/GHoard" target="_blank">Garrett Hoard — Academia.edu Author Profile</a>
+    <a href="https://www.academia.edu/164664471/Geometric_Compression_and_Branching_Dynamics_in_Discrete_3D_Lattices_The_Triple_Quad_4x4x4_System" target="_blank">Geometric Compression and Branching Dynamics in Discrete 3D Lattices: The Triple Quad 4×4×4 System</a>
+    <a href="https://www.mdpi.com/1424-8220/22/21/8166" target="_blank">Graph Convolutional Network for 3D Object Pose Estimation in a Point Cloud — MDPI Sensors</a>
+    <a href="https://research.math.osu.edu/tgda/mapperPBG.pdf" target="_blank">Topological Methods for the Analysis of High Dimensional Data Sets and 3D Object Recognition</a>
+    <a href="https://www.cs.kuleuven.be/publicaties/doctoraten/tw/TW2007_05.pdf" target="_blank">Point Cloud Processing Using Linear Algebra and Graph Theory — KU Leuven</a>
+  </div>
+
+</div>
+</body>
+</html>
